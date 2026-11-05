@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Panel — Source Connect Global</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="../assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+  <!-- Login -->
+  <div class="login" id="login">
+    <div class="login-bg"></div>
+    <form class="login-card" id="loginForm">
+      <img src="../assets/logo.jpg" alt="SC Global">
+      <h1>Admin Panel</h1>
+      <p>Source Connect Global</p>
+      <label>Username<input name="user" autocomplete="username" required></label>
+      <label>Password<input name="pass" type="password" autocomplete="current-password" required></label>
+      <div class="login-err" id="loginErr"></div>
+      <button class="btn primary full">Sign in</button>
+      <small>Default: <b>admin</b> / <b>admin123</b> — change it in Settings.</small>
+    </form>
+  </div>
+
+  <!-- App -->
+  <div class="shell" id="shell" hidden>
+    <aside class="side" id="side">
+      <div class="side-brand"><img src="../assets/logo.jpg" alt=""><div><b>SC Global</b><small>ADMIN</small></div></div>
+      <nav id="sideNav">
+        <a href="#dashboard" data-v="dashboard"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/></svg>Dashboard</a>
+        <a href="#products" data-v="products"><svg viewBox="0 0 24 24"><path d="M8 3l4 2 4-2 5 4-3 4-2-1v11H8V10l-2 1-3-4z"/></svg>Products</a>
+        <a href="#categories" data-v="categories"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>Categories</a>
+        <a href="#collections" data-v="collections"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Collections</a>
+        <a href="#hero" data-v="hero"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6"/></svg>Hero Banners</a>
+        <a href="#orders" data-v="orders"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1.2 12H6.2zM9 8V6a3 3 0 016 0v2"/></svg>Orders <span class="pill" id="orderPill"></span></a>
+        <a href="#settings" data-v="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Settings</a>
+      </nav>
+      <div class="side-foot">
+        <a href="../" target="_blank" class="btn ghost full">View Website ↗</a>
+        <button class="btn link full" id="logout">Log out</button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="top">
+        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h18"/></svg></button>
+        <h2 id="viewTitle">Dashboard</h2>
+        <div class="top-actions" id="topActions"></div>
+      </header>
+      <div class="content" id="view"></div>
+    </div>
+  </div>
+
+  <!-- Generic modal -->
+  <div class="modal" id="modal">
+    <div class="scrim" data-close></div>
+    <div class="modal-box">
+      <div class="modal-head"><h3 id="modalTitle"></h3><button class="icon-btn" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="../js/store.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

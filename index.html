@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Source Connect Global — Fashion Without Borders</title>
+  <meta name="description" content="Source Connect Global — premium clothing brand. Shop T-shirts, shirts, hoodies, jackets, jeans, dresses, shorts and activewear.">
+  <meta name="theme-color" content="#050b1c">
+  <link rel="icon" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,700;1,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="lock">
+
+  <!-- Cinematic intro -->
+  <div class="intro" id="intro" aria-hidden="true">
+    <div class="bar top"></div><div class="bar bot"></div>
+    <div class="intro-flare"></div>
+    <div class="intro-stage">
+      <img class="intro-logo" src="assets/logo.jpg" alt="">
+      <div class="intro-title" id="introTitle">Source Connect</div>
+      <div class="intro-sub">GLOBAL · FASHION WITHOUT BORDERS</div>
+      <div class="intro-progress"><i></i></div>
+    </div>
+    <button class="intro-skip" id="introSkip">SKIP ›</button>
+  </div>
+
+  <div class="progress" id="progress"></div>
+  <div class="cursor" id="cursor"></div>
+
+  <!-- Announcement bar -->
+  <div class="announce"><div class="announce-track" id="announce"></div></div>
+
+  <!-- Header -->
+  <header class="header" id="header">
+    <div class="container header-inner">
+      <button class="icon-btn burger" id="burger" aria-label="Open menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+      </button>
+      <a href="#home" class="brand" aria-label="Source Connect Global home">
+        <img src="assets/logo.jpg" alt="SC Global logo">
+        <span class="brand-text"><b>Source Connect</b><small>GLOBAL</small></span>
+      </a>
+
+      <nav class="nav" aria-label="Main">
+        <div class="nav-item"><a class="nav-link" href="#home" data-nav="home">Home</a></div>
+        <div class="nav-item">
+          <a class="nav-link" href="#shop" data-nav="shop">Shop
+            <svg viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a>
+          <div class="mega"><div class="container mega-inner" id="megaShop"></div></div>
+        </div>
+        <div class="nav-item">
+          <a class="nav-link" href="#collections" data-nav="collections">Collections
+            <svg viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a>
+          <div class="mega"><div class="container mega-inner mega-coll" id="megaColl"></div></div>
+        </div>
+        <div class="nav-item"><a class="nav-link" href="#new" data-nav="new">New Arrivals</a></div>
+        <div class="nav-item"><a class="nav-link" href="#about" data-nav="about">About</a></div>
+        <div class="nav-item"><a class="nav-link" href="#contact" data-nav="contact">Contact</a></div>
+      </nav>
+
+      <div class="header-actions">
+        <button class="icon-btn" id="searchBtn" aria-label="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        </button>
+        <button class="icon-btn" id="cartBtn" aria-label="Cart">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+          <span class="cart-count" id="cartCount">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile nav -->
+  <aside class="drawer-nav" id="drawer" aria-label="Mobile menu">
+    <button class="icon-btn close" id="drawerClose" aria-label="Close menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div id="drawerLinks"></div>
+  </aside>
+
+  <!-- Search -->
+  <div class="search-overlay" id="search">
+    <button class="icon-btn search-close" id="searchClose" aria-label="Close search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <form id="searchForm">
+      <input id="searchInput" type="search" placeholder="Search the collection…" autocomplete="off">
+      <p>PRESS ENTER TO SEARCH · ESC TO CLOSE</p>
+    </form>
+  </div>
+
+  <main id="app"></main>
+
+  <!-- Footer -->
+  <footer class="footer" id="contact">
+    <div class="container">
+      <div class="footer-big">Source Connect Global</div>
+      <div class="footer-grid">
+        <div>
+          <a href="#home" class="brand"><img src="assets/logo.jpg" alt=""><span class="brand-text"><b>Source Connect</b><small>GLOBAL</small></span></a>
+          <p style="margin-top:18px;max-width:320px;font-size:14px">Fashion without borders. Premium clothing sourced and crafted for people who connect the world.</p>
+        </div>
+        <div><h5>SHOP</h5><ul id="footCats"></ul></div>
+        <div><h5>COLLECTIONS</h5><ul id="footColls"></ul></div>
+        <div>
+          <h5>CONTACT</h5>
+          <ul id="footContact"></ul>
+          <form class="newsletter" id="newsletter"><input type="email" placeholder="Your email" required aria-label="Email"><button>JOIN</button></form>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span id="year"></span> Source Connect Global. All rights reserved.</span>
+        <span><a href="admin/">Admin</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Product modal -->
+  <div class="modal" id="modal" role="dialog" aria-modal="true">
+    <div class="scrim" data-close></div>
+    <div class="modal-box" id="modalBox"></div>
+  </div>
+
+  <!-- Cart -->
+  <div class="cart" id="cart">
+    <div class="scrim" data-close></div>
+    <aside class="cart-panel">
+      <div class="cart-head">
+        <h3>Your Bag</h3>
+        <button class="icon-btn" data-close aria-label="Close cart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="cart-items" id="cartItems"></div>
+      <div class="cart-foot" id="cartFoot"></div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast"><i></i><span></span></div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
