@@ -8,9 +8,10 @@ A marketplace-style fashion store for **Source Connect Global**: products source
 | `/admin/` | Admin panel. Default login: **admin / admin123** (change it in *Settings*) |
 
 ## Storefront
-- **Cinematic globe hero**: a dotted 3D globe swings from Africa to Asia, then shows ships and planes flying from Shenzhen, Yiwu, Shanghai, Guangzhou and Beijing to Colombo. A 5-step timeline (Sourced, Checked, Shipping, Colombo, Delivered) follows the shipment, and arrival notices pop up. You can drag the globe to spin it.
+- **Cinematic globe hero**: a dotted 3D globe tours each import country in turn (China, USA, Australia, UK, UAE, Japan, and optionally India and Germany) and shows ships and planes flying from its cities to Colombo. A 5-step timeline follows each shipment, arrival notices pop up, and you can drag the globe to spin it.
 - Marketplace layout: utility bar, search with live suggestions, category menu, quick-service icons, **Flash Sale** with a live countdown and "sold" bars, category grid, promo banners, product rails, and an infinite-scroll **Just For You** feed
-- **10 categories × 12 = 120 products**: Men's, Women's, Kids, Shoes, Bags & Wallets, Watches, Accessories, Sportswear, Office Wear, Winter & Jackets. Each has its own illustration (25 styles with patterns and colours) until you upload real photos
+- **12 categories × 12 = 144 products**: Men's, Women's, Kids, Shoes, Bags & Wallets, Watches, Accessories, Sportswear, Office Wear, Winter & Jackets, **Electronics & Gadgets** and **Mobile & Accessories**. Each has an illustration (37 styles) until you upload real photos; products can have up to 8 photos
+- **Shop by Country** section and a page per import country (`#from/usa`), with per-country delivery times on every product
 - Listing pages with filters (category, price, rating, shipped from China or Colombo, discount) and sorting
 - Product page: colour variants, sizes, quantity, hover zoom, delivery panel (China Direct 10–14 days or Colombo 2–4 days), specifications, ratings breakdown, related products
 - Cart with select / delete, free-delivery threshold, checkout with all 25 districts, Cash on Delivery or bank transfer
@@ -24,10 +25,11 @@ Every part of the website can be changed from `/admin/`:
 | Dashboard | Revenue, 7-day sales chart, orders by status, top sellers, low stock |
 | Orders | Status tabs, search, order details, WhatsApp / call customer, status updates shown on Track My Order |
 | Customers | Everyone who ordered, total spent, order history |
-| Products | Add / edit / copy / delete; inline price, stock, ships-from and flash toggle; bulk discount, flash, collection, delete |
+| Products | Up to 8 photos each (upload or image link, compressed automatically); add / edit / copy / delete; inline price, stock, ships-from and flash toggle; bulk discount, flash, collection, delete |
 | Flash Sale | Title, daily / end-date / off timing, flash prices, add products, apply % to all |
 | Categories | Name, tagline, icon picture and colour, order in menus |
-| Collections | China Direct, New Arrivals, Best Sellers… and which products are in them |
+| Import Countries | Countries on/off, product label, delivery days, which cities ship on the globe (with live preview) |
+| Collections | China Direct, Electronics, Global Imports, New Arrivals… and which products are in them |
 | Homepage & Globe | Globe headline and text, which Chinese cities ship, numbers, timeline steps, section on/off + order + titles, service icons (with live globe preview) |
 | Promo Banners | Banners beside the globe and wide banners below the categories |
 | Header & Footer | Announcement bar, header menu links, footer payment methods |

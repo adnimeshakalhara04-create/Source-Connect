@@ -46,6 +46,17 @@
   function updatePill() { var n = orders().filter(function (o) { return o.status === 'Pending'; }).length; $('#orderPill').textContent = n || ''; }
   function statusTag(s) { return '<span class="tag ' + ({ Pending: 'warn', Delivered: 'ok', Cancelled: 'red' }[s] || '') + '">' + esc(s) + '</span>'; }
   function sw(name, on, label) { return '<label class="switch"><input type="checkbox" name="' + name + '"' + (on ? ' checked' : '') + '><i></i>' + (label || '') + '</label>'; }
+  function originOptions(sel) {
+    return SCG.origins().map(function (o) { return '<option value="' + o.id + '"' + (o.id === sel ? ' selected' : '') + '>' + esc(o.name) + (o.on ? '' : ' (off)') + '</option>'; }).join('') +
+      '<option value="local"' + (!sel || sel === 'local' ? ' selected' : '') + '>Colombo stock</option>';
+  }
+  function originName(id) { var o = SCG.originById(id); return o ? o.name : 'Colombo'; }
+  function fmtBytes(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB'; }
+  function storageMeter() {
+    var used = SCG.storageUsed(), cap = 5 * 1048576, pct = Math.min(100, used / cap * 100);
+    return '<div class="meter"><div><b>' + fmtBytes(used) + '</b> of about 5 MB browser storage used</div><div class="bar-track"><i style="width:' + pct + '%;' + (pct > 80 ? 'background:var(--red)' : '') + '"></i></div>' +
+      (pct > 80 ? '<small style="color:var(--red)">Storage is nearly full. Use image links instead of uploads, or remove unused photos.</small>' : '<small class="muted">Uploaded photos are compressed. Image links (URLs) use almost no space.</small>') + '</div>';
+  }
   function waNumber(phone) { var d = String(phone || '').replace(/\D/g, ''); if (d.indexOf('0') === 0) d = '94' + d.slice(1); return d; }
   function bindUploader(root, current, onChange) {
     var file = $('input[type=file]', root), prev = $('.preview', root);
@@ -99,11 +110,12 @@
     products: { title: 'Products', sub: 'Everything listed on the site', render: products },
     flash: { title: 'Flash Sale', sub: 'Countdown, timing and flash deals', render: flashView },
     categories: { title: 'Categories', sub: 'Category menu, grid and filters', render: categories },
-    collections: { title: 'Collections', sub: 'China Direct, New Arrivals, Best Sellers…', render: collections },
+    collections: { title: 'Collections', sub: 'China Direct, Electronics, Global Imports…', render: collections },
+    origins: { title: 'Import Countries', sub: 'Countries you import from, delivery times and globe routes', render: originsView },
     homepage: { title: 'Homepage & Globe', sub: 'Globe hero, section order and service icons', render: homepage },
     banners: { title: 'Promo Banners', sub: 'Banners beside the globe and below categories', render: banners },
     header: { title: 'Header & Footer', sub: 'Announcement bar, menu links and footer', render: headerView },
-    pages: { title: 'China Direct & FAQ', sub: '“How it works” page and help answers', render: pages },
+    pages: { title: 'Importing Page & FAQ', sub: '“How importing works” page and help answers', render: pages },
     settings: { title: 'Store Settings', sub: 'Contact, delivery, payments, login and backup', render: settings }
   };
   var previewGlobe = null;
@@ -177,12 +189,12 @@
       '<div class="filters"><input id="pq" type="search" placeholder="Search name, brand or SKU…" value="' + esc(pf.q) + '">' +
       '<select id="pc"><option value="all">All categories</option>' + db.categories.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + ' (' + countIn(c.id) + ')</option>'; }).join('') + '</select>' +
       '<select id="pco"><option value="all">All collections</option>' + db.collections.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('') + '</select>' +
-      '<select id="px"><option value="all">Any status</option><option value="flash">In flash sale</option><option value="china">China Direct</option><option value="local">Colombo stock</option><option value="low">Low stock (≤5)</option><option value="out">Out of stock</option><option value="nophoto">No photo yet</option></select>' +
+      '<select id="px"><option value="all">Any status</option><option value="flash">In flash sale</option>' + SCG.origins().map(function (o) { return '<option value="o:' + o.id + '">From ' + esc(o.name) + '</option>'; }).join('') + '<option value="o:local">Colombo stock</option><option value="low">Low stock (≤5)</option><option value="out">Out of stock</option><option value="nophoto">No photo yet</option></select>' +
       '<span class="muted" id="pcount" style="align-self:center"></span></div>' +
       '<div class="bulkbar" id="bulk" hidden><b id="bn"></b>' +
         '<button class="btn sm" data-b="flash-on">⚡ Add to flash sale</button><button class="btn sm" data-b="flash-off">Remove from flash</button>' +
         '<span style="display:inline-flex;gap:4px"><input id="bdisc" type="number" min="1" max="90" placeholder="% off" style="width:80px"><button class="btn sm" data-b="disc">Apply discount</button></span>' +
-        '<button class="btn sm" data-b="china">Ship from China</button><button class="btn sm" data-b="local">Ship from Colombo</button>' +
+        '<span style="display:inline-flex;gap:4px"><select id="borig">' + originOptions('china') + '</select><button class="btn sm" data-b="origin">Set ships from</button></span>' +
         '<span style="display:inline-flex;gap:4px"><select id="bcoll">' + db.collections.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('') + '</select><button class="btn sm" data-b="coll">Add to collection</button></span>' +
         '<button class="btn sm" data-b="del" style="border-color:#f87171">Delete</button><button class="btn sm" data-b="clear">Clear</button></div>' +
       '<div class="table-wrap"><table><thead><tr><th class="chk"><input type="checkbox" id="pall" aria-label="Select all"></th><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Ships from</th><th>Flash</th><th></th></tr></thead><tbody id="ptb"></tbody></table></div>';
@@ -194,11 +206,10 @@
         if (pf.cat !== 'all' && p.category !== pf.cat) return false;
         if (pf.coll !== 'all' && (p.collections || []).indexOf(pf.coll) < 0) return false;
         if (pf.extra === 'flash' && !p.flash) return false;
-        if (pf.extra === 'china' && p.origin !== 'china') return false;
-        if (pf.extra === 'local' && p.origin === 'china') return false;
+        if (pf.extra.indexOf('o:') === 0 && (p.origin || 'local') !== pf.extra.slice(2)) return false;
         if (pf.extra === 'low' && p.stock > 5) return false;
         if (pf.extra === 'out' && p.stock > 0) return false;
-        if (pf.extra === 'nophoto' && p.image) return false;
+        if (pf.extra === 'nophoto' && SCG.productImages(p).length) return false;
         return !q || (p.name + ' ' + (p.brand || '') + ' ' + p.id).toLowerCase().indexOf(q) > -1;
       });
     }
@@ -212,7 +223,7 @@
           '<td>' + esc(c ? c.name : '—') + '</td>' +
           '<td><input class="inline" type="number" min="0" step="10" data-f="price" value="' + p.price + '" aria-label="Price">' + (off ? '<br><small class="muted"><s>' + money(p.comparePrice) + '</s> -' + off + '%</small>' : '') + '</td>' +
           '<td><input class="inline" type="number" min="0" data-f="stock" value="' + p.stock + '" aria-label="Stock" style="width:64px' + (p.stock <= 5 ? ';border-color:#f59e0b' : '') + '"></td>' +
-          '<td><select data-f="origin" style="width:auto;padding:6px"><option value="china"' + (p.origin === 'china' ? ' selected' : '') + '>China</option><option value="local"' + (p.origin !== 'china' ? ' selected' : '') + '>Colombo</option></select></td>' +
+          '<td><select data-f="origin" style="width:auto;padding:6px">' + originOptions(p.origin) + '</select></td>' +
           '<td>' + sw('flash', p.flash) + '</td>' +
           '<td><div class="actions"><a class="btn sm" target="_blank" rel="noopener" href="' + SITE + '#p/' + p.id + '" title="View on site">↗</a><button class="btn sm" data-edit>Edit</button><button class="btn sm" data-dup>Copy</button><button class="btn sm danger" data-del>Delete</button></div></td></tr>';
       }).join('') || '<tr><td colspan="8" class="muted" style="text-align:center;padding:40px">No products found.</td></tr>';
@@ -251,8 +262,7 @@
       list.forEach(function (p) {
         if (act === 'flash-on') { p.flash = true; if (!p.comparePrice) p.comparePrice = Math.round(p.price * 1.3 / 10) * 10; }
         if (act === 'flash-off') p.flash = false;
-        if (act === 'china') p.origin = 'china';
-        if (act === 'local') p.origin = 'local';
+        if (act === 'origin') p.origin = $('#borig').value;
         if (act === 'coll') { var c = $('#bcoll').value; p.collections = p.collections || []; if (p.collections.indexOf(c) < 0) p.collections.push(c); }
         if (act === 'disc') {
           var pct = Math.min(90, Math.max(1, +$('#bdisc').value || 0));
@@ -272,10 +282,11 @@
     var d = p ? JSON.parse(JSON.stringify(p)) : {
       name: '', category: pf.cat !== 'all' ? pf.cat : db.categories[0].id, collections: [], price: 0, comparePrice: 0, stock: 20,
       color: '#0b2a6f', accent: '#f3f4f6', shape: '', pattern: 'solid', brand: 'SC Global', origin: 'china', flash: false,
-      rating: 4.5, reviews: 0, sold: 0, image: '', sizes: ['S', 'M', 'L', 'XL', 'XXL'], badge: 'New', featured: false, description: ''
+      rating: 4.5, reviews: 0, sold: 0, image: '', images: [], sizes: ['S', 'M', 'L', 'XL', 'XXL'], badge: 'New', featured: false, description: ''
     };
+    d.images = SCG.productImages(d).slice();
     function curShape() { var c = SCG.categoryById(d.category); return d.shape || (c ? c.shape : 'tshirt'); }
-    function prev() { return d.image ? '<img src="' + d.image + '" alt="">' : SCG.productSVG(curShape(), d.color, d.pattern, d.accent); }
+    function prev() { return d.images[0] ? '<img src="' + d.images[0] + '" alt="">' : SCG.productSVG(curShape(), d.color, d.pattern, d.accent); }
     openModal(isNew ? 'Add Product' : 'Edit Product',
       '<form class="form" id="pform">' +
       '<label class="full">Product name<input name="name" required value="' + esc(d.name) + '" placeholder="e.g. Classic Crew Tee"></label>' +
@@ -284,7 +295,7 @@
       '<label>Price (' + esc(db.settings.currency) + ')<input name="price" type="number" min="0" step="10" required value="' + d.price + '"></label>' +
       '<label>Original price (before discount)<input name="comparePrice" type="number" min="0" step="10" placeholder="Optional, shows -% off" value="' + (d.comparePrice || '') + '"></label>' +
       '<label>Stock quantity<input name="stock" type="number" min="0" required value="' + d.stock + '"></label>' +
-      '<label>Ships from<select name="origin"><option value="china"' + (d.origin === 'china' ? ' selected' : '') + '>China Direct (' + esc(db.settings.chinaDays) + ' days)</option><option value="local"' + (d.origin !== 'china' ? ' selected' : '') + '>Colombo stock (' + esc(db.settings.localDays) + ' days)</option></select></label>' +
+      '<label>Ships from<select name="origin">' + originOptions(d.origin) + '</select></label>' +
       '<label>Badge<select name="badge">' + BADGES.map(function (b) { return '<option' + (b === d.badge ? ' selected' : '') + ' value="' + b + '">' + (b || 'None') + '</option>'; }).join('') + '</select></label>' +
       '<label>Rating (0–5)<input name="rating" type="number" min="0" max="5" step="0.1" value="' + (d.rating || 0) + '"></label>' +
       '<label>Ratings count<input name="reviews" type="number" min="0" value="' + (d.reviews || 0) + '"></label>' +
@@ -293,9 +304,11 @@
       '<div class="full"><label style="margin-bottom:8px">Collections</label><div class="checks">' + db.collections.map(function (c) {
         return '<label><input type="checkbox" name="collections" value="' + c.id + '"' + ((d.collections || []).indexOf(c.id) > -1 ? ' checked' : '') + '> ' + esc(c.name) + '</label>';
       }).join('') + '</div></div>' +
-      '<div class="full"><label style="margin-bottom:8px">Product photo</label><div class="uploader" id="pup"><div class="preview">' + prev() + '</div><div class="btns">' +
-      '<input type="file" accept="image/*"><button type="button" class="btn sm danger" data-rm-img>Remove photo</button>' +
-      '<span class="hint">No photo? The illustration below is shown instead. Photos are auto-resized.</span></div></div></div>' +
+      '<div class="full"><label style="margin-bottom:8px">Product photos <span class="hint">(up to 8; the first one is the main photo)</span></label>' +
+        '<div class="gal" id="gal"></div>' +
+        '<div class="gal-add"><label class="btn sm">⬆ Upload photos<input type="file" accept="image/*" multiple id="gfile" hidden></label>' +
+        '<input id="gurl" type="url" placeholder="…or paste an image link (https://…)"><button type="button" class="btn sm" id="gurlBtn">Add link</button></div>' +
+        '<div id="gmeter">' + storageMeter() + '</div></div>' +
       '<label>Illustration<select name="shape"><option value="">Same as category</option>' + Object.keys(SCG.SHAPES).map(function (s) { return '<option' + (s === d.shape ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
       '<label>Pattern<select name="pattern">' + SCG.PATTERNS.map(function (s) { return '<option' + (s === (d.pattern || 'solid') ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
       '<label>Main colour<input name="color" type="color" value="' + esc(d.color) + '"></label>' +
@@ -304,10 +317,43 @@
       '<div class="full" style="display:flex;gap:18px;flex-wrap:wrap">' + sw('flash', d.flash, 'Show in Flash Sale') + sw('featured', d.featured, 'Featured') + '</div>' +
       '<div class="form-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">' + (isNew ? 'Add Product' : 'Save Changes') + '</button></div></form>');
     var f = $('#pform'), E = f.elements;
-    bindUploader($('#pup'), prev, function (url) { d.image = url; });
+    function drawGal() {
+      $('#gal').innerHTML = (d.images.length ? d.images.map(function (src, i) {
+        return '<div class="g" data-i="' + i + '"><img src="' + esc(src) + '" alt="">' + (i ? '' : '<span class="main">MAIN</span>') +
+          '<div class="g-tools"><button type="button" data-l title="Move left">←</button><button type="button" data-m title="Make main">★</button><button type="button" data-x title="Remove">✕</button></div></div>';
+      }).join('') : '<div class="g empty">' + prev() + '<span class="hint">No photos yet. The illustration is shown on the site.</span></div>');
+    }
+    drawGal();
+    $('#gal').onclick = function (e) {
+      var g = e.target.closest('[data-i]'), b = e.target.closest('button'); if (!g || !b) return;
+      var i = +g.dataset.i, im = d.images;
+      if (b.hasAttribute('data-x')) im.splice(i, 1);
+      if (b.hasAttribute('data-m')) im.unshift(im.splice(i, 1)[0]);
+      if (b.hasAttribute('data-l') && i > 0) im.splice(i - 1, 0, im.splice(i, 1)[0]);
+      drawGal();
+    };
+    $('#gfile').onchange = function (e) {
+      var files = Array.prototype.slice.call(e.target.files, 0, Math.max(0, 8 - d.images.length));
+      if (!files.length) { toast('Up to 8 photos per product'); return; }
+      toast('Processing ' + files.length + ' photo(s)…');
+      Promise.all(files.map(function (fl) { return SCG.imageToDataURL(fl, 800).catch(function () { return null; }); })).then(function (urls) {
+        var ok = urls.filter(Boolean); d.images = d.images.concat(ok); drawGal();
+        toast(ok.length + ' photo(s) added' + (ok.length < urls.length ? ', some could not be read' : ''));
+        e.target.value = '';
+      });
+    };
+    $('#gurlBtn').onclick = function () {
+      var u = $('#gurl').value.trim();
+      if (!/^https?:\/\/\S+$/i.test(u)) { toast('Paste a full image link that starts with https://'); return; }
+      if (d.images.length >= 8) { toast('Up to 8 photos per product'); return; }
+      var test = new Image();
+      test.onload = function () { d.images.push(u); $('#gurl').value = ''; drawGal(); toast('Image link added'); };
+      test.onerror = function () { toast('That link did not load as an image'); };
+      test.src = u;
+    };
     E.category.onchange = E.color.oninput = E.accent.oninput = E.shape.onchange = E.pattern.onchange = function () {
       d.category = E.category.value; d.color = E.color.value; d.accent = E.accent.value; d.shape = E.shape.value; d.pattern = E.pattern.value;
-      if (!d.image) $('#pup .preview').innerHTML = prev();
+      if (!d.images.length) drawGal();
     };
     f.onsubmit = function (e) {
       e.preventDefault();
@@ -320,6 +366,7 @@
         collections: $$('input[name=collections]:checked', f).map(function (x) { return x.value; }),
         description: E.description.value.trim(), featured: E.featured.checked, flash: E.flash.checked
       });
+      out.images = d.images.slice(0, 8); out.image = out.images[0] || '';
       if (isNew) { out.id = SCG.uid(out.category); out.createdAt = Date.now(); db.products.unshift(out); }
       else db.products[db.products.indexOf(p)] = out;
       if (!commit(isNew ? 'Product added' : 'Product updated')) return;
@@ -403,7 +450,7 @@
     setActions('<button class="btn primary" id="addCat">+ Add Category</button>' + preview('#categories'));
     v.innerHTML = '<p class="muted" style="margin-top:0">Categories appear in the header menu, the homepage sidebar and grid, the search box and the filters. Use ↑ ↓ to change their order.</p><div class="cards">' + db.categories.map(function (c, i) {
       var n = countIn(c.id), color = c.icon || '#0b2a6f';
-      return '<div class="item-card"><div class="cover" style="background:radial-gradient(circle,' + SCG.shade(color, 170) + ',' + SCG.shade(color, 110) + ')">' + SCG.productSVG(c.shape, color, 'solid', '#f3f4f6') + '</div>' +
+      return '<div class="item-card"><div class="cover" style="background:radial-gradient(circle,' + SCG.shade(color, 170) + ',' + SCG.shade(color, 110) + ')">' + (c.image ? '<img src="' + c.image + '" alt="">' : SCG.productSVG(c.shape, color, 'solid', '#f3f4f6')) + '</div>' +
         '<div class="body"><h4>' + esc(c.name) + '</h4><p>' + esc(c.tagline || '') + '</p><p style="margin-top:8px"><span class="tag ' + (n < MIN_PER_CATEGORY ? 'warn' : 'ok') + '">' + n + ' products</span></p></div>' +
         '<div class="foot"><button class="btn sm" data-up="' + i + '"' + (i ? '' : ' disabled') + '>↑</button><button class="btn sm" data-down="' + i + '"' + (i < db.categories.length - 1 ? '' : ' disabled') + '>↓</button><a class="btn sm" href="#products/cat:' + c.id + '">Items</a><button class="btn sm" data-edit="' + c.id + '">Edit</button><button class="btn sm danger" data-del="' + c.id + '">Delete</button></div></div>';
     }).join('') + '</div>';
@@ -423,20 +470,21 @@
   }
   function catForm(id) {
     var c = id ? SCG.categoryById(id) : null;
-    var d = c ? JSON.parse(JSON.stringify(c)) : { name: '', shape: 'tshirt', icon: '#0b2a6f', tagline: '' };
-    function prev() { return SCG.productSVG(d.shape, d.icon || '#0b2a6f', 'solid', '#f3f4f6'); }
+    var d = c ? JSON.parse(JSON.stringify(c)) : { name: '', shape: 'tshirt', icon: '#0b2a6f', tagline: '', image: '' };
+    function prev() { return d.image ? '<img src="' + d.image + '" alt="">' : SCG.productSVG(d.shape, d.icon || '#0b2a6f', 'solid', '#f3f4f6'); }
     openModal(c ? 'Edit Category' : 'Add Category',
       '<form class="form" id="cform"><label>Name<input name="name" required value="' + esc(d.name) + '"></label>' +
       '<label>Tagline<input name="tagline" value="' + esc(d.tagline || '') + '"></label>' +
       '<label>Icon picture<select name="shape">' + Object.keys(SCG.SHAPES).map(function (s) { return '<option' + (d.shape === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
       '<label>Icon colour<input type="color" name="icon" value="' + esc(d.icon || '#0b2a6f') + '"></label>' +
-      '<div class="full uploader"><div class="preview" id="cprev">' + prev() + '</div><span class="hint">This picture is used in the menu and the category grid.</span></div>' +
+      '<div class="full uploader" id="cup"><div class="preview" id="cprev">' + prev() + '</div><div class="btns"><input type="file" accept="image/*"><button type="button" class="btn sm danger" data-rm-img>Remove photo</button><span class="hint">Upload a photo, or leave empty to use the picture and colour above. Shown in the menu and the category grid.</span></div></div>' +
       '<div class="form-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Save</button></div></form>');
     var f = $('#cform'), E = f.elements;
-    E.shape.onchange = E.icon.oninput = function () { d.shape = E.shape.value; d.icon = E.icon.value; $('#cprev').innerHTML = prev(); };
+    bindUploader($('#cup'), prev, function (u) { d.image = u; });
+    E.shape.onchange = E.icon.oninput = function () { d.shape = E.shape.value; d.icon = E.icon.value; if (!d.image) $('#cprev').innerHTML = prev(); };
     f.onsubmit = function (e) {
       e.preventDefault();
-      var vals = { name: E.name.value.trim(), shape: E.shape.value, icon: E.icon.value, tagline: E.tagline.value.trim() };
+      var vals = { name: E.name.value.trim(), shape: E.shape.value, icon: E.icon.value, tagline: E.tagline.value.trim(), image: d.image || '' };
       if (c) Object.assign(c, vals);
       else { vals.id = SCG.slug(vals.name); if (SCG.categoryById(vals.id)) vals.id = SCG.uid(vals.id); db.categories.push(vals); }
       commit('Category saved'); closeModal(); route();
@@ -500,13 +548,13 @@
      HOMEPAGE & GLOBE
      ========================================================= */
   function homepage(v) {
-    var s = db.settings, cities = (window.SCGGlobe && SCGGlobe.CITIES) || ['Shenzhen', 'Yiwu', 'Shanghai', 'Guangzhou', 'Beijing'];
+    var s = db.settings;
     setActions(preview('', 'Preview homepage'));
     v.innerHTML =
       '<div class="grid2"><div class="panel"><h3>Globe hero</h3><div class="form" style="grid-template-columns:1fr">' +
         '<label>Headline (new line = second, gold line)<textarea id="hTitle" rows="2">' + esc(s.heroTitle) + '</textarea></label>' +
         '<label>Text under the headline<textarea id="hSub" rows="3">' + esc(s.heroSubtitle) + '</textarea></label>' +
-        '<div><label style="margin-bottom:8px">Chinese cities that ship to Colombo</label><div class="checks" id="hCities">' + cities.map(function (c) { return '<label><input type="checkbox" value="' + c + '"' + ((s.globeCities || []).indexOf(c) > -1 ? ' checked' : '') + '> ' + c + '</label>'; }).join('') + '</div></div>' +
+        '<p class="muted" style="margin:0">Which countries and cities appear on the globe is set in <a href="#origins" style="color:var(--red)">Import Countries</a>.</p>' +
       '</div></div>' +
       '<div class="panel"><div class="head"><h3>Live preview</h3><button class="btn sm" id="hPrev">Replay</button></div><div class="globe-prev"><span class="cap">China → Sri Lanka</span><canvas></canvas></div></div></div>' +
       '<div class="grid2"><div class="panel"><h3>Numbers under the headline <small>tick “Live” to count up as parcels arrive</small></h3><div id="hStats"></div></div>' +
@@ -540,19 +588,60 @@
     $('#hSecs').addEventListener('change', function (e) { var row = e.target.closest('[data-i]'); if (row && e.target.hasAttribute('data-on')) { secs[+row.dataset.i].on = e.target.checked; row.classList.toggle('off', !e.target.checked); } });
     $('#hSecs').addEventListener('input', function (e) { var row = e.target.closest('[data-i]'); if (row && e.target.hasAttribute('data-title')) secs[+row.dataset.i].title = e.target.value; });
 
-    function chosenCities() { return $$('#hCities input:checked').map(function (x) { return x.value; }); }
     function mountPrev() {
       if (previewGlobe) previewGlobe.destroy();
-      if (window.SCGGlobe) previewGlobe = SCGGlobe.mount($('.globe-prev canvas'), { cities: chosenCities(), fit: true });
+      if (window.SCGGlobe) previewGlobe = SCGGlobe.mount($('.globe-prev canvas'), { cities: s.globeCities, fit: true });
     }
     mountPrev();
     $('#hPrev').onclick = mountPrev;
-    $('#hCities').onchange = mountPrev;
     $('#hSave').onclick = function () {
       s.heroTitle = $('#hTitle').value.trim(); s.heroSubtitle = $('#hSub').value.trim();
-      s.globeCities = chosenCities(); s.globeStats = getStats(); s.globeSteps = getSteps().slice(0, 5);
+      s.globeStats = getStats(); s.globeSteps = getSteps().slice(0, 5);
       s.services = getSvc(); s.sections = secs;
-      commit(s.globeCities.length ? 'Homepage saved' : 'Saved. No cities ticked, so no routes will show.');
+      commit('Homepage saved');
+    };
+  }
+
+  /* =========================================================
+     IMPORT COUNTRIES
+     ========================================================= */
+  function originsView(v) {
+    var s = db.settings, list = SCG.origins().map(function (o) { return JSON.parse(JSON.stringify(o)); });
+    var cities = (window.SCGGlobe && SCGGlobe.CITIES_FULL) || [];
+    setActions(preview('#china-direct', 'View importing page'));
+    function count(id) { return db.products.filter(function (p) { return (p.origin || 'local') === id; }).length; }
+    v.innerHTML =
+      '<div class="panel"><h3>Countries you import from <small>switch a country off to hide it on the site and the globe</small></h3>' +
+      '<div class="table-wrap" style="border:0"><table><thead><tr><th>Show</th><th>Code</th><th>Country</th><th>Label on products</th><th>Delivery (days)</th><th>Products</th><th>Globe cities</th></tr></thead><tbody id="otb">' +
+      list.map(function (o, i) {
+        return '<tr data-i="' + i + '"><td>' + sw('on', o.on) + '</td><td><input data-k="code" value="' + esc(o.code) + '" style="width:60px" maxlength="3"></td>' +
+          '<td><input data-k="name" value="' + esc(o.name) + '" style="min-width:130px"></td><td><input data-k="label" value="' + esc(o.label) + '" style="min-width:140px"></td>' +
+          '<td><input data-k="days" value="' + esc(o.days) + '" style="width:90px"></td><td><a class="tag" href="#products" data-filter="' + o.id + '">' + count(o.id) + '</a></td>' +
+          '<td><div class="checks">' + cities.filter(function (c) { return c.country === o.id; }).map(function (c) {
+            return '<label><input type="checkbox" data-city value="' + esc(c.name) + '"' + ((s.globeCities || []).indexOf(c.name) > -1 ? ' checked' : '') + '> ' + esc(c.name) + ' <small class="muted">' + (c.mode === 'air' ? 'air' : 'sea') + '</small></label>';
+          }).join('') + '</div></td></tr>';
+      }).join('') +
+      '<tr><td></td><td><span class="tag ok">LK</span></td><td><b>Colombo stock</b></td><td class="muted">Ships from Colombo</td><td><input id="localDays" value="' + esc(s.localDays) + '" style="width:90px"></td><td><a class="tag" href="#products" data-filter="local">' + count('local') + '</a></td><td class="muted">Destination on the globe</td></tr>' +
+      '</tbody></table></div></div>' +
+      '<div class="panel"><div class="head"><h3>Globe preview <small>tick cities above, then Replay</small></h3><button class="btn sm" id="oPrev">Replay</button></div><div class="globe-prev" style="height:380px"><span class="cap">World → Sri Lanka</span><canvas></canvas></div></div>' +
+      '<div class="save-bar"><button class="btn primary" id="oSave">Save import countries</button></div>';
+    function chosen() {
+      var on = {}; $$('#otb tr[data-i]').forEach(function (tr) { on[list[+tr.dataset.i].id] = $('input[name=on]', tr).checked; });
+      return $$('#otb [data-city]:checked').filter(function (x) { var c = cities.filter(function (k) { return k.name === x.value; })[0]; return c && on[c.country]; }).map(function (x) { return x.value; });
+    }
+    function mountPrev() { if (previewGlobe) previewGlobe.destroy(); if (window.SCGGlobe) previewGlobe = SCGGlobe.mount($('.globe-prev canvas'), { cities: chosen(), fit: true }); }
+    mountPrev();
+    $('#oPrev').onclick = mountPrev;
+    $('#otb').addEventListener('click', function (e) { var a = e.target.closest('[data-filter]'); if (a) pf.extra = 'o:' + a.dataset.filter; });
+    $('#oSave').onclick = function () {
+      $$('#otb tr[data-i]').forEach(function (tr) {
+        var o = list[+tr.dataset.i];
+        o.on = $('input[name=on]', tr).checked;
+        ['code', 'name', 'label', 'days'].forEach(function (k) { var val = $('[data-k="' + k + '"]', tr).value.trim(); if (val) o[k] = k === 'code' ? val.toUpperCase() : val; });
+      });
+      s.origins = list; s.globeCities = chosen(); s.localDays = $('#localDays').value.trim() || s.localDays;
+      commit(s.globeCities.length ? 'Import countries saved' : 'Saved. No cities ticked, so the globe shows no routes.');
+      mountPrev();
     };
   }
 
@@ -575,7 +664,7 @@
     };
   }
   function linkOptions() {
-    return ['#shop', '#flash', '#china-direct', '#track', '#help', '#categories'].concat(db.categories.map(function (c) { return '#c/' + c.id; }), db.collections.map(function (c) { return '#col/' + c.id; }));
+    return ['#shop', '#flash', '#china-direct', '#track', '#help', '#categories'].concat(db.categories.map(function (c) { return '#c/' + c.id; }), db.collections.map(function (c) { return '#col/' + c.id; }), SCG.origins().map(function (o) { return '#from/' + o.id; }));
   }
   function bannerForm(i) {
     var h = i > -1 ? JSON.parse(JSON.stringify(db.hero[i])) : { id: SCG.uid('h'), eyebrow: 'New Season', title: 'Your headline', subtitle: '', cta: 'Shop Now', link: '#shop', color: '#0b2a6f', shape: 'tshirt', image: '' };
@@ -630,7 +719,7 @@
     var s = db.settings;
     setActions(preview('#china-direct', 'View page'));
     v.innerHTML =
-      '<div class="panel"><h3>“How China Direct works” steps</h3><div id="steps"></div></div>' +
+      '<div class="panel"><h3>“How importing works” steps</h3><div id="steps"></div></div>' +
       '<div class="panel"><h3>Questions &amp; answers <small>shown on the China Direct and Help pages</small></h3><div id="faq"></div></div>' +
       '<div class="save-bar"><button class="btn primary" id="save">Save pages</button></div>';
     var getSteps = repeater($('#steps'), s.chinaSteps || [], [{ k: 'title', label: 'Step title' }, { k: 'text', label: 'Description', type: 'textarea', w: '2.4fr' }], { title: '', text: '' });
@@ -696,7 +785,7 @@
       '<div class="box"><h4>Order</h4>Placed ' + new Date(o.date).toLocaleString() + '<br>Payment: <b>' + esc(o.payment || 'Cash on Delivery') + '</b><br>Status: ' + statusTag(o.status) + '</div></div>' +
       '<div class="od-items">' + o.items.map(function (it) {
         var p = SCG.productById(it.id) || { name: it.name, color: it.color || '#0b2a6f', category: '', shape: 'tshirt' };
-        return '<div class="od-item">' + thumb(p, it.color) + '<div><b>' + esc(it.name) + '</b><br><small class="muted">' + (it.size ? 'Size ' + esc(it.size) + ' · ' : '') + 'Qty ' + it.qty + (it.origin === 'china' ? ' · China Direct' : '') + '</small></div><b>' + money(it.price * it.qty) + '</b></div>';
+        return '<div class="od-item">' + thumb(p, it.color) + '<div><b>' + esc(it.name) + '</b><br><small class="muted">' + (it.size ? 'Size ' + esc(it.size) + ' · ' : '') + 'Qty ' + it.qty + (it.origin && it.origin !== 'local' ? ' · from ' + esc(originName(it.origin)) : '') + '</small></div><b>' + money(it.price * it.qty) + '</b></div>';
       }).join('') + '</div>' +
       '<div style="text-align:right;font-size:13px">' + (o.subtotal !== undefined ? 'Subtotal ' + money(o.subtotal) + ' · Delivery ' + (o.shipping ? money(o.shipping) : 'FREE') + '<br>' : '') + '<b style="font-size:18px;color:var(--red)">Total ' + money(o.total) + '</b></div>' +
       '<div class="od-actions"><label style="display:flex;gap:8px;align-items:center;flex-direction:row">Status <select id="odst" style="width:auto">' + STATUSES.map(function (s) { return '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
@@ -746,8 +835,8 @@
       '<div class="form-foot"><button class="btn primary">Save</button></div></div></form>' +
 
       '<form class="panel" id="dform"><h3>Delivery &amp; payment</h3><div class="form">' +
-      '<label>China Direct delivery (days)<input name="chinaDays" value="' + esc(s.chinaDays) + '"></label>' +
-      '<label>Colombo stock delivery (days)<input name="localDays" value="' + esc(s.localDays) + '"></label>' +
+      '<label class="full">Colombo stock delivery (days)<input name="localDays" value="' + esc(s.localDays) + '"></label>' +
+      '<p class="full muted" style="margin:0;font-size:12px">Delivery times for imported products are set per country in <a href="#origins" style="color:var(--red)">Import Countries</a>.</p>' +
       '<label>Delivery fee<input name="shippingFee" type="number" min="0" value="' + (s.shippingFee || 0) + '"></label>' +
       '<label>Free delivery over (0 = never)<input name="freeShipping" type="number" min="0" value="' + (s.freeShipping || 0) + '"></label>' +
       '<label>Return period (days)<input name="returnDays" type="number" min="0" value="' + (s.returnDays || 0) + '"></label>' +
@@ -761,7 +850,7 @@
       '<label>New password<input name="adminPass" type="password" minlength="6" placeholder="Leave blank to keep current" autocomplete="new-password"></label>' +
       '<div class="form-foot"><button class="btn dark">Update login</button></div></div></form></div>' +
 
-      '<div class="panel"><h3>Backup &amp; data</h3><p class="muted" style="margin-top:0">Everything is stored in this browser. Export a backup regularly, or import it on another computer.</p>' +
+      '<div class="panel"><h3>Backup &amp; data</h3><p class="muted" style="margin-top:0">Everything is stored in this browser. Export a backup regularly, or import it on another computer.</p>' + storageMeter() +
       '<div class="filters"><button class="btn" id="exp">⬇ Export backup</button><label class="btn" style="display:inline-flex;color:var(--text);font-size:13px">⬆ Import backup<input type="file" accept="application/json" id="imp" hidden></label>' +
       '<button class="btn danger" id="rst">Reset to demo data</button><button class="btn danger" id="rstOrders">Delete all orders</button></div></div>';
 
@@ -769,7 +858,7 @@
     $('#dform').onsubmit = function (e) {
       e.preventDefault(); var E = e.target.elements;
       if (!E.payCOD.checked && !E.payBank.checked) { toast('Turn on at least one payment method'); return; }
-      s.chinaDays = E.chinaDays.value.trim(); s.localDays = E.localDays.value.trim();
+      s.localDays = E.localDays.value.trim();
       s.shippingFee = +E.shippingFee.value || 0; s.freeShipping = +E.freeShipping.value || 0; s.returnDays = +E.returnDays.value || 0;
       s.payCOD = E.payCOD.checked; s.payBank = E.payBank.checked; s.bankDetails = E.bankDetails.value.trim();
       commit('Delivery & payment saved');

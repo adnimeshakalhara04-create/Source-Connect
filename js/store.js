@@ -42,7 +42,20 @@
     oxford: { wear: 0, body: 'M24 124 Q24 106 44 102 L96 96 Q126 90 150 104 Q176 112 180 128 L180 138 L24 138 Z', parts: [{ d: 'M20 134 L184 134 L184 146 L20 146 Z', f: 'a' }], detail: 'M96 96 Q110 112 130 102 M104 100 L118 98 M108 106 L124 104 M24 124 Q60 122 96 112' },
     boot: { wear: 0, body: 'M60 26 L112 26 L116 98 Q152 102 170 120 Q180 128 178 140 L60 140 Z', parts: [{ d: 'M56 136 L182 136 L182 152 L56 152 Z', f: 'a' }, { d: 'M60 26 L112 26 L112 40 L60 40 Z', f: 'd' }], detail: 'M112 40 L114 98 M70 60 h36 M70 78 h36' },
     heel: { wear: 0, body: 'M28 120 Q60 122 92 96 Q120 72 150 68 Q172 68 174 88 L172 100 Q142 104 120 120 L96 140 Q70 152 32 142 Z', parts: [{ d: 'M148 98 L168 98 L160 160 L154 160 Z', f: 'a' }], detail: 'M150 70 Q138 88 150 98 M40 136 Q70 140 94 128' },
-    sandal: { wear: 0, body: 'M64 124 Q86 80 110 122 Z M120 122 Q140 92 156 120 Z', parts: [{ d: 'M28 138 Q28 124 50 122 L160 118 Q180 120 180 134 Q180 148 160 150 L50 152 Q28 152 28 138 Z', f: 'a' }], detail: 'M74 112 Q86 100 100 112 M128 112 Q140 102 150 112' }
+    sandal: { wear: 0, body: 'M64 124 Q86 80 110 122 Z M120 122 Q140 92 156 120 Z', parts: [{ d: 'M28 138 Q28 124 50 122 L160 118 Q180 120 180 134 Q180 148 160 150 L50 152 Q28 152 28 138 Z', f: 'a' }], detail: 'M74 112 Q86 100 100 112 M128 112 Q140 102 150 112' },
+    // ---- electronics ----
+    phone: { wear: 0, body: 'M74 16 h52 a14 14 0 0 1 14 14 v140 a14 14 0 0 1 -14 14 h-52 a14 14 0 0 1 -14 -14 v-140 a14 14 0 0 1 14 -14 Z', parts: [{ d: 'M72 28 h56 a6 6 0 0 1 6 6 v128 a6 6 0 0 1 -6 6 h-56 a6 6 0 0 1 -6 -6 v-128 a6 6 0 0 1 6 -6 Z', f: 'd' }, { d: 'M90 21 h20 v4 h-20 Z', f: 'd' }], detail: 'M88 176 h24' },
+    tablet: { wear: 0, body: 'M42 28 h116 a12 12 0 0 1 12 12 v122 a12 12 0 0 1 -12 12 h-116 a12 12 0 0 1 -12 -12 v-122 a12 12 0 0 1 12 -12 Z', parts: [{ d: 'M44 38 h112 a4 4 0 0 1 4 4 v118 a4 4 0 0 1 -4 4 h-112 a4 4 0 0 1 -4 -4 v-118 a4 4 0 0 1 4 -4 Z', f: 'd' }], detail: 'M100 33 h0.1' },
+    laptop: { wear: 0, body: 'M44 34 h112 a8 8 0 0 1 8 8 v84 a8 8 0 0 1 -8 8 h-112 a8 8 0 0 1 -8 -8 v-84 a8 8 0 0 1 8 -8 Z', parts: [{ d: 'M47 42 h106 a3 3 0 0 1 3 3 v78 a3 3 0 0 1 -3 3 h-106 a3 3 0 0 1 -3 -3 v-78 a3 3 0 0 1 3 -3 Z', f: 'd' }, { d: 'M16 134 h168 l-12 18 h-144 Z', f: 'a' }], detail: 'M86 143 h28' },
+    earbuds: { wear: 0, body: 'M74 92 h52 a26 26 0 0 1 26 26 v28 a26 26 0 0 1 -26 26 h-52 a26 26 0 0 1 -26 -26 v-28 a26 26 0 0 1 26 -26 Z', parts: [{ d: 'M48 116 h104 v4 h-104 Z', f: 'd' }, { d: 'M56 46 a16 16 0 1 0 32 0 a16 16 0 1 0 -32 0 Z M68 56 h8 v28 h-8 Z M112 46 a16 16 0 1 0 32 0 a16 16 0 1 0 -32 0 Z M124 56 h8 v28 h-8 Z', f: 'w' }], detail: 'M100 146 h0.1' },
+    headphones: { wear: 0, body: 'M36 104 h18 a12 12 0 0 1 12 12 v40 a12 12 0 0 1 -12 12 h-18 a12 12 0 0 1 -12 -12 v-40 a12 12 0 0 1 12 -12 Z M146 104 h18 a12 12 0 0 1 12 12 v40 a12 12 0 0 1 -12 12 h-18 a12 12 0 0 1 -12 -12 v-40 a12 12 0 0 1 12 -12 Z', parts: [{ d: 'M34 112 Q34 26 100 26 Q166 26 166 112 L154 112 Q154 40 100 40 Q46 40 46 112 Z', f: 'a' }, { d: 'M62 110 h10 v52 h-10 Z M128 110 h10 v52 h-10 Z', f: 'd' }], detail: '' },
+    speaker: { wear: 0, body: 'M62 24 h76 a16 16 0 0 1 16 16 v124 a16 16 0 0 1 -16 16 h-76 a16 16 0 0 1 -16 -16 v-124 a16 16 0 0 1 16 -16 Z', parts: [{ d: 'M64 122 a36 36 0 1 0 72 0 a36 36 0 1 0 -72 0 Z', f: 'd' }, { d: 'M86 62 a14 14 0 1 0 28 0 a14 14 0 1 0 -28 0 Z', f: 'd' }, { d: 'M88 122 a12 12 0 1 0 24 0 a12 12 0 1 0 -24 0 Z', f: 'a' }], detail: 'M70 168 h60' },
+    powerbank: { wear: 0, body: 'M64 30 h72 a14 14 0 0 1 14 14 v116 a14 14 0 0 1 -14 14 h-72 a14 14 0 0 1 -14 -14 v-116 a14 14 0 0 1 14 -14 Z', parts: [{ d: 'M76 154 h10 v6 h-10 Z M92 154 h10 v6 h-10 Z M108 154 h10 v6 h-10 Z', f: 'a' }, { d: 'M86 30 h28 v6 h-28 Z', f: 'd' }], detail: 'M106 72 L88 102 L104 102 L94 132 L116 98 L100 98 Z' },
+    charger: { wear: 0, body: 'M74 40 h52 a12 12 0 0 1 12 12 v56 a12 12 0 0 1 -12 12 h-52 a12 12 0 0 1 -12 -12 v-56 a12 12 0 0 1 12 -12 Z', parts: [{ d: 'M82 16 h10 v26 h-10 Z M108 16 h10 v26 h-10 Z', f: 'a' }, { d: 'M90 108 h20 v6 h-20 Z', f: 'd' }], detail: 'M100 120 Q100 160 132 160 Q164 160 164 186' },
+    mouse: { wear: 0, body: 'M100 26 C142 26 152 70 152 110 C152 160 130 178 100 178 C70 178 48 160 48 110 C48 70 58 26 100 26 Z', parts: [{ d: 'M100 48 h0 a6 6 0 0 1 6 6 v16 a6 6 0 0 1 -6 6 h-0 a6 6 0 0 1 -6 -6 v-16 a6 6 0 0 1 6 -6 Z', f: 'd' }], detail: 'M100 26 L100 90 M50 96 Q100 106 150 96' },
+    keyboard: { wear: 0, body: 'M20 66 h160 a10 10 0 0 1 10 10 v56 a10 10 0 0 1 -10 10 h-160 a10 10 0 0 1 -10 -10 v-56 a10 10 0 0 1 10 -10 Z', parts: [{ d: 'M26 80 h12 v10 h-12 Z M42 80 h12 v10 h-12 Z M58 80 h12 v10 h-12 Z M74 80 h12 v10 h-12 Z M90 80 h12 v10 h-12 Z M106 80 h12 v10 h-12 Z M122 80 h12 v10 h-12 Z M138 80 h12 v10 h-12 Z M154 80 h12 v10 h-12 Z M170 80 h12 v10 h-12 Z M26 94 h12 v10 h-12 Z M42 94 h12 v10 h-12 Z M58 94 h12 v10 h-12 Z M74 94 h12 v10 h-12 Z M90 94 h12 v10 h-12 Z M106 94 h12 v10 h-12 Z M122 94 h12 v10 h-12 Z M138 94 h12 v10 h-12 Z M154 94 h12 v10 h-12 Z M170 94 h12 v10 h-12 Z M26 108 h12 v10 h-12 Z M42 108 h12 v10 h-12 Z M58 108 h12 v10 h-12 Z M74 108 h12 v10 h-12 Z M90 108 h12 v10 h-12 Z M106 108 h12 v10 h-12 Z M122 108 h12 v10 h-12 Z M138 108 h12 v10 h-12 Z M154 108 h12 v10 h-12 Z M170 108 h12 v10 h-12 Z M58 122 h84 v10 h-84 Z', f: 'w' }], detail: '' },
+    camera: { wear: 0, body: 'M32 66 h34 l12 -18 h44 l12 18 h34 a12 12 0 0 1 12 12 v74 a12 12 0 0 1 -12 12 h-136 a12 12 0 0 1 -12 -12 v-74 a12 12 0 0 1 12 -12 Z', parts: [{ d: 'M64 114 a36 36 0 1 0 72 0 a36 36 0 1 0 -72 0 Z', f: 'd' }, { d: 'M80 114 a20 20 0 1 0 40 0 a20 20 0 1 0 -40 0 Z', f: 'a' }, { d: 'M146 76 h16 v9 h-16 Z', f: 'w' }], detail: '' },
+    gamepad: { wear: 0, body: 'M62 66 h76 c26 0 40 30 44 62 c4 32 -16 42 -30 28 l-20 -20 h-64 l-20 20 c-14 14 -34 4 -30 -28 c4 -32 18 -62 44 -62 Z', parts: [{ d: 'M52 96 h8 v-10 h8 v10 h8 v8 h-8 v10 h-8 v-10 h-8 Z', f: 'd' }, { d: 'M131 90 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 Z M143 102 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 Z M119 102 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 Z M131 114 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 Z', f: 'a' }], detail: 'M90 98 h6 M104 98 h6' }
   };
   var PATTERNS = ['solid', 'stripes', 'check', 'dots', 'logo', 'colorblock'];
 
@@ -108,7 +121,9 @@
     { id: 'accessories', name: 'Accessories', shape: 'sunglasses', icon: '#6d28d9', tagline: 'Sunglasses, belts & caps' },
     { id: 'sportswear', name: 'Sportswear', shape: 'activewear', icon: '#d7141a', tagline: 'Train, run & play' },
     { id: 'officewear', name: 'Office Wear', shape: 'shirt', icon: '#1e3a8a', tagline: 'Sharp looks for work' },
-    { id: 'winter', name: 'Winter & Jackets', shape: 'puffer', icon: '#0369a1', tagline: 'Jackets, hoodies & knits' }
+    { id: 'winter', name: 'Winter & Jackets', shape: 'puffer', icon: '#0369a1', tagline: 'Jackets, hoodies & knits' },
+    { id: 'electronics', name: 'Electronics & Gadgets', shape: 'headphones', icon: '#111827', tagline: 'Audio, laptops, cameras & gaming' },
+    { id: 'mobile', name: 'Mobile & Accessories', shape: 'phone', icon: '#2563eb', tagline: 'Phones, chargers, cases & more' }
   ];
 
   var COLLECTIONS = [
@@ -116,7 +131,9 @@
     { id: 'new-arrivals', name: 'New Arrivals', description: 'Fresh styles landed this week.', accent: '#0b2a6f' },
     { id: 'best-sellers', name: 'Best Sellers', description: 'What Sri Lanka is buying right now.', accent: '#f59e0b' },
     { id: 'under-2000', name: 'Under Rs. 2,000', description: 'Big style, small prices.', accent: '#0f766e' },
-    { id: 'urban-street', name: 'Urban Street', description: 'Bold streetwear for the city.', accent: '#6d28d9' }
+    { id: 'urban-street', name: 'Urban Street', description: 'Bold streetwear for the city.', accent: '#6d28d9' },
+    { id: 'electronics', name: 'Electronics', description: 'Gadgets, audio and mobile accessories from around the world.', accent: '#111827' },
+    { id: 'global-imports', name: 'Global Imports', description: 'Imported from the USA, Australia, UK, Dubai and Japan.', accent: '#0f766e' }
   ];
 
   // [name, shape, pattern]
@@ -130,12 +147,16 @@
     accessories: [['Aviator Sunglasses', 'sunglasses', 'solid'], ['Polarized Wayfarer Sunglasses', 'sunglasses', 'solid'], ['Cat Eye Sunglasses', 'sunglasses', 'solid'], ['Sports Wrap Sunglasses', 'sunglasses', 'solid'], ['Leather Dress Belt', 'belt', 'solid'], ['Canvas Casual Belt', 'belt', 'solid'], ['Reversible Leather Belt', 'belt', 'solid'], ['Classic Baseball Cap', 'cap', 'solid'], ['SC Logo Snapback Cap', 'cap', 'solid'], ['Trucker Mesh Cap', 'cap', 'solid'], ['Kids Round Sunglasses', 'sunglasses', 'solid'], ['Weekend Tote Bag', 'bag', 'check']],
     sportswear: [['Dry-Fit Training Tee', 'tshirt', 'solid'], ['Performance Tank Top', 'activewear', 'solid'], ['Compression Leggings', 'jeans', 'solid'], ['Sports Bra Crop Top', 'activewear', 'colorblock'], ['Running Shorts', 'shorts', 'stripes'], ['Gym Zip Hoodie', 'hoodie', 'colorblock'], ['Track Jacket', 'jacket', 'stripes'], ['High Rise Yoga Pants', 'jeans', 'solid'], ['Football Jersey', 'tshirt', 'stripes'], ['Training Joggers', 'jeans', 'stripes'], ['Gym Duffel Bag', 'bag', 'solid'], ['Cross Training Sneakers', 'sneaker', 'solid']],
     officewear: [['Tailored Slim Blazer', 'jacket', 'solid'], ['Pinstripe Formal Shirt', 'shirt', 'stripes'], ['Slim Formal Trousers', 'jeans', 'solid'], ['Pencil Skirt', 'skirt', 'solid'], ['Sheath Office Dress', 'dress', 'solid'], ['Silk Office Blouse', 'blouse', 'solid'], ['Non-Iron Dress Shirt', 'shirt', 'solid'], ['Check Suit Trousers', 'jeans', 'check'], ['Leather Office Handbag', 'handbag', 'solid'], ['Formal Derby Shoes', 'oxford', 'solid'], ['Executive Leather Belt', 'belt', 'solid'], ['Executive Steel Watch', 'watch', 'solid']],
+    electronics: [['Wireless Earbuds Pro', 'earbuds', 'solid', 7990], ['Noise Cancelling Headphones', 'headphones', 'solid', 14990], ['Portable Bluetooth Speaker', 'speaker', 'solid', 8490], ['20000mAh Power Bank', 'powerbank', 'solid', 5490], ['Ultra Slim Laptop 14"', 'laptop', 'solid', 189900], ['10" Android Tablet', 'tablet', 'solid', 54900], ['Wireless Gaming Mouse', 'mouse', 'solid', 4990], ['RGB Mechanical Keyboard', 'keyboard', 'solid', 12490], ['4K Action Camera', 'camera', 'solid', 32900], ['Wireless Game Controller', 'gamepad', 'solid', 9990], ['Smart Fitness Watch Pro', 'watch', 'solid', 11990], ['Studio Over-Ear Headphones', 'headphones', 'solid', 21900]],
+    mobile: [['Smartphone 128GB', 'phone', 'solid', 64900], ['Budget Smartphone 64GB', 'phone', 'solid', 32900], ['Shockproof Phone Case', 'phone', 'solid', 1490], ['Tempered Glass Screen Guard', 'phone', 'solid', 790], ['65W GaN Fast Charger', 'charger', 'solid', 4490], ['USB-C Fast Charging Cable', 'charger', 'solid', 990], ['Dual Port Car Charger', 'charger', 'solid', 1890], ['Magnetic Wireless Power Bank', 'powerbank', 'solid', 6990], ['Mini Power Bank 10000mAh', 'powerbank', 'solid', 3490], ['Sports Bluetooth Earbuds', 'earbuds', 'solid', 3990], ['Kids Smart Watch with GPS', 'watch', 'solid', 7490], ['Bluetooth Mini Speaker', 'speaker', 'solid', 2990]],
     winter: [['Hooded Puffer Jacket', 'puffer', 'solid'], ['Lightweight Down Jacket', 'puffer', 'solid'], ['Wool Blend Overcoat', 'jacket', 'solid'], ['Fleece Zip Hoodie', 'hoodie', 'solid'], ['Windbreaker Jacket', 'jacket', 'colorblock'], ['Cable Knit Sweater', 'sweater', 'solid'], ['Crew Neck Wool Sweater', 'sweater', 'stripes'], ['Check Knit Cardigan', 'jacket', 'check'], ['Bomber Jacket', 'jacket', 'solid'], ['Sherpa Lined Hoodie', 'hoodie', 'solid'], ['Waterproof Rain Coat', 'jacket', 'solid'], ['Knit Beanie Cap', 'cap', 'solid']]
   };
 
   var PALETTE = ['#0b2a6f', '#d7141a', '#1f2937', '#e5e7eb', '#14532d', '#7c2d12', '#c2a878', '#1e3a8a', '#be185d', '#0f766e', '#f59e0b', '#6d28d9', '#0ea5e9', '#f472b6', '#84cc16', '#9ca3af'];
   var ACCENTS = ['#f3f4f6', '#111827', '#d7141a', '#c2a878', '#e5e7eb', '#0b2a6f'];
-  var BASE = { mens: 1890, womens: 2490, kids: 1290, shoes: 3990, bags: 2990, watches: 3490, accessories: 990, sportswear: 1790, officewear: 3290, winter: 4990 };
+  var BASE = { mens: 1890, womens: 2490, kids: 1290, shoes: 3990, bags: 2990, watches: 3490, accessories: 990, sportswear: 1790, officewear: 3290, winter: 4990, electronics: 4990, mobile: 990 };
+  // where seed products are imported from (by product number)
+  var ORIGIN_CYCLE = ['china', 'china', 'usa', 'china', 'australia', 'china', 'local', 'uk', 'china', 'uae', 'japan', 'china', 'local', 'usa', 'china', 'australia', 'local'];
   var BRANDS = ['SC Global', 'SC Basics', 'Urban Street', 'Lanka Loom', 'Silk Route', 'Orient Wear'];
 
   function seedProducts() {
@@ -143,12 +164,15 @@
     CATEGORIES.forEach(function (cat, ci) {
       ITEMS[cat.id].forEach(function (it, i) {
         n++;
-        var price = Math.round((BASE[cat.id] + ((i * 433 + ci * 271) % 3100)) / 10) * 10 - 10;
+        var price = it[3] || Math.round((BASE[cat.id] + ((i * 433 + ci * 271) % 3100)) / 10) * 10 - 10;
         var flash = (n % 5 === 0) || (n % 7 === 0);
         var disc = flash ? 20 + (n * 7) % 45 : (n % 3 === 0 ? 10 + (n * 3) % 20 : 0);
         var compare = disc ? Math.round(price / (1 - disc / 100) / 10) * 10 : 0;
         var colls = [];
-        if (n % 10 < 7) colls.push('china-direct');
+        var origin = ORIGIN_CYCLE[n % ORIGIN_CYCLE.length];
+        if (origin === 'china') colls.push('china-direct');
+        if (origin !== 'china' && origin !== 'local') colls.push('global-imports');
+        if (cat.id === 'electronics' || cat.id === 'mobile') colls.push('electronics');
         if (i < 3) colls.push('new-arrivals');
         if ((n * 7) % 11 < 3) colls.push('best-sellers');
         if (price < 2000) colls.push('under-2000');
@@ -166,16 +190,17 @@
           color: PALETTE[(i * 5 + ci * 3) % PALETTE.length],
           accent: ACCENTS[(i + ci) % ACCENTS.length],
           image: '',
+          images: [],
           sizes: sizesFor(cat.id, it[1]),
           stock: 8 + ((i * 7 + ci * 5) % 90),
           sold: 20 + ((n * 137) % 2400),
           rating: Math.round((3.9 + ((n * 13) % 11) / 10) * 10) / 10,
           reviews: 4 + ((n * 53) % 640),
-          origin: n % 10 < 7 ? 'china' : 'local',
+          origin: origin,
           badge: flash ? 'Flash Sale' : (i < 2 ? 'New' : ''),
           flash: flash,
           featured: i < 2,
-          description: it[0] + ' by ' + BRANDS[(n * 5) % BRANDS.length] + '. Sourced directly from trusted factories and quality-checked by Source Connect Global before it ships to Sri Lanka. Comfortable, durable and great value.',
+          description: it[0] + ' by ' + BRANDS[(n * 5) % BRANDS.length] + '. Sourced from trusted suppliers abroad and quality-checked by Source Connect Global before it ships to Sri Lanka. Durable and great value.',
           createdAt: Date.now() - (i * CATEGORIES.length + ci) * 3600 * 1000
         });
       });
@@ -184,16 +209,70 @@
   }
   function sizesFor(cat, shape) {
     if (/sneaker|boot|heel|sandal|oxford/.test(shape)) return ['36', '37', '38', '39', '40', '41', '42', '43', '44'];
-    if (/watch|bag|handbag|backpack|wallet|sunglasses|cap/.test(shape)) return [];
+    if (/watch|bag|handbag|backpack|wallet|sunglasses|cap|phone|tablet|laptop|earbuds|headphones|speaker|powerbank|charger|mouse|keyboard|camera|gamepad/.test(shape)) return [];
     if (shape === 'belt') return ['S', 'M', 'L', 'XL'];
     if (cat === 'kids') return ['2-3Y', '4-5Y', '6-7Y', '8-9Y', '10-12Y'];
     if (shape === 'jeans') return ['28', '30', '32', '34', '36', '38'];
     return ['S', 'M', 'L', 'XL', 'XXL'];
   }
 
+  function DEFAULT_ORIGINS() {
+    return [
+      { id: 'china', name: 'China', code: 'CN', label: 'China Direct', days: '10–14', on: true },
+      { id: 'usa', name: 'USA', code: 'US', label: 'USA Import', days: '14–21', on: true },
+      { id: 'australia', name: 'Australia', code: 'AU', label: 'Australia Import', days: '10–16', on: true },
+      { id: 'uk', name: 'United Kingdom', code: 'GB', label: 'UK Import', days: '12–18', on: true },
+      { id: 'uae', name: 'UAE (Dubai)', code: 'AE', label: 'Dubai Import', days: '5–8', on: true },
+      { id: 'japan', name: 'Japan', code: 'JP', label: 'Japan Import', days: '8–12', on: true },
+      { id: 'india', name: 'India', code: 'IN', label: 'India Import', days: '4–7', on: false },
+      { id: 'germany', name: 'Germany', code: 'DE', label: 'Germany Import', days: '14–20', on: false }
+    ];
+  }
+
+  /* Upgrade data saved by an older version without losing the admin's edits. */
+  function migrate(d) {
+    var fresh = seed(), changed = false;
+    // settings keys that did not exist yet
+    Object.keys(fresh.settings).forEach(function (k) { if (d.settings[k] === undefined) { d.settings[k] = fresh.settings[k]; changed = true; } });
+    // new homepage sections
+    (fresh.settings.sections || []).forEach(function (sec, i) {
+      if (!d.settings.sections.some(function (x) { return x.id === sec.id; })) { d.settings.sections.splice(Math.min(i, d.settings.sections.length), 0, sec); changed = true; }
+    });
+    // products: images array
+    d.products.forEach(function (p) { if (!p.images) { p.images = p.image ? [p.image] : []; changed = true; } });
+    if ((d.version || 1) < 3) {
+      // electronics categories, products and collections
+      fresh.categories.forEach(function (c) { if (!d.categories.some(function (x) { return x.id === c.id; })) d.categories.push(c); });
+      fresh.collections.forEach(function (c) { if (!d.collections.some(function (x) { return x.id === c.id; })) d.collections.push(c); });
+      fresh.products.forEach(function (p) {
+        if ((p.category === 'electronics' || p.category === 'mobile') && !d.products.some(function (x) { return x.id === p.id; })) d.products.push(p);
+      });
+      // header links for the new collections
+      ['electronics', 'global-imports'].forEach(function (id) {
+        if (!d.settings.navLinks.some(function (l) { return l.link === '#col/' + id; })) {
+          var c = fresh.collections.filter(function (x) { return x.id === id; })[0];
+          d.settings.navLinks.splice(2, 0, { label: c.name, link: '#col/' + id });
+        }
+      });
+      // texts still on the old China-only defaults
+      var olds = { heroTitle: 'From China to\nYour Doorstep', heroSubtitle: 'We source fashion straight from trusted factories in China and deliver it across Sri Lanka at factory prices.' };
+      Object.keys(olds).forEach(function (k) { if (d.settings[k] === olds[k]) d.settings[k] = fresh.settings[k]; });
+      if (String(d.settings.globeCities) === 'Shenzhen,Yiwu,Shanghai,Guangzhou,Beijing') d.settings.globeCities = fresh.settings.globeCities;
+      // spread some existing products across the new import countries
+      d.products.forEach(function (p, n) {
+        if (p.origin === 'china' && n % 4 === 2) {
+          p.origin = ['usa', 'australia', 'uk', 'uae', 'japan'][n % 5];
+          p.collections = (p.collections || []).filter(function (x) { return x !== 'china-direct'; }).concat(['global-imports']);
+        }
+      });
+      d.version = 3; changed = true;
+    }
+    return changed;
+  }
+
   function seed() {
     return {
-      version: 2,
+      version: 3,
       settings: {
         brand: 'Source Connect Global',
         announcement: 'Free delivery islandwide on orders over Rs. 10,000  ✦  China Direct: factory prices, delivered in 10–14 days  ✦  Cash on Delivery available',
@@ -204,10 +283,12 @@
         email: 'hello@sourceconnectglobal.com',
         address: 'Colombo, Sri Lanka',
         whatsapp: '94770000000',
-        heroTitle: 'From China to\nYour Doorstep',
-        heroSubtitle: 'We source fashion straight from trusted factories in China and deliver it across Sri Lanka at factory prices.',
+        heroTitle: 'From the World to\nYour Doorstep',
+        heroSubtitle: 'We import fashion and electronics from China, the USA, Australia, the UK, Dubai and Japan, and deliver across Sri Lanka at great prices.',
         adminUser: 'admin',
         adminPass: 'admin123',
+        // ---- import countries ----
+        origins: DEFAULT_ORIGINS(),
         // ---- delivery & payment ----
         chinaDays: '10–14',
         localDays: '2–4',
@@ -220,6 +301,8 @@
         navLinks: [
           { label: '⚡ Flash Sale', link: '#flash', hot: true },
           { label: 'China Direct', link: '#col/china-direct' },
+          { label: 'Electronics', link: '#col/electronics' },
+          { label: 'Global Imports', link: '#col/global-imports' },
           { label: 'New Arrivals', link: '#col/new-arrivals' },
           { label: 'Best Sellers', link: '#col/best-sellers' },
           { label: 'Under Rs. 2,000', link: '#col/under-2000' },
@@ -229,9 +312,11 @@
         sections: [
           { id: 'services', name: 'Quick service icons', on: true },
           { id: 'flash', name: 'Flash Sale', on: true },
+          { id: 'countries', name: 'Shop by country', on: true, title: 'Shop by Country' },
           { id: 'categories', name: 'Categories grid', on: true },
           { id: 'banners', name: 'Wide promo banners', on: true },
           { id: 'china', name: 'China Direct row', on: true, title: 'China Direct — Factory Prices' },
+          { id: 'electronics', name: 'Electronics row', on: true, title: 'Electronics & Gadgets' },
           { id: 'best', name: 'Best Sellers row', on: true, title: 'Best Sellers' },
           { id: 'jfy', name: 'Just For You feed', on: true, title: 'Just For You' }
         ],
@@ -250,29 +335,29 @@
         flashMode: 'daily',        // 'daily' = resets every midnight, 'until' = ends at flashUntil, 'off'
         flashUntil: '',
         // ---- globe ----
-        globeCities: ['Shenzhen', 'Yiwu', 'Shanghai', 'Guangzhou', 'Beijing'],
+        globeCities: ['Shenzhen', 'Yiwu', 'Shanghai', 'Guangzhou', 'Los Angeles', 'New York', 'Sydney', 'Melbourne', 'London', 'Dubai', 'Tokyo'],
         globeStats: [
           { value: '1,248', label: 'Parcels this month', live: true },
           { value: '10–14', label: 'Days delivery' },
-          { value: '25+', label: 'Factories' }
+          { value: '6', label: 'Countries' }
         ],
         globeSteps: [
-          { title: 'Sourced', text: 'in China' }, { title: 'Checked', text: 'for quality' }, { title: 'Shipping', text: 'by sea & air' },
+          { title: 'Sourced', text: 'abroad' }, { title: 'Checked', text: 'for quality' }, { title: 'Shipping', text: 'by sea & air' },
           { title: 'Colombo', text: 'customs cleared' }, { title: 'Delivered', text: 'to your door' }
         ],
         // ---- product page ----
         sellerStats: [{ value: '96%', label: 'Positive ratings' }, { value: '98%', label: 'Ship on time' }, { value: '92%', label: 'Chat response' }],
         // ---- China Direct page ----
         chinaSteps: [
-          { title: 'Sourced', text: 'We buy directly from vetted factories in Guangzhou, Yiwu, Shenzhen and Shanghai.' },
-          { title: 'Quality checked', text: 'Every batch is inspected by our team in China before packing.' },
+          { title: 'Sourced', text: 'We buy from vetted factories and brands in China, the USA, Australia, the UK, Dubai and Japan.' },
+          { title: 'Quality checked', text: 'Every batch is inspected before it is packed and shipped.' },
           { title: 'Shipped', text: 'Sea freight for bulk, air freight for fast orders. Fully tracked.' },
           { title: 'Cleared in Colombo', text: 'We handle customs and duties. No surprise charges for you.' },
           { title: 'Delivered', text: 'Islandwide delivery to your door, with Cash on Delivery.' }
         ],
         faq: [
-          { q: 'How long does China Direct delivery take?', a: 'Usually 10–14 days from order confirmation to your door. Items marked “Ships from Colombo” arrive in 2–4 days.' },
-          { q: 'Do I pay customs or import duty?', a: 'No. Prices include shipping from China and customs clearance in Sri Lanka.' },
+          { q: 'How long does delivery take?', a: 'It depends on the country: each product page shows the delivery time (for example 10–14 days from China). Items marked “Ships from Colombo” arrive in 2–4 days.' },
+          { q: 'Do I pay customs or import duty?', a: 'No. Prices include international shipping and customs clearance in Sri Lanka.' },
           { q: 'Can I pay cash on delivery?', a: 'Yes, Cash on Delivery is available islandwide. You can also pay by bank transfer.' },
           { q: 'What if the item is wrong or damaged?', a: 'Contact us within 7 days of delivery and we will replace it or refund you.' },
           { q: 'How do I track my order?', a: 'Use “Track My Order” with your order number and phone number.' }
@@ -302,10 +387,8 @@
     if (cache) return cache;
     var raw = safeGet(DB_KEY);
     if (raw) { try { cache = JSON.parse(raw); } catch (e) { cache = null; } }
-    if (!cache || !cache.products) { cache = seed(); save(); }
-    // fill fields added after older saves
-    var d = seed().settings;
-    Object.keys(d).forEach(function (k) { if (cache.settings[k] === undefined) cache.settings[k] = d[k]; });
+    if (!cache || !cache.products) { cache = seed(); save(); return cache; }
+    if (migrate(cache)) save();
     return cache;
   }
   function save() { return safeSet(DB_KEY, JSON.stringify(cache)); }
@@ -319,6 +402,22 @@
   function categoryById(id) { return load().categories.filter(function (c) { return c.id === id; })[0]; }
   function collectionById(id) { return load().collections.filter(function (c) { return c.id === id; })[0]; }
   function productById(id) { return load().products.filter(function (p) { return p.id === id; })[0]; }
+
+  function origins() { return load().settings.origins || DEFAULT_ORIGINS(); }
+  function originById(id) { return origins().filter(function (o) { return o.id === id; })[0]; }
+  /** Text helpers for where a product ships from. */
+  function originInfo(p) {
+    var s = load().settings;
+    if (!p || p.origin === 'local' || !p.origin) return { local: true, id: 'local', name: 'Sri Lanka', label: 'Ships from Colombo', days: s.localDays || '2–4', code: 'LK' };
+    var o = originById(p.origin) || { id: p.origin, name: p.origin, label: p.origin + ' Import', days: '10–14', code: '' };
+    return { local: false, id: o.id, name: o.name, label: o.label, days: o.days, code: o.code };
+  }
+  function productImages(p) { return (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []); }
+  function storageUsed() {
+    var total = 0;
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); total += (k.length + (localStorage.getItem(k) || '').length) * 2; } } catch (e) {}
+    return total;
+  }
 
   function productVisual(p, color) {
     if (p.image) return '<img src="' + p.image + '" alt="' + escapeHTML(p.name) + '" loading="lazy">';
@@ -342,7 +441,7 @@
 
   /** Resize an uploaded image File to a compact JPEG data URL. */
   function imageToDataURL(file, max) {
-    max = max || 900;
+    max = max || 800;
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
       reader.onerror = reject;
@@ -356,7 +455,8 @@
           var ctx = c.getContext('2d');
           ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
           ctx.drawImage(img, 0, 0, c.width, c.height);
-          resolve(c.toDataURL('image/jpeg', 0.82));
+          var webp = c.toDataURL('image/webp', 0.8);
+          resolve(webp.indexOf('data:image/webp') === 0 ? webp : c.toDataURL('image/jpeg', 0.8));
         };
         img.src = reader.result;
       };
@@ -370,6 +470,7 @@
     uid: uid, slug: slug, money: money, discount: discount, escapeHTML: escapeHTML,
     productSVG: productSVG, garmentSVG: garmentSVG, productVisual: productVisual, shade: shade,
     categoryById: categoryById, collectionById: collectionById, productById: productById,
+    origins: origins, originById: originById, originInfo: originInfo, productImages: productImages, storageUsed: storageUsed, DEFAULT_ORIGINS: DEFAULT_ORIGINS,
     getOrders: getOrders, saveOrders: saveOrders, getCart: getCart, saveCart: saveCart, getWish: getWish, saveWish: saveWish,
     imageToDataURL: imageToDataURL,
     keys: { DB_KEY: DB_KEY, ORDERS_KEY: ORDERS_KEY, CART_KEY: CART_KEY, WISH_KEY: WISH_KEY }

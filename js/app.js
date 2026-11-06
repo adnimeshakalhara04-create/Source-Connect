@@ -37,10 +37,14 @@
     return out + '</span>';
   }
   function originTag(p) {
-    return p.origin === 'china' ? '<span class="origin">' + I.plane + 'China Direct</span>' : '<span class="origin local">' + I.truck + 'Ships from Colombo</span>';
+    var o = SCG.originInfo(p);
+    return o.local ? '<span class="origin local">' + I.truck + 'Ships from Colombo</span>' : '<span class="origin">' + I.plane + esc(o.label) + '</span>';
   }
+  function codeBadge(code) { return '<span class="cc">' + esc(code || '') + '</span>'; }
+  function activeOrigins() { return SCG.origins().filter(function (o) { return o.on; }); }
   function visual(p, color) { return SCG.productVisual(p, color); }
   function catIcon(c) {
+    if (c.image) return '<img src="' + c.image + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
     var sample = db.products.filter(function (p) { return p.category === c.id; })[0];
     return SCG.productSVG(c.shape, c.icon || (sample && sample.color) || '#0b2a6f', 'solid', '#f3f4f6');
   }
@@ -51,10 +55,10 @@
   /* ---------------- product card ---------------- */
   function card(p, opts) {
     opts = opts || {};
-    var off = SCG.discount(p), wish = SCG.getWish().indexOf(p.id) > -1;
+    var off = SCG.discount(p), wish = SCG.getWish().indexOf(p.id) > -1, imgs = SCG.productImages(p);
     var soldPct = Math.min(96, 30 + (p.sold % 60));
     return '<article class="card" style="--c:' + p.color + '">' +
-      '<a class="media" href="#p/' + p.id + '" aria-label="' + esc(p.name) + '">' + visual(p) +
+      '<a class="media' + (imgs[1] ? ' has-alt' : '') + '" href="#p/' + p.id + '" aria-label="' + esc(p.name) + '">' + visual(p) + (imgs[1] ? '<img class="alt" src="' + imgs[1] + '" alt="" loading="lazy">' : '') +
       (off ? '<span class="tag-off">-' + off + '%</span>' : (p.badge === 'New' ? '<span class="tag-new">NEW</span>' : '')) + '</a>' +
       '<button class="heart' + (wish ? ' on' : '') + '" data-wish="' + p.id + '" aria-label="Add to wishlist">' + I.heart + '</button>' +
       '<div class="info"><a class="title" href="#p/' + p.id + '">' + esc(p.name) + '</a>' +
@@ -81,7 +85,7 @@
     $('#catsMenu').innerHTML = catListHTML();
     $('#drawerLinks').innerHTML = catListHTML() + '<div class="catlist" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px">' +
       '<a href="#flash">⚡ Flash Sale</a>' + db.collections.map(function (c) { return '<a href="#col/' + c.id + '">' + esc(c.name) + '</a>'; }).join('') +
-      '<a href="#track">Track My Order</a><a href="#china-direct">How China Direct Works</a></div>';
+      '<a href="#track">Track My Order</a><a href="#china-direct">How Importing Works</a></div>';
     $('#footCats').innerHTML = db.categories.slice(0, 6).map(function (c) { return '<li><a href="#c/' + c.id + '">' + esc(c.name) + '</a></li>'; }).join('');
     $('#footContact').innerHTML = '<li>' + esc(s.address) + '</li><li>' + esc(s.phone) + '</li><li>' + esc(s.email) + '</li>' +
       (s.whatsapp ? '<li><a target="_blank" rel="noopener" href="https://wa.me/' + esc(s.whatsapp) + '">WhatsApp us ↗</a></li>' : '');
@@ -169,11 +173,11 @@
   function stageHTML(id) {
     var s = db.settings, lines = String(s.heroTitle || '').split('\n');
     var stats = (s.globeStats || []).filter(function (x) { return x && x.value; });
-    return '<div class="stage" id="' + id + '"><canvas aria-label="Animated globe showing shipments from China to Sri Lanka" role="img"></canvas>' +
-      '<div class="stage-copy"><span class="chip"><i></i><span class="flag">China</span>' + '→' + '<span class="flag">Sri Lanka</span></span>' +
+    return '<div class="stage" id="' + id + '"><canvas aria-label="Animated globe showing shipments from abroad to Sri Lanka" role="img"></canvas>' +
+      '<div class="stage-copy"><span class="chip"><i></i><span class="flag" data-from>World</span>' + '→' + '<span class="flag">Sri Lanka</span></span>' +
       '<h1>' + lines.map(function (l) { return '<span class="ln"><span>' + esc(l) + '</span></span>'; }).join('') + '</h1>' +
       '<p>' + esc(s.heroSubtitle || '') + '</p>' +
-      '<div class="cta-row"><a class="btn" href="#col/china-direct">' + I.plane + 'Shop China Direct</a><a class="btn ghost" href="#china-direct">How it works</a></div>' +
+      '<div class="cta-row"><a class="btn" href="#col/global-imports">' + I.plane + 'Shop Imports</a><a class="btn ghost" href="#china-direct">How it works</a></div>' +
       (stats.length ? '<div class="stage-stats">' + stats.map(function (x) { return '<div><b' + (x.live ? ' data-arrivals data-base="' + esc(x.value) + '"' : '') + '>' + esc(x.value) + '</b><small>' + esc(x.label) + '</small></div>'; }).join('') + '</div>' : '') + '</div>' +
       '<div class="legend"><span><i style="background:#ff5058"></i>Sea freight</span><span><i style="background:#ffd65a"></i>Air freight</span></div>' +
       '<div class="arrive-toast" data-arrive>' + I.box + '<span></span></div>' +
@@ -188,9 +192,10 @@
     globe = SCGGlobe.mount($('canvas', st), {
       cities: db.settings.globeCities,
       onPhase: function (ph) { steps.forEach(function (s, i) { s.classList.toggle('done', i < ph); s.classList.toggle('on', i === ph); }); },
+      onCountry: function (id, name) { var f = $('[data-from]', st); if (f) { f.style.opacity = 0; setTimeout(function () { f.textContent = name; f.style.opacity = 1; }, 250); } },
       onArrive: function (n, origin) {
         if (live && !isNaN(base)) live.textContent = (base + n).toLocaleString('en-US');
-        $('span', toastEl).innerHTML = '<b>Arrived:</b> parcel from ' + esc(origin.name) + ' reached Colombo';
+        $('span', toastEl).innerHTML = '<b>Arrived:</b> parcel from ' + esc(origin.name) + ', ' + esc(origin.countryName) + ' reached Colombo';
         toastEl.classList.add('show'); clearTimeout(tid); tid = setTimeout(function () { toastEl.classList.remove('show'); }, 2600);
       }
     });
@@ -214,7 +219,7 @@
     var parts = {
       services: function () {
         var list = s.services || []; if (!list.length) return '';
-        return '<section class="panel sec services" style="grid-template-columns:repeat(' + Math.min(8, list.length) + ',1fr)">' + list.map(function (v) { return '<a class="svc" href="' + esc(v.link || '#') + '"><span class="ic" style="--c:' + esc(v.color || '#0b2a6f') + '">' + svcIcon(v.icon) + '</span>' + esc(v.label) + '</a>'; }).join('') + '</section>';
+        return '<section class="panel sec services" style="--n:' + Math.min(8, list.length) + '">' + list.map(function (v) { return '<a class="svc" href="' + esc(v.link || '#') + '"><span class="ic" style="--c:' + esc(v.color || '#0b2a6f') + '">' + svcIcon(v.icon) + '</span>' + esc(v.label) + '</a>'; }).join('') + '</section>';
       },
       flash: function () {
         if (!flash.length) return '';
@@ -228,7 +233,7 @@
       },
       banners: function () {
         if (!banners.length) return '';
-        return '<section class="sec banners">' + banners.slice(0, 6).map(function (h) {
+        return '<section class="sec banners" style="--n:' + Math.min(3, banners.length) + '">' + banners.slice(0, 6).map(function (h) {
           var key = String(h.link || '').split('/')[1] || '';
           var items = db.products.filter(function (p) { return p.category === key || (p.collections || []).indexOf(key) > -1; }).slice(0, 2);
           if (!items.length) items = db.products.filter(function (p) { return p.shape === h.shape; }).slice(0, 2);
@@ -236,6 +241,16 @@
             '<div class="stack">' + (h.image ? '<div><img src="' + h.image + '" alt="" style="border-radius:8px;height:100%;object-fit:cover"></div>' : items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
         }).join('') + '</section>';
       },
+      countries: function (sec) {
+        var list = activeOrigins(); if (!list.length) return '';
+        return '<section class="sec"><div class="sec-head"><h2>' + esc(sec.title || 'Shop by Country') + '</h2><a class="more" href="#china-direct">How importing works</a></div><div class="countries">' +
+          list.map(function (o) {
+            var n = db.products.filter(function (p) { return p.origin === o.id; }).length;
+            return '<a class="country" href="#from/' + o.id + '">' + codeBadge(o.code) + '<b>' + esc(o.name) + '</b><small>' + n + ' products · ' + esc(o.days) + ' days</small></a>';
+          }).join('') +
+          '<a class="country local" href="#from/local">' + codeBadge('LK') + '<b>Colombo stock</b><small>' + db.products.filter(function (p) { return !p.origin || p.origin === 'local'; }).length + ' products · ' + esc(s.localDays) + ' days</small></a></div></section>';
+      },
+      electronics: function (sec) { return rail(sec.title || 'Electronics', '#col/electronics', db.products.filter(function (p) { return (p.collections || []).indexOf('electronics') > -1; }).sort(function (a, b) { return b.sold - a.sold; }).slice(0, 12)); },
       china: function (sec) { return rail(sec.title || 'China Direct', '#col/china-direct', db.products.filter(function (p) { return p.origin === 'china'; }).sort(function (a, b) { return SCG.discount(b) - SCG.discount(a); }).slice(0, 12)); },
       best: function (sec) { return rail(sec.title || 'Best Sellers', '#col/best-sellers', db.products.slice().sort(function (a, b) { return b.sold - a.sold; }).slice(0, 12)); },
       jfy: function (sec) {
@@ -292,6 +307,7 @@
     if (kind === 'c') { var c = SCG.categoryById(val); if (c) { title = c.name; sub = c.tagline; color = c.icon || color; art = c.shape; st.cats = [c.id]; } }
     if (kind === 'col') { var co = SCG.collectionById(val); if (co) { title = co.name; sub = co.description; color = co.accent; art = 'bag'; st.coll = co.id; } }
     if (kind === 'flash') { title = db.settings.flashTitle || 'Flash Sale'; sub = flashOn() ? 'Huge discounts for a limited time.' : 'This flash sale has ended. Check back soon for new deals.'; color = '#d7141a'; art = 'sneaker'; st.sale = true; st.flashOnly = true; st.sort = 'off'; }
+    if (kind === 'from') { var oi = val === 'local' ? { name: 'Colombo stock', days: db.settings.localDays, local: true } : SCG.originById(val); if (oi) { title = oi.local ? 'Ships from Colombo' : 'Imported from ' + oi.name; sub = 'Delivered to your door in ' + oi.days + ' days.'; color = '#0f766e'; art = 'bag'; st.origins = [val]; } }
     if (kind === 'search') { st.q = val; title = 'Results for “' + val + '”'; sub = ''; if (extra) st.cats = [extra]; }
     setTitle(kind === 'search' ? 'Search' : title);
 
@@ -301,7 +317,7 @@
         '<div class="grp"><h4>Category</h4>' + db.categories.map(function (c) { return '<label><input type="checkbox" name="fc" value="' + c.id + '"' + (st.cats.indexOf(c.id) > -1 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') + '</div>' +
         '<div class="grp"><h4>Price (Rs.)</h4><div class="price-row"><input id="fmin" type="number" min="0" placeholder="Min"><span>–</span><input id="fmax" type="number" min="0" placeholder="Max"></div></div>' +
         '<div class="grp"><h4>Rating</h4>' + [0, 4.5, 4, 3.5].map(function (r) { return '<label><input type="radio" name="fr" value="' + r + '"' + (r === 0 ? ' checked' : '') + '>' + (r ? stars(r) + ' ' + r + ' &amp; up' : 'Any rating') + '</label>'; }).join('') + '</div>' +
-        '<div class="grp"><h4>Shipped from</h4><label><input type="checkbox" name="fo" value="china">China Direct (' + esc(db.settings.chinaDays) + ' days)</label><label><input type="checkbox" name="fo" value="local">Colombo stock (' + esc(db.settings.localDays) + ' days)</label></div>' +
+        '<div class="grp"><h4>Shipped from</h4>' + activeOrigins().map(function (o) { return '<label><input type="checkbox" name="fo" value="' + o.id + '"' + (st.origins.indexOf(o.id) > -1 ? ' checked' : '') + '>' + esc(o.name) + ' (' + esc(o.days) + ' days)</label>'; }).join('') + '<label><input type="checkbox" name="fo" value="local"' + (st.origins.indexOf('local') > -1 ? ' checked' : '') + '>Colombo stock (' + esc(db.settings.localDays) + ' days)</label></div>' +
         '<div class="grp"><h4>Offers</h4><label><input type="checkbox" id="fsale"' + (st.sale ? ' checked' : '') + '>On discount only</label></div>' +
         '<button class="btn full filter-btn" id="fDone">Show results</button>' +
       '</aside><div>' +
@@ -320,7 +336,7 @@
         if (st.min !== '' && p.price < +st.min) return false;
         if (st.max !== '' && p.price > +st.max) return false;
         if (st.rating && p.rating < st.rating) return false;
-        if (st.origins.length && st.origins.indexOf(p.origin) < 0) return false;
+        if (st.origins.length && st.origins.indexOf(p.origin || 'local') < 0) return false;
         if (st.sale && !p.comparePrice) return false;
         if (q) { var c = SCG.categoryById(p.category); if ((p.name + ' ' + p.brand + ' ' + (c ? c.name : '')).toLowerCase().indexOf(q) < 0) return false; }
         return true;
@@ -357,7 +373,7 @@
     var p = SCG.productById(id);
     if (!p) { app.innerHTML = '<div class="wrap"><div class="panel empty" style="margin-top:16px"><h3>Product not found</h3><a class="btn" href="#">Back to home</a></div></div>'; return; }
     setTitle(p.name);
-    var cat = SCG.categoryById(p.category), off = SCG.discount(p), vars = variants(p);
+    var cat = SCG.categoryById(p.category), off = SCG.discount(p), vars = variants(p), imgs = SCG.productImages(p), oi = SCG.originInfo(p);
     var st = { color: vars[0], size: (p.sizes || [])[Math.min(1, (p.sizes || []).length - 1)] || '', qty: 1 };
     var related = db.products.filter(function (x) { return x.category === p.category && x.id !== p.id; }).slice(0, 12);
     var dist = [.62, .22, .09, .04, .03].map(function (k, i) { return Math.round(p.reviews * (p.rating >= 4.5 ? k : [.4, .3, .17, .08, .05][i])); });
@@ -366,7 +382,7 @@
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<a href="#c/' + p.category + '">' + esc(cat ? cat.name : '') + '</a>›<span>' + esc(p.name) + '</span></div>' +
       '<div class="pdp"><div><div class="panel pdp-main">' +
         '<div class="gallery"><div class="big" id="big" style="--c:' + p.color + '">' + visual(p) + '</div>' +
-          '<div class="thumbs" id="thumbs">' + vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('') + '</div></div>' +
+          '<div class="thumbs" id="thumbs">' + (imgs.length > 1 ? imgs.map(function (src, i) { return '<button class="' + (i ? '' : 'on') + '" data-img="' + i + '" aria-label="Photo ' + (i + 1) + '"><img src="' + src + '" alt=""></button>'; }).join('') : imgs.length ? '' : vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('')) + '</div></div>' +
         '<div><h1>' + esc(p.name) + '</h1>' +
           '<div class="sub">' + stars(p.rating) + '<span>' + p.rating + ' · ' + p.reviews + ' ratings</span><span>' + fmtCount(p.sold) + ' sold</span><span>Brand: <a href="#search/' + encodeURIComponent(p.brand) + '">' + esc(p.brand) + '</a></span></div>' +
           (isFlash(p) ? '<div class="flash-strip"><span>⚡ ' + esc(db.settings.flashTitle || 'Flash Sale') + '</span>' + cdHTML() + '</div>' : '') +
@@ -380,14 +396,14 @@
       '</div>' +
       '<aside><div class="panel side-box"><h4>Delivery</h4>' +
         '<div class="side-row">' + I.pin + '<div><b>' + esc(s.address || 'Sri Lanka') + '</b><small>Islandwide delivery</small></div></div>' +
-        (p.origin === 'china'
-          ? '<div class="side-row">' + I.plane + '<div><b>China Direct · ' + esc(s.chinaDays) + ' days</b><small>Shipped from our partner factories in China</small></div></div>'
+        (!oi.local
+          ? '<div class="side-row">' + I.plane + '<div><b>' + esc(oi.label) + ' · ' + esc(oi.days) + ' days</b><small>Shipped from our partners in ' + esc(oi.name) + '</small></div></div>'
           : '<div class="side-row">' + I.truck + '<div><b>Standard · ' + esc(s.localDays) + ' days</b><small>In stock at our Colombo warehouse</small></div></div>') +
         '<div class="side-row">' + I.cash + '<div><b>' + (s.payCOD ? 'Cash on Delivery available' : 'Secure payment') + '</b><small>' + (s.freeShipping ? 'Free delivery over ' + money(s.freeShipping) : '') + '</small></div></div>' +
         '<h4 style="margin-top:14px">Service</h4>' +
         '<div class="side-row">' + I.swap + '<div><b>' + esc(s.returnDays) + '-day easy returns</b><small>Change of mind is not applicable</small></div></div>' +
-        '<div class="side-row">' + I.shield + '<div><b>Quality checked</b><small>Inspected before it leaves China</small></div></div>' +
-        (p.origin === 'china' ? '<div class="route-mini"><b>Shipping route</b><div class="line">🇨🇳 ' + 'China<i></i>Colombo 🇱🇰</div></div>' : '') +
+        '<div class="side-row">' + I.shield + '<div><b>Quality checked</b><small>' + (oi.local ? 'Checked at our Colombo warehouse' : 'Inspected before it leaves ' + esc(oi.name)) + '</small></div></div>' +
+        (!oi.local ? '<div class="route-mini"><b>Shipping route</b><div class="line">' + codeBadge(oi.code) + ' ' + esc(oi.name) + '<i></i>Colombo ' + codeBadge('LK') + '</div></div>' : '') +
       '</div><div class="panel side-box" style="margin-top:12px"><h4>Sold by</h4><div class="seller"><img src="assets/logo.jpg" alt=""><div><b>Source Connect Global</b><small style="display:block;color:var(--muted)">Official store</small></div></div>' +
         '<div class="seller-stats">' + (s.sellerStats || []).map(function (x) { return '<div><b>' + esc(x.value) + '</b><small>' + esc(x.label) + '</small></div>'; }).join('') + '</div></div></aside></div>' +
       (related.length ? rail('More from ' + (cat ? cat.name : 'this category'), '#c/' + p.category, related) : '') +
@@ -395,12 +411,13 @@
 
     function tab(t) {
       $$('#ptabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); });
-      $('#pbody').innerHTML = t === 'd' ? '<p style="margin-top:0">' + esc(p.description) + '</p><ul style="color:var(--muted)"><li>Brand: ' + esc(p.brand) + '</li><li>' + (p.origin === 'china' ? 'Ships directly from China (' + esc(s.chinaDays) + ' days)' : 'Ships from Colombo (' + esc(s.localDays) + ' days)') + '</li>' + (s.payCOD ? '<li>Cash on Delivery available islandwide</li>' : '') + '</ul>'
-        : t === 's' ? '<table class="spec"><tr><td>Brand</td><td>' + esc(p.brand) + '</td></tr><tr><td>Category</td><td>' + esc(cat ? cat.name : '') + '</td></tr><tr><td>SKU</td><td>' + esc(p.id.toUpperCase()) + '</td></tr>' + ((p.sizes || []).length ? '<tr><td>Sizes</td><td>' + esc(p.sizes.join(', ')) + '</td></tr>' : '') + '<tr><td>Origin</td><td>' + (p.origin === 'china' ? 'China' : 'Sri Lanka stock') + '</td></tr><tr><td>In stock</td><td>' + p.stock + '</td></tr></table>'
+      $('#pbody').innerHTML = t === 'd' ? '<p style="margin-top:0">' + esc(p.description) + '</p><ul style="color:var(--muted)"><li>Brand: ' + esc(p.brand) + '</li><li>' + (oi.local ? 'Ships from Colombo (' + esc(oi.days) + ' days)' : 'Imported from ' + esc(oi.name) + ' (' + esc(oi.days) + ' days)') + '</li>' + (s.payCOD ? '<li>Cash on Delivery available islandwide</li>' : '') + '</ul>'
+        : t === 's' ? '<table class="spec"><tr><td>Brand</td><td>' + esc(p.brand) + '</td></tr><tr><td>Category</td><td>' + esc(cat ? cat.name : '') + '</td></tr><tr><td>SKU</td><td>' + esc(p.id.toUpperCase()) + '</td></tr>' + ((p.sizes || []).length ? '<tr><td>Sizes</td><td>' + esc(p.sizes.join(', ')) + '</td></tr>' : '') + '<tr><td>Ships from</td><td>' + (oi.local ? 'Colombo stock' : esc(oi.name)) + '</td></tr><tr><td>In stock</td><td>' + p.stock + '</td></tr></table>'
           : '<div class="rating-sum"><div><div class="big">' + p.rating + '<small style="font-size:18px;color:var(--muted)">/5</small></div>' + stars(p.rating) + '<div style="color:var(--muted);font-size:12px">' + p.reviews + ' ratings</div></div><div class="rbars">' + dist.map(function (n, i) { return '<div><span>' + (5 - i) + '★</span><i><em style="width:' + (p.reviews ? n / p.reviews * 100 : 0) + '%"></em></i><span>' + n + '</span></div>'; }).join('') + '</div></div>';
     }
     tab('d');
     $('#ptabs').onclick = function (e) { var b = e.target.closest('button'); if (b) tab(b.dataset.t); };
+    $('#thumbs').addEventListener('click', function (e) { var b = e.target.closest('[data-img]'); if (!b) return; $('#big').innerHTML = '<img src="' + imgs[+b.dataset.img] + '" alt="' + esc(p.name) + '">'; $$('#thumbs button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     function pick(c) { st.color = c; $('#big').innerHTML = visual(p, c); ['#thumbs', '#sw'].forEach(function (s) { if ($(s)) $$('button', $(s)).forEach(function (b) { b.classList.toggle('on', b.dataset.c === c); }); }); }
     ['#thumbs', '#sw'].forEach(function (s) { if ($(s)) $(s).onclick = function (e) { var b = e.target.closest('button'); if (b) pick(b.dataset.c); }; });
     if ($('#sz')) $('#sz').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; st.size = b.dataset.s; $$('#sz button').forEach(function (x) { x.classList.toggle('on', x === b); }); };
@@ -434,7 +451,7 @@
   function renderCart() {
     setTitle('Cart');
     var lines = cartLines();
-    if (!lines.length) { app.innerHTML = '<div class="wrap"><div class="panel empty" style="margin-top:16px"><h3>Your cart is empty</h3><p>Browse flash deals and China Direct prices to get started.</p><a class="btn" href="#flash">Shop Flash Sale</a></div></div>'; return; }
+    if (!lines.length) { app.innerHTML = '<div class="wrap"><div class="panel empty" style="margin-top:16px"><h3>Your cart is empty</h3><p>Browse flash deals and imports from around the world to get started.</p><a class="btn" href="#flash">Shop Flash Sale</a></div></div>'; return; }
     var t = totals(lines);
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>Cart</span></div><div class="cart-wrap"><div class="panel">' +
       '<div class="cart-row" style="grid-template-columns:24px 1fr auto;padding:12px 14px"><input type="checkbox" id="selAll"' + (lines.every(function (x) { return x.l.sel !== false; }) ? ' checked' : '') + ' aria-label="Select all"><b>Select all (' + lines.length + ')</b><button class="rm" id="delSel">' + I.trash + '</button></div>' +
@@ -472,7 +489,9 @@
     setTitle('Checkout');
     var lines = cartLines().filter(function (x) { return x.l.sel !== false; });
     if (!lines.length) { location.hash = 'cart'; return; }
-    var t = totals(lines), china = lines.some(function (x) { return x.p.origin === 'china'; }), s = db.settings;
+    var t = totals(lines), s = db.settings, imported = {};
+    lines.forEach(function (x) { var o = SCG.originInfo(x.p); if (!o.local) imported[o.name] = o.days; });
+    var impNames = Object.keys(imported);
     var districts = ['Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya', 'Galle', 'Matara', 'Hambantota', 'Jaffna', 'Kilinochchi', 'Mannar', 'Vavuniya', 'Mullaitivu', 'Batticaloa', 'Ampara', 'Trincomalee', 'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla', 'Moneragala', 'Ratnapura', 'Kegalle'];
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<a href="#cart">Cart</a>›<span>Checkout</span></div><div class="cart-wrap">' +
       '<form class="panel form" id="co"><h3>Delivery information</h3>' +
@@ -485,7 +504,7 @@
       '<h3 style="margin-top:6px">Payment method</h3><div class="pay-opts full">' +
       (s.payCOD !== false ? '<label class="pay-opt"><input type="radio" name="pay" value="Cash on Delivery" required>' + I.cash + '<span><b>Cash on Delivery</b><br><small>Pay when your order arrives</small></span></label>' : '') +
       (s.payBank ? '<label class="pay-opt"><input type="radio" name="pay" value="Bank Transfer" required>' + I.shield + '<span><b>Bank Transfer</b><br><small>Bank details are shown after you place the order</small></span></label>' : '') + '</div>' +
-      (china ? '<p class="full" style="margin:0;font-size:12.5px;color:var(--muted)">' + I.plane.replace('<svg', '<svg style="width:14px;height:14px;vertical-align:-2px"') + ' Some items ship from China and arrive in ' + esc(s.chinaDays) + ' days.</p>' : '') +
+      (impNames.length ? '<p class="full" style="margin:0;font-size:12.5px;color:var(--muted)">' + I.plane.replace('<svg', '<svg style="width:14px;height:14px;vertical-align:-2px"') + ' Imported items: ' + impNames.map(function (n) { return esc(n) + ' ' + esc(imported[n]) + ' days'; }).join(', ') + '.</p>' : '') +
       '<button class="btn lg full" style="grid-column:1/-1">Place Order · ' + money(t.total) + '</button></form>' +
       '<aside class="panel summary"><h3>Your order</h3>' + lines.map(function (x) { return '<div class="sum-row" style="gap:10px"><span style="color:var(--text)">' + esc(x.p.name) + ' <small style="color:var(--muted)">×' + x.l.qty + (x.l.size ? ' · ' + esc(x.l.size) : '') + '</small></span><span>' + money(x.p.price * x.l.qty) + '</span></div>'; }).join('') +
       '<div class="sum-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px"><span>Subtotal</span><span>' + money(t.sub) + '</span></div><div class="sum-row"><span>Delivery</span><span>' + (t.ship ? money(t.ship) : 'FREE') + '</span></div>' +
@@ -542,12 +561,13 @@
       db.categories.map(function (c) { var n = db.products.filter(function (p) { return p.category === c.id; }).length; return '<a class="cat" href="#c/' + c.id + '" style="--c:' + (c.icon || '#0b2a6f') + '"><span class="ci">' + catIcon(c) + '</span>' + esc(c.name) + '<small style="color:var(--muted)">' + n + ' items</small></a>'; }).join('') + '</div></div>';
   }
   function renderChinaDirect() {
-    setTitle('How China Direct works');
+    setTitle('How importing works');
     var steps = (db.settings.chinaSteps || []).map(function (x) { return [esc(x.title), esc(x.text)]; });
-    app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>How China Direct works</span></div>' +
+    app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>How importing works</span></div>' +
       '<div class="cd-hero">' + stageHTML('stage2') + '</div>' +
       '<section class="sec"><div class="sec-head"><h2>From the factory to your door in 5 steps</h2></div><div class="steps">' + steps.map(function (s, i) { return '<div class="panel step reveal" style="animation-delay:' + i * .08 + 's"><div class="n">' + (i + 1) + '</div><h4>' + s[0] + '</h4><p>' + s[1] + '</p></div>'; }).join('') + '</div></section>' +
-      faq() + rail('Shop China Direct', '#col/china-direct', db.products.filter(function (p) { return p.origin === 'china'; }).slice(0, 12)) + '</div>';
+      '<section class="sec"><div class="sec-head"><h2>Where we import from</h2></div><div class="countries">' + activeOrigins().map(function (o) { return '<a class="country" href="#from/' + o.id + '">' + codeBadge(o.code) + '<b>' + esc(o.name) + '</b><small>' + esc(o.days) + ' days to Sri Lanka</small></a>'; }).join('') + '</div></section>' +
+      faq() + rail('Shop Global Imports', '#col/global-imports', db.products.filter(function (p) { return p.origin && p.origin !== 'local'; }).slice(0, 12)) + '</div>';
     $('.cd-hero .stage').style.minHeight = '480px';
     mountGlobe('stage2');
   }
@@ -588,7 +608,7 @@
     $$('.navbar a').forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + h); });
     $$('.bottom-nav a').forEach(function (a) { a.classList.toggle('on', a.dataset.bn === (k || 'home')); });
     if (k === 'p') renderPDP(v);
-    else if (k === 'c' || k === 'col' || k === 'flash' || k === 'search' || k === 'shop') renderListing(k, v, x);
+    else if (k === 'c' || k === 'col' || k === 'flash' || k === 'search' || k === 'shop' || k === 'from') renderListing(k, v, x);
     else if (k === 'cart') renderCart();
     else if (k === 'checkout') renderCheckout();
     else if (k === 'wishlist') renderWishlist();
