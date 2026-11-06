@@ -25,7 +25,8 @@
     trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
     check: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>',
     filter: '<svg viewBox="0 0 24 24"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></svg>',
-    arrow: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+    arrow: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    user: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4.5-7 8-7s7 2.5 8 7"/></svg>'
   };
 
   /* ---------------- helpers ---------------- */
@@ -500,10 +501,15 @@
     lines.forEach(function (x) { var o = SCG.originInfo(x.p); if (!o.local) imported[o.name] = o.days; });
     var impNames = Object.keys(imported);
     var districts = ['Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya', 'Galle', 'Matara', 'Hambantota', 'Jaffna', 'Kilinochchi', 'Mannar', 'Vavuniya', 'Mullaitivu', 'Batticaloa', 'Ampara', 'Trincomalee', 'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla', 'Moneragala', 'Ratnapura', 'Kegalle'];
+    var prof = SCG.getProfile();
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<a href="#cart">Cart</a>›<span>Checkout</span></div><div class="cart-wrap">' +
-      '<form class="panel form" id="co"><h3>Delivery information</h3>' +
+      '<form class="panel form" id="co">' +
+      (prof ? '<div class="acct-note full">' + avatar(prof) + '<span>Ordering as <b>' + esc(prof.name) + '</b> · ' + esc(prof.phone) + '<br><small>Your saved details are filled in. Change anything below and we will update your profile.</small></span><a href="#account" class="link-sm">My account</a></div>'
+        : '<div class="acct-note full new">' + I.user + '<span><b>First order?</b> We create your Source Connect account from these details, so next time checkout is one click and you can see all your orders.</span></div>') +
+      '<h3>Delivery information</h3>' +
       '<label>Full name<input name="name" required autocomplete="name" placeholder="e.g. Nimal Perera"></label>' +
       '<label>Phone number<input name="phone" required pattern="[0-9+ ]{9,15}" autocomplete="tel" placeholder="07X XXX XXXX"></label>' +
+      '<label class="full">Email (optional, for order updates)<input name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>' +
       '<label class="full">Address<input name="address" required autocomplete="street-address" placeholder="House no, street, area"></label>' +
       '<label>City<input name="city" required placeholder="e.g. Nugegoda"></label>' +
       '<label>District<select name="district">' + districts.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select></label>' +
@@ -517,22 +523,30 @@
       '<div class="sum-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px"><span>Subtotal</span><span>' + money(t.sub) + '</span></div><div class="sum-row"><span>Delivery</span><span>' + (t.ship ? money(t.ship) : 'FREE') + '</span></div>' +
       '<div class="sum-row total"><span>Total</span><span>' + money(t.total) + '</span></div></aside></div></div>';
     var firstPay = $('#co input[name=pay]'); if (firstPay) firstPay.checked = true;
+    if (prof) { var E = $('#co').elements; ['name', 'phone', 'email', 'address', 'city', 'district'].forEach(function (k) { if (prof[k]) E[k].value = prof[k]; }); }
     $('#co').onsubmit = function (e) {
       e.preventDefault();
       var fd = new FormData(e.target), orders = SCG.getOrders();
       var order = {
         id: 'SCG' + Date.now().toString().slice(-7), date: new Date().toISOString(), status: 'Pending', payment: fd.get('pay') || 'Cash on Delivery',
-        customer: { name: fd.get('name'), phone: fd.get('phone'), address: fd.get('address') + ', ' + fd.get('city') + ', ' + fd.get('district'), note: fd.get('note') },
+        customer: { name: fd.get('name'), phone: fd.get('phone'), email: fd.get('email') || '', address: fd.get('address') + ', ' + fd.get('city') + ', ' + fd.get('district'), note: fd.get('note') },
         items: lines.map(function (x) { return { id: x.p.id, name: x.p.name, size: x.l.size, color: x.l.color, qty: x.l.qty, price: x.p.price, origin: x.p.origin }; }),
         subtotal: t.sub, shipping: t.ship, total: t.total
       };
-      orders.unshift(order); SCG.saveOrders(orders);
+      // create the customer's profile on the first order, or refresh it with the latest details
+      var p0 = SCG.getProfile(), isNewProfile = !p0 || SCG.phoneKey(p0.phone) !== SCG.phoneKey(fd.get('phone'));
+      var profile = isNewProfile ? { id: SCG.uid('cust'), createdAt: new Date().toISOString(), source: 'first order' } : p0;
+      ['name', 'phone', 'email', 'address', 'city', 'district'].forEach(function (k) { var v = String(fd.get(k) || '').trim(); if (v || k !== 'email') profile[k] = v; });
+      profile.lastOrderAt = order.date;
+      SCG.saveProfile(profile); order.customer.profileId = profile.id;
+      orders.unshift(order); SCG.saveOrders(orders); updateAccount();
       lines.forEach(function (x) { x.p.stock = Math.max(0, (x.p.stock || 0) - x.l.qty); x.p.sold = (x.p.sold || 0) + x.l.qty; }); SCG.save();
       SCG.saveCart(SCG.getCart().filter(function (l) { return l.sel === false; })); updateCounts();
       app.innerHTML = '<div class="wrap"><div class="panel success" style="margin-top:16px"><div class="tick">' + I.check + '</div><h2 style="margin:0 0 6px">Thank you! Your order is placed.</h2>' +
         '<p>Order number <b>' + order.id + '</b> · Total <b>' + money(order.total) + '</b></p><p style="color:var(--muted)">We will call ' + esc(order.customer.phone) + ' to confirm. Keep your order number to track it.</p>' +
         (order.payment === 'Bank Transfer' && s.bankDetails ? '<p class="free-note need" style="max-width:520px;margin:12px auto"><b>Bank transfer details:</b><br>' + esc(s.bankDetails) + '<br>Use <b>' + order.id + '</b> as the reference.</p>' : '') +
-        '<div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap"><a class="btn navy" href="#track/' + order.id + '">Track order</a><a class="btn line" href="#">Continue shopping</a></div></div></div>';
+        (isNewProfile ? '<div class="acct-created">' + avatar(profile) + '<div><b>Your Source Connect account is ready, ' + esc(profile.name.split(' ')[0]) + '!</b><br><small>We saved your details from this order. Next time checkout is filled in for you, and all your orders are in My Account.</small></div></div>' : '') +
+        '<div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap"><a class="btn navy" href="#track/' + order.id + '">Track order</a><a class="btn" href="#account">My account</a><a class="btn line" href="#">Continue shopping</a></div></div></div>';
       scrollTo(0, 0);
     };
   }
@@ -604,6 +618,75 @@
     if (a) { e.preventDefault(); addToCart(a.dataset.add); }
   });
 
+  /* ---------------- customer account ---------------- */
+  function avatar(p) { var n = String(p.name || '?').trim().split(/\s+/); return '<span class="avatar">' + esc((n[0][0] || '?') + (n[1] ? n[1][0] : '')).toUpperCase() + '</span>'; }
+  function updateAccount() {
+    var p = SCG.getProfile(), el = $('#accName');
+    if (el) el.textContent = p ? p.name.split(' ')[0] : 'Account';
+    var b = $('#accBtn'); if (b) b.classList.toggle('signed', !!p);
+  }
+  var TRACK_IDX = { Pending: 0, Confirmed: 1, Shipped: 2, 'Arrived in Sri Lanka': 3, Delivered: 4 };
+  function renderAccount() {
+    setTitle('My account');
+    var p = SCG.getProfile();
+    if (!p) {
+      app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>My account</span></div><div class="acct-grid">' +
+        '<div class="panel acct-empty">' + I.user + '<h2>Your account is created with your first order</h2><p>No sign-up form. When you check out, we save your name, phone and address as your Source Connect profile on this device.</p><a class="btn" href="#">Start shopping</a>' +
+          '<button class="btn google" disabled title="Coming soon">' + googleG() + 'Sign in with Google <small>coming soon</small></button></div>' +
+        '<form class="panel form" id="findAcc"><h3>Already ordered on this device?</h3><p class="full" style="margin:0;color:var(--muted);font-size:13px">Enter the phone number you used and one of your order numbers.</p>' +
+          '<label>Phone number<input name="phone" required placeholder="07X XXX XXXX"></label><label>Order number<input name="order" required placeholder="SCG1234567"></label>' +
+          '<button class="btn navy full" style="grid-column:1/-1">Find my account</button><p class="full" id="findMsg" style="margin:0;color:var(--red)"></p></form></div></div>';
+      $('#findAcc').onsubmit = function (e) {
+        e.preventDefault(); var E = e.target.elements, key = SCG.phoneKey(E.phone.value), id = E.order.value.trim().toUpperCase();
+        var o = SCG.getOrders().filter(function (x) { return x.id.toUpperCase() === id && SCG.phoneKey(x.customer.phone) === key; })[0];
+        if (!o) { $('#findMsg').textContent = 'No order with that number and phone on this device. Orders are kept on the device they were placed on.'; return; }
+        var parts = String(o.customer.address || '').split(', ');
+        SCG.saveProfile({ id: o.customer.profileId || SCG.uid('cust'), createdAt: o.date, source: 'found from order', name: o.customer.name, phone: o.customer.phone, email: o.customer.email || '',
+          district: parts.length > 2 ? parts.pop() : '', city: parts.length > 1 ? parts.pop() : '', address: parts.join(', '), lastOrderAt: o.date });
+        updateAccount(); toast('Welcome back, ' + o.customer.name.split(' ')[0] + '!'); renderAccount();
+      };
+      return;
+    }
+    var orders = SCG.profileOrders(p), spent = orders.filter(function (o) { return o.status !== 'Cancelled'; }).reduce(function (s, o) { return s + o.total; }, 0);
+    var districts = ['Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya', 'Galle', 'Matara', 'Hambantota', 'Jaffna', 'Kilinochchi', 'Mannar', 'Vavuniya', 'Mullaitivu', 'Batticaloa', 'Ampara', 'Trincomalee', 'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla', 'Moneragala', 'Ratnapura', 'Kegalle'];
+    app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>My account</span></div>' +
+      '<div class="panel acct-head">' + avatar(p) + '<div><h2>Hello, ' + esc(p.name.split(' ')[0]) + '</h2><small>Member since ' + new Date(p.createdAt).toLocaleDateString() + ' · created from your ' + esc(p.source || 'first order') + '</small></div>' +
+        '<div class="acct-stats"><div><b>' + orders.length + '</b><small>Orders</small></div><div><b>' + money(spent) + '</b><small>Total spent</small></div><div><b>' + SCG.getWish().length + '</b><small>Wishlist</small></div></div></div>' +
+      '<div class="acct-grid"><div class="panel"><div class="sec-head" style="padding:14px 16px 0"><h2 style="font-size:17px">My orders</h2></div>' +
+        (orders.length ? orders.map(function (o) {
+          var idx = TRACK_IDX[o.status];
+          return '<div class="acct-order"><div class="ao-top"><b>' + esc(o.id) + '</b><span class="ao-status ' + (o.status === 'Cancelled' ? 'x' : o.status === 'Delivered' ? 'ok' : '') + '">' + esc(o.status) + '</span><span class="muted">' + new Date(o.date).toLocaleDateString() + '</span><b class="ao-total">' + money(o.total) + '</b></div>' +
+            '<div class="ao-items">' + o.items.slice(0, 4).map(function (it) { var pr = SCG.productById(it.id); return '<a href="#p/' + esc(it.id) + '" class="ao-th" title="' + esc(it.name) + '" style="background:' + SCG.shade((pr && pr.color) || it.color || '#0b2a6f', 175) + '">' + (pr ? visual(pr, it.color) : '') + '</a>'; }).join('') +
+            '<span class="muted" style="font-size:12.5px">' + o.items.reduce(function (s, it) { return s + it.qty; }, 0) + ' item(s)</span></div>' +
+            (o.status !== 'Cancelled' ? '<div class="ao-bar">' + [0, 1, 2, 3, 4].map(function (i) { return '<i class="' + (i <= idx ? 'on' : '') + '"></i>'; }).join('') + '</div>' : '') +
+            '<div class="ao-actions"><a class="link-sm" href="#track/' + o.id + '">Track</a><button class="link-sm" data-reorder="' + o.id + '">Buy again</button></div></div>';
+        }).join('') : '<p class="empty">No orders yet.</p>') + '</div>' +
+      '<div><form class="panel form" id="profForm"><h3>My details</h3>' +
+        '<label class="full">Full name<input name="name" required value="' + esc(p.name) + '"></label>' +
+        '<label>Phone<input name="phone" required pattern="[0-9+ ]{9,15}" value="' + esc(p.phone) + '"></label>' +
+        '<label>Email<input name="email" type="email" value="' + esc(p.email || '') + '"></label>' +
+        '<label class="full">Address<input name="address" value="' + esc(p.address || '') + '"></label>' +
+        '<label>City<input name="city" value="' + esc(p.city || '') + '"></label>' +
+        '<label>District<select name="district">' + districts.map(function (d) { return '<option' + (d === p.district ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></label>' +
+        '<button class="btn navy full" style="grid-column:1/-1">Save details</button></form>' +
+      '<div class="panel acct-side"><button class="btn google" disabled title="Coming soon">' + googleG() + 'Link Google account <small>coming soon</small></button>' +
+        '<a class="btn line full" href="#wishlist">My wishlist</a><button class="btn line full" id="signOut">Sign out on this device</button>' +
+        '<p class="muted" style="font-size:12px;margin:0">Your profile is saved on this device only. Signing out removes it from this device; your orders stay with us.</p></div></div></div></div>';
+    $('#profForm').onsubmit = function (e) {
+      e.preventDefault(); var E = e.target.elements;
+      ['name', 'phone', 'email', 'address', 'city', 'district'].forEach(function (k) { p[k] = E[k].value.trim(); });
+      SCG.saveProfile(p); updateAccount(); toast('Your details are saved');
+    };
+    $('#signOut').onclick = function () { SCG.clearProfile(); updateAccount(); toast('Signed out on this device'); renderAccount(); };
+    app.onclick = function (e) {
+      var b = e.target.closest('[data-reorder]'); if (!b) return;
+      var o = orders.filter(function (x) { return x.id === b.dataset.reorder; })[0], added = 0;
+      o.items.forEach(function (it) { if (SCG.productById(it.id)) { addToCart(it.id, it.size, it.qty, it.color); added++; } });
+      if (added) location.hash = 'cart'; else toast('These products are no longer available');
+    };
+  }
+  function googleG() { return '<svg viewBox="0 0 48 48" style="width:18px;height:18px;stroke:none"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 38.9 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>'; }
+
   /* ---------------- admin edit bar ---------------- */
   // The bar is only shown in edit mode: switched on from the admin panel ("Edit on Website"),
   // on a browser where the admin is signed in. Customers never see it.
@@ -640,6 +723,7 @@
     else if (k === 'cart') renderCart();
     else if (k === 'checkout') renderCheckout();
     else if (k === 'wishlist') renderWishlist();
+    else if (k === 'account') renderAccount();
     else if (k === 'track') renderTrack(v);
     else if (k === 'categories') renderCategories();
     else if (k === 'china-direct') renderChinaDirect();
@@ -656,6 +740,7 @@
 
   renderChrome();
   bindChrome();
+  updateAccount();
   window.addEventListener('hashchange', route);
   route();
 })();

@@ -10,6 +10,7 @@
   var ORDERS_KEY = 'scg_orders_v1';
   var CART_KEY = 'scg_cart_v2';
   var WISH_KEY = 'scg_wish_v1';
+  var PROFILE_KEY = 'scg_profile_v1';
 
   /* ---------- Product illustrations (SVG, viewBox 0 0 200 200) ----------
      body   : main silhouette, filled with the product colour
@@ -450,6 +451,17 @@
   function saveCart(c) { safeSet(CART_KEY, JSON.stringify(c)); }
   function getWish() { return getJSON(WISH_KEY, '[]'); }
   function saveWish(w) { safeSet(WISH_KEY, JSON.stringify(w)); }
+  /* Customer profile, saved on this device. Created automatically from the first order's
+     checkout details. (Sign in with Google can be connected later through a backend.) */
+  function getProfile() { var p = getJSON(PROFILE_KEY, 'null'); return p && p.phone ? p : null; }
+  function saveProfile(p) { safeSet(PROFILE_KEY, JSON.stringify(p)); }
+  function clearProfile() { try { localStorage.removeItem(PROFILE_KEY); } catch (e) {} }
+  function phoneKey(ph) { return String(ph || '').replace(/\D/g, '').slice(-9); }
+  function profileOrders(p) {
+    if (!p) return [];
+    var key = phoneKey(p.phone);
+    return getOrders().filter(function (o) { return o.customer && (o.customer.profileId === p.id || phoneKey(o.customer.phone) === key); });
+  }
 
   /** Resize an uploaded image File to a compact JPEG data URL. */
   function imageToDataURL(file, max) {
@@ -483,8 +495,9 @@
     productSVG: productSVG, garmentSVG: garmentSVG, productVisual: productVisual, shade: shade,
     categoryById: categoryById, collectionById: collectionById, productById: productById,
     origins: origins, originById: originById, originInfo: originInfo, productImages: productImages, collectionProducts: collectionProducts, storageUsed: storageUsed, DEFAULT_ORIGINS: DEFAULT_ORIGINS,
+    getProfile: getProfile, saveProfile: saveProfile, clearProfile: clearProfile, profileOrders: profileOrders, phoneKey: phoneKey,
     getOrders: getOrders, saveOrders: saveOrders, getCart: getCart, saveCart: saveCart, getWish: getWish, saveWish: saveWish,
     imageToDataURL: imageToDataURL,
-    keys: { DB_KEY: DB_KEY, ORDERS_KEY: ORDERS_KEY, CART_KEY: CART_KEY, WISH_KEY: WISH_KEY }
+    keys: { PROFILE_KEY: PROFILE_KEY, DB_KEY: DB_KEY, ORDERS_KEY: ORDERS_KEY, CART_KEY: CART_KEY, WISH_KEY: WISH_KEY }
   };
 })(window);

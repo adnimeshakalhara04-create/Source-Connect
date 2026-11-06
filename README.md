@@ -15,6 +15,7 @@ A marketplace-style fashion store for **Source Connect Global**: products source
 - Listing pages with filters (category, price, rating, shipped from China or Colombo, discount) and sorting
 - Product page: colour variants, sizes, quantity, hover zoom, delivery panel (China Direct 10–14 days or Colombo 2–4 days), specifications, ratings breakdown, related products
 - Cart with select / delete, free-delivery threshold, checkout with all 25 districts, Cash on Delivery or bank transfer
+- **Customer accounts without a sign-up form**: the first order's checkout details (name, phone, email, address) automatically become the customer's profile. Next time checkout is pre-filled; **My Account** shows their orders with progress, Buy again, editable details and sign out. “Sign in with Google” is shown as coming soon (needs a backend)
 - Order tracking, wishlist, a "How China Direct works" page with FAQ, and a mobile bottom navigation bar
 
 ## Admin panel (Seller Center)

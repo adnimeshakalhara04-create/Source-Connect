@@ -955,17 +955,20 @@
     var map = {};
     orders().forEach(function (o) {
       var key = String(o.customer.phone).replace(/\D/g, '').slice(-9);
-      var c = map[key] = map[key] || { name: o.customer.name, phone: o.customer.phone, address: o.customer.address, n: 0, spent: 0, last: o.date };
+      var c = map[key] = map[key] || { name: o.customer.name, phone: o.customer.phone, email: '', address: o.customer.address, n: 0, spent: 0, last: o.date, first: o.date, account: false };
+      if (o.customer.profileId) c.account = true;
+      if (o.customer.email) c.email = o.customer.email;
+      if (o.date < c.first) c.first = o.date;
       c.n++; if (o.status !== 'Cancelled') c.spent += o.total;
       if (o.date > c.last) { c.last = o.date; c.address = o.customer.address; c.name = o.customer.name; }
     });
     var list = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.spent - a.spent; });
     var focus = arg ? String(arg).replace(/\D/g, '').slice(-9) : '';
     v.innerHTML = list.length ? '<div class="filters"><input id="cq" type="search" placeholder="Search name or phone…"><span class="muted" style="align-self:center">' + list.length + ' customers</span></div>' +
-      '<div class="table-wrap"><table><thead><tr><th>Customer</th><th>Phone</th><th>Address</th><th>Orders</th><th>Total spent</th><th>Last order</th><th></th></tr></thead><tbody id="ctb">' +
+      '<div class="table-wrap"><table><thead><tr><th>Customer</th><th>Phone / email</th><th>Address</th><th>Orders</th><th>Total spent</th><th>Last order</th><th></th></tr></thead><tbody id="ctb">' +
       list.map(function (c) {
         var key = String(c.phone).replace(/\D/g, '').slice(-9);
-        return '<tr data-n="' + esc((c.name + c.phone).toLowerCase()) + '"' + (focus === key ? ' class="sel"' : '') + '><td><b>' + esc(c.name) + '</b></td><td>' + esc(c.phone) + '</td><td><small>' + esc(c.address) + '</small></td><td>' + c.n + '</td><td><b>' + money(c.spent) + '</b></td><td><small>' + new Date(c.last).toLocaleDateString() + '</small></td>' +
+        return '<tr data-n="' + esc((c.name + c.phone).toLowerCase()) + '"' + (focus === key ? ' class="sel"' : '') + '><td><b>' + esc(c.name) + '</b><br>' + (c.account ? '<span class="tag ok">Account since ' + new Date(c.first).toLocaleDateString() + '</span>' : '<span class="tag">Guest</span>') + '</td><td>' + esc(c.phone) + (c.email ? '<br><small class="muted">' + esc(c.email) + '</small>' : '') + '</td><td><small>' + esc(c.address) + '</small></td><td>' + c.n + '</td><td><b>' + money(c.spent) + '</b></td><td><small>' + new Date(c.last).toLocaleDateString() + '</small></td>' +
           '<td><div class="actions"><a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/' + waNumber(c.phone) + '">WhatsApp</a><a class="btn sm" href="#orders/q:' + encodeURIComponent(c.phone) + '">Orders</a></div></td></tr>';
       }).join('') + '</tbody></table></div>'
       : '<div class="panel" style="text-align:center;padding:50px"><h3>No customers yet</h3><p class="muted">Customers appear here after their first order.</p></div>';
