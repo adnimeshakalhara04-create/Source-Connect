@@ -251,6 +251,12 @@
           '<a class="country local" href="#from/local">' + codeBadge('LK') + '<b>Colombo stock</b><small>' + db.products.filter(function (p) { return !p.origin || p.origin === 'local'; }).length + ' products · ' + esc(s.localDays) + ' days</small></a></div></section>';
       },
       electronics: function (sec) { return rail(sec.title || 'Electronics', '#col/electronics', db.products.filter(function (p) { return (p.collections || []).indexOf('electronics') > -1; }).sort(function (a, b) { return b.sold - a.sold; }).slice(0, 12)); },
+      collections: function () {
+        return db.collections.filter(function (c) { return c.homeRow; }).map(function (c) {
+          var list = SCG.collectionProducts(c).slice(0, 12);
+          return list.length ? rail(c.name, '#col/' + c.id, list) : '';
+        }).join('');
+      },
       china: function (sec) { return rail(sec.title || 'China Direct', '#col/china-direct', db.products.filter(function (p) { return p.origin === 'china'; }).sort(function (a, b) { return SCG.discount(b) - SCG.discount(a); }).slice(0, 12)); },
       best: function (sec) { return rail(sec.title || 'Best Sellers', '#col/best-sellers', db.products.slice().sort(function (a, b) { return b.sold - a.sold; }).slice(0, 12)); },
       jfy: function (sec) {
@@ -305,7 +311,7 @@
     var title = 'All Products', sub = 'Everything we sell, in one place.', color = '#0b2a6f', art = 'tshirt';
     var st = { cats: [], min: '', max: '', rating: 0, origins: [], sale: false, sort: 'pop', q: '', coll: '', limit: 30 };
     if (kind === 'c') { var c = SCG.categoryById(val); if (c) { title = c.name; sub = c.tagline; color = c.icon || color; art = c.shape; st.cats = [c.id]; } }
-    if (kind === 'col') { var co = SCG.collectionById(val); if (co) { title = co.name; sub = co.description; color = co.accent; art = 'bag'; st.coll = co.id; } }
+    if (kind === 'col') { var co = SCG.collectionById(val); if (co) { title = co.name; sub = co.description; color = co.accent; art = 'bag'; st.coll = co.id; st.sort = 'rec'; } }
     if (kind === 'flash') { title = db.settings.flashTitle || 'Flash Sale'; sub = flashOn() ? 'Huge discounts for a limited time.' : 'This flash sale has ended. Check back soon for new deals.'; color = '#d7141a'; art = 'sneaker'; st.sale = true; st.flashOnly = true; st.sort = 'off'; }
     if (kind === 'from') { var oi = val === 'local' ? { name: 'Colombo stock', days: db.settings.localDays, local: true } : SCG.originById(val); if (oi) { title = oi.local ? 'Ships from Colombo' : 'Imported from ' + oi.name; sub = 'Delivered to your door in ' + oi.days + ' days.'; color = '#0f766e'; art = 'bag'; st.origins = [val]; } }
     if (kind === 'search') { st.q = val; title = 'Results for “' + val + '”'; sub = ''; if (extra) st.cats = [extra]; }
@@ -322,7 +328,7 @@
         '<button class="btn full filter-btn" id="fDone">Show results</button>' +
       '</aside><div>' +
         '<div class="panel list-top"><button class="btn line filter-btn" id="fOpen" style="padding:8px 12px">' + I.filter + 'Filter</button><span class="n" id="count"></span>' +
-        '<select id="fsort" aria-label="Sort by"><option value="pop">Best match</option><option value="new">Newest</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="off">Biggest discount</option><option value="rating">Top rated</option></select></div>' +
+        '<select id="fsort" aria-label="Sort by">' + (st.coll ? '<option value="rec">Recommended</option>' : '') + '<option value="pop">Best match</option><option value="new">Newest</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="off">Biggest discount</option><option value="rating">Top rated</option></select></div>' +
         '<div class="grid" id="lgrid"></div><div class="loader" id="lmore"></div>' +
       '</div></div></div>';
     $('#fsort').value = st.sort;
@@ -341,7 +347,8 @@
         if (q) { var c = SCG.categoryById(p.category); if ((p.name + ' ' + p.brand + ' ' + (c ? c.name : '')).toLowerCase().indexOf(q) < 0) return false; }
         return true;
       });
-      var srt = { pop: function (a, b) { return b.sold - a.sold; }, new: sortNewest, low: function (a, b) { return a.price - b.price; }, high: function (a, b) { return b.price - a.price; }, off: function (a, b) { return SCG.discount(b) - SCG.discount(a); }, rating: function (a, b) { return b.rating - a.rating; } }[st.sort];
+      var recOrder = st.coll ? SCG.collectionProducts(st.coll).map(function (x) { return x.id; }) : [];
+      var srt = { rec: function (a, b) { return recOrder.indexOf(a.id) - recOrder.indexOf(b.id); }, pop: function (a, b) { return b.sold - a.sold; }, new: sortNewest, low: function (a, b) { return a.price - b.price; }, high: function (a, b) { return b.price - a.price; }, off: function (a, b) { return SCG.discount(b) - SCG.discount(a); }, rating: function (a, b) { return b.rating - a.rating; } }[st.sort];
       list.sort(srt);
       $('#count').textContent = list.length + ' items found';
       $('#lgrid').innerHTML = list.length ? list.slice(0, st.limit).map(function (p) { return card(p, { flash: kind === 'flash', add: true }); }).join('') : '<div class="empty"><h3>No products match</h3>Try removing a filter or searching for something else.</div>';
@@ -597,6 +604,22 @@
     if (a) { e.preventDefault(); addToCart(a.dataset.add); }
   });
 
+  /* ---------------- admin edit bar ---------------- */
+  function adminOn() { try { var t = +localStorage.getItem('scg_admin_on'); return t && Date.now() - t < 12 * 3600e3; } catch (e) { return false; } }
+  function adminBar(k, v) {
+    var bar = $('#adminBar');
+    if (!adminOn()) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'adminBar'; bar.className = 'admin-bar'; document.body.appendChild(bar); }
+    var links = [];
+    if (k === 'col' && SCG.collectionById(v)) links.push(['admin/#collections/' + v, 'Edit this collection']);
+    if (k === 'c' && SCG.categoryById(v)) links.push(['admin/#products/cat:' + v, 'Edit products in this category']);
+    if (k === 'p' && SCG.productById(v)) links.push(['admin/#products/edit:' + v, 'Edit this product']);
+    if (k === 'flash') links.push(['admin/#flash', 'Edit flash sale']);
+    if (k === 'from') links.push(['admin/#origins', 'Edit import countries']);
+    if (!k || k === 'home') links.push(['admin/#homepage', 'Edit homepage']);
+    bar.innerHTML = '<span class="ab-tag">ADMIN</span>' + links.map(function (l) { return '<a href="' + l[0] + '">✎ ' + esc(l[1]) + '</a>'; }).join('') + '<a href="admin/#dashboard">Seller Center</a>';
+  }
+
   /* ---------------- router ---------------- */
   function route() {
     if (globe) { globe.destroy(); globe = null; }
@@ -618,6 +641,7 @@
     else if (k === 'help') renderHelp();
     else renderHome();
     if (k !== 'p') scrollTo(0, 0);
+    adminBar(k, v);
   }
 
   window.addEventListener('storage', function (e) {

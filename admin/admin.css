@@ -269,3 +269,41 @@ tbody tr.click { cursor: pointer; }
 .meter .bar-track i { animation: none; }
 #otb .checks label { padding: 4px 9px; font-size: 12px; }
 #otb input { padding: 7px 9px; font-size: 13px; }
+
+/* ---------- v4: collection workspace ---------- */
+a.item-card.coll-open { transition: transform .2s var(--ease), box-shadow .2s; }
+a.item-card.coll-open:hover { transform: translateY(-3px); box-shadow: 0 16px 30px -18px rgba(5,11,28,.5); }
+.mini-stack { display: flex; justify-content: center; align-items: center; height: 100%; }
+.mini-stack span { width: 96px; height: 96px; margin: 0 -14px; filter: drop-shadow(0 8px 10px rgba(0,0,0,.3)); }
+.mini-stack span:nth-child(1) { transform: rotate(-10deg) scale(.85); }
+.mini-stack span:nth-child(3) { transform: rotate(10deg) scale(.85); }
+.mini-stack svg, .mini-stack img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; }
+.ws-top .uploader { align-items: center; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.tile { position: relative; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 6px; transition: box-shadow .2s, border-color .2s, opacity .2s; }
+.tile[draggable=true] { cursor: grab; }
+.tile.sel { border-color: var(--red); background: #fff8f8; }
+.tile.dragging { opacity: .4; }
+.tile.over { border-color: var(--navy); box-shadow: -4px 0 0 var(--navy); }
+.tchk { position: absolute; top: 14px; left: 14px; z-index: 1; }
+.tchk input { width: 18px; height: 18px; }
+.tthumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; display: grid; place-items: center; }
+.tthumb svg { width: 82%; height: 82%; stroke: none; }
+.tthumb img { width: 100%; height: 100%; object-fit: cover; }
+.toff { position: absolute; top: 8px; right: 8px; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.tflash { position: absolute; bottom: 6px; right: 8px; font-size: 16px; }
+.tname { font-size: 13px; line-height: 1.3; min-height: 2.6em; }
+.tfields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tfields label { font-size: 10.5px; gap: 3px; }
+.tfields input { padding: 6px 8px; font-size: 13px; }
+.ttools { display: flex; gap: 4px; }
+.ttools button { flex: 1; height: 30px; border-radius: 7px; border: 1px solid var(--line); font-size: 12px; font-weight: 600; }
+.ttools button:hover { border-color: var(--navy); color: var(--navy); }
+.ttools button[data-e] { flex: 2; }
+.ttools button[data-x]:hover { border-color: var(--red); color: var(--red); }
+.empty-ws { grid-column: 1 / -1; text-align: center; padding: 40px 10px; }
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; max-height: 50vh; overflow: auto; }
+.pk-item { display: grid !important; grid-template-columns: auto 44px 1fr; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; color: var(--text) !important; font-weight: 500 !important; }
+.pk-item.on { border-color: var(--red); background: #fff8f8; }
+.pk-item .thumb { width: 44px; height: 44px; }
+.pk-item small { display: block; }

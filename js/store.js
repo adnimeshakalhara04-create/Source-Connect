@@ -317,6 +317,7 @@
           { id: 'banners', name: 'Wide promo banners', on: true },
           { id: 'china', name: 'China Direct row', on: true, title: 'China Direct — Factory Prices' },
           { id: 'electronics', name: 'Electronics row', on: true, title: 'Electronics & Gadgets' },
+          { id: 'collections', name: 'Collection rows (collections set to “Show on homepage”)', on: true },
           { id: 'best', name: 'Best Sellers row', on: true, title: 'Best Sellers' },
           { id: 'jfy', name: 'Just For You feed', on: true, title: 'Just For You' }
         ],
@@ -412,6 +413,17 @@
     var o = originById(p.origin) || { id: p.origin, name: p.origin, label: p.origin + ' Import', days: '10–14', code: '' };
     return { local: false, id: o.id, name: o.name, label: o.label, days: o.days, code: o.code };
   }
+  /** Products in a collection, in the order the admin arranged them. */
+  function collectionProducts(c) {
+    if (typeof c === 'string') c = collectionById(c);
+    if (!c) return [];
+    var order = c.order || [];
+    return load().products.filter(function (p) { return (p.collections || []).indexOf(c.id) > -1; }).sort(function (a, b) {
+      var ia = order.indexOf(a.id), ib = order.indexOf(b.id);
+      if (ia < 0) ia = 1e6; if (ib < 0) ib = 1e6;
+      return ia - ib || (b.sold || 0) - (a.sold || 0);
+    });
+  }
   function productImages(p) { return (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []); }
   function storageUsed() {
     var total = 0;
@@ -470,7 +482,7 @@
     uid: uid, slug: slug, money: money, discount: discount, escapeHTML: escapeHTML,
     productSVG: productSVG, garmentSVG: garmentSVG, productVisual: productVisual, shade: shade,
     categoryById: categoryById, collectionById: collectionById, productById: productById,
-    origins: origins, originById: originById, originInfo: originInfo, productImages: productImages, storageUsed: storageUsed, DEFAULT_ORIGINS: DEFAULT_ORIGINS,
+    origins: origins, originById: originById, originInfo: originInfo, productImages: productImages, collectionProducts: collectionProducts, storageUsed: storageUsed, DEFAULT_ORIGINS: DEFAULT_ORIGINS,
     getOrders: getOrders, saveOrders: saveOrders, getCart: getCart, saveCart: saveCart, getWish: getWish, saveWish: saveWish,
     imageToDataURL: imageToDataURL,
     keys: { DB_KEY: DB_KEY, ORDERS_KEY: ORDERS_KEY, CART_KEY: CART_KEY, WISH_KEY: WISH_KEY }

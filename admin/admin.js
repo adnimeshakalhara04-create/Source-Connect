@@ -16,8 +16,13 @@
   var SITE = '../';
 
   /* ---------------- auth ---------------- */
-  function loggedIn() { try { return sessionStorage.getItem(SESSION) === '1'; } catch (e) { return false; } }
-  function showApp() { $('#login').hidden = true; $('#shell').hidden = false; route(); }
+  // Signed in = signed in on this browser within the last 12 hours (shared by all tabs; Log out ends it everywhere).
+  function loggedIn() {
+    try { var t = +localStorage.getItem('scg_admin_on'); return !!t && Date.now() - t < 12 * 3600e3; }
+    catch (e) { try { return sessionStorage.getItem(SESSION) === '1'; } catch (e2) { return false; } }
+  }
+  window.addEventListener('storage', function (e) { if (e.key === 'scg_admin_on' && !e.newValue) location.reload(); });
+  function showApp() { try { localStorage.setItem('scg_admin_on', String(Date.now())); } catch (e) {} $('#login').hidden = true; $('#shell').hidden = false; route(); }
   $('#loginForm').onsubmit = function (e) {
     e.preventDefault();
     var f = e.target;
@@ -26,7 +31,7 @@
       showApp();
     } else $('#loginErr').textContent = 'Incorrect username or password.';
   };
-  $('#logout').onclick = function () { try { sessionStorage.removeItem(SESSION); } catch (e) {} location.hash = ''; location.reload(); };
+  $('#logout').onclick = function () { try { sessionStorage.removeItem(SESSION); localStorage.removeItem('scg_admin_on'); } catch (e) {} location.hash = ''; location.reload(); };
   $('#menuBtn').onclick = function (e) { e.stopPropagation(); $('#side').classList.toggle('open'); };
   document.addEventListener('click', function (e) { if (!e.target.closest('#side') && !e.target.closest('#menuBtn')) $('#side').classList.remove('open'); });
 
@@ -110,7 +115,7 @@
     products: { title: 'Products', sub: 'Everything listed on the site', render: products },
     flash: { title: 'Flash Sale', sub: 'Countdown, timing and flash deals', render: flashView },
     categories: { title: 'Categories', sub: 'Category menu, grid and filters', render: categories },
-    collections: { title: 'Collections', sub: 'China Direct, Electronics, Global Imports…', render: collections },
+    collections: { title: 'Collections', sub: 'Open a collection to manage the products inside it', render: collections },
     origins: { title: 'Import Countries', sub: 'Countries you import from, delivery times and globe routes', render: originsView },
     homepage: { title: 'Homepage & Globe', sub: 'Globe hero, section order and service icons', render: homepage },
     banners: { title: 'Promo Banners', sub: 'Banners beside the globe and below categories', render: banners },
@@ -277,10 +282,11 @@
     if (arg && arg.indexOf('edit:') === 0) productForm(arg.slice(5));
   }
 
-  function productForm(id) {
+  function productForm(id, opts) {
+    opts = opts || {};
     var p = id ? SCG.productById(id) : null, isNew = !p;
     var d = p ? JSON.parse(JSON.stringify(p)) : {
-      name: '', category: pf.cat !== 'all' ? pf.cat : db.categories[0].id, collections: [], price: 0, comparePrice: 0, stock: 20,
+      name: '', category: pf.cat !== 'all' ? pf.cat : db.categories[0].id, collections: opts.collection ? [opts.collection] : [], price: 0, comparePrice: 0, stock: 20,
       color: '#0b2a6f', accent: '#f3f4f6', shape: '', pattern: 'solid', brand: 'SC Global', origin: 'china', flash: false,
       rating: 4.5, reviews: 0, sold: 0, image: '', images: [], sizes: ['S', 'M', 'L', 'XL', 'XXL'], badge: 'New', featured: false, description: ''
     };
@@ -371,7 +377,8 @@
       else db.products[db.products.indexOf(p)] = out;
       if (!commit(isNew ? 'Product added' : 'Product updated')) return;
       closeModal();
-      var back = location.hash.indexOf('#flash') === 0 ? 'flash' : 'products';
+      if (isNew && opts.collection) { var oc = SCG.collectionById(opts.collection); if (oc) oc.order = [out.id].concat(oc.order || []); SCG.save(); }
+      var back = opts.back || (location.hash.indexOf('#flash') === 0 ? 'flash' : 'products');
       if (location.hash !== '#' + back) location.hash = back; else route();
     };
   }
@@ -494,54 +501,196 @@
   /* =========================================================
      COLLECTIONS
      ========================================================= */
-  function collections(v) {
-    setActions('<button class="btn primary" id="addColl">+ Add Collection</button>');
-    v.innerHTML = '<p class="muted" style="margin-top:0">Collections are the curated pages like China Direct, New Arrivals and Best Sellers. Link to them from menu links, banners or service icons with <code>#col/collection-id</code>.</p><div class="cards">' + db.collections.map(function (c) {
-      var n = db.products.filter(function (p) { return (p.collections || []).indexOf(c.id) > -1; }).length;
-      return '<div class="item-card"><div class="cover" style="background:linear-gradient(150deg,' + SCG.shade(c.accent, 40) + ',' + SCG.shade(c.accent, -60) + ')">' +
-        (c.image ? '<img src="' + c.image + '" alt="">' : '<b style="font-family:Playfair Display,serif;font-size:24px;padding:0 16px;text-align:center">' + esc(c.name) + '</b>') + '</div>' +
-        '<div class="body"><h4>' + esc(c.name) + '</h4><p>' + esc(c.description || '') + '</p><p style="margin-top:8px"><span class="tag">' + n + ' products</span> <code class="muted">#col/' + esc(c.id) + '</code></p></div>' +
-        '<div class="foot"><a class="btn sm" target="_blank" rel="noopener" href="' + SITE + '#col/' + c.id + '">View ↗</a><button class="btn sm" data-edit="' + c.id + '">Edit</button><button class="btn sm danger" data-del="' + c.id + '">Delete</button></div></div>';
+  function collections(v, arg) {
+    if (arg && SCG.collectionById(arg)) return collectionWorkspace(v, SCG.collectionById(arg));
+    setActions('<button class="btn primary" id="addColl">+ New Collection</button>');
+    v.innerHTML = '<p class="muted" style="margin-top:0">Click a collection to open it. Inside you can add, create, edit, reorder and discount its products, and choose where it shows on the website.</p><div class="cards">' + db.collections.map(function (c) {
+      var list = SCG.collectionProducts(c), inNav = (db.settings.navLinks || []).some(function (l) { return l.link === '#col/' + c.id; });
+      return '<a class="item-card coll-open" href="#collections/' + c.id + '"><div class="cover" style="background:linear-gradient(150deg,' + SCG.shade(c.accent, 40) + ',' + SCG.shade(c.accent, -60) + ')">' +
+        (c.image ? '<img src="' + c.image + '" alt="">' : '<div class="mini-stack">' + list.slice(0, 3).map(function (p) { return '<span>' + SCG.productVisual(p) + '</span>'; }).join('') + '</div>') + '</div>' +
+        '<div class="body"><h4>' + esc(c.name) + '</h4><p>' + esc(c.description || '') + '</p><p style="margin-top:8px"><span class="tag">' + list.length + ' products</span>' +
+        (inNav ? ' <span class="tag ok">In menu</span>' : '') + (c.homeRow ? ' <span class="tag ok">On homepage</span>' : '') + '</p></div>' +
+        '<div class="foot"><span class="btn sm primary">Open →</span></div></a>';
     }).join('') + '</div>';
-    $('#addColl').onclick = function () { collForm(null); };
-    v.onclick = function (e) {
-      var b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.edit) collForm(b.dataset.edit);
-      if (b.dataset.del && confirm('Delete this collection? Products stay, they are just untagged.')) {
-        var id = b.dataset.del;
-        db.collections = db.collections.filter(function (c) { return c.id !== id; });
-        db.products.forEach(function (p) { p.collections = (p.collections || []).filter(function (x) { return x !== id; }); });
-        commit('Collection deleted'); route();
-      }
+    $('#addColl').onclick = function () {
+      var id = SCG.uid('collection');
+      db.collections.push({ id: id, name: 'New collection', description: '', accent: '#0b2a6f', image: '', order: [] });
+      commit('Collection created'); location.hash = 'collections/' + id;
     };
   }
-  function collForm(id) {
-    var c = id ? SCG.collectionById(id) : null;
-    var d = c ? JSON.parse(JSON.stringify(c)) : { name: '', description: '', accent: '#0b2a6f', image: '' };
-    var inColl = db.products.filter(function (p) { return c && (p.collections || []).indexOf(c.id) > -1; }).map(function (p) { return p.id; });
-    function prev() { return d.image ? '<img src="' + d.image + '" alt="">' : '<span class="hint">No cover</span>'; }
-    openModal(c ? 'Edit Collection' : 'Add Collection',
-      '<form class="form" id="coform"><label>Name<input name="name" required value="' + esc(d.name) + '"></label>' +
-      '<label>Colour<input type="color" name="accent" value="' + esc(d.accent) + '"></label>' +
-      '<label class="full">Description<textarea name="description" rows="2">' + esc(d.description) + '</textarea></label>' +
-      '<div class="full"><label style="margin-bottom:8px">Cover image (optional)</label><div class="uploader" id="coup"><div class="preview">' + prev() + '</div><div class="btns"><input type="file" accept="image/*"><button type="button" class="btn sm danger" data-rm-img>Remove</button></div></div></div>' +
-      '<div class="full"><label style="margin-bottom:8px">Products in this collection</label><input id="cosearch" placeholder="Filter…" style="margin-bottom:8px"><div class="checks" id="coprods" style="max-height:220px;overflow:auto">' +
-      db.products.map(function (p) { return '<label data-n="' + esc(p.name.toLowerCase()) + '"><input type="checkbox" value="' + p.id + '"' + (inColl.indexOf(p.id) > -1 ? ' checked' : '') + '> ' + esc(p.name) + '</label>'; }).join('') + '</div></div>' +
-      '<div class="form-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Save</button></div></form>');
-    bindUploader($('#coup'), prev, function (u) { d.image = u; });
-    $('#cosearch').oninput = function (e) { var q = e.target.value.toLowerCase(); $$('#coprods label').forEach(function (l) { l.hidden = l.dataset.n.indexOf(q) < 0; }); };
-    $('#coform').onsubmit = function (e) {
+
+  /* One collection: details, where it shows, and the products inside it. */
+  function collectionWorkspace(v, c) {
+    var sel = {}, q = '';
+    var s = db.settings;
+    function inNav() { return (s.navLinks || []).some(function (l) { return l.link === '#col/' + c.id; }); }
+    function members() { return SCG.collectionProducts(c); }
+    function saveOrder(ids) { c.order = ids; commit('Order saved'); }
+    $('#viewTitle').textContent = c.name; $('#viewSub').textContent = 'Collection · #col/' + c.id;
+    setActions('<a class="btn" href="#collections">← All collections</a>' + preview('#col/' + c.id, 'View on site') + '<button class="btn danger" id="cDel">Delete</button>');
+    v.innerHTML =
+      '<div class="grid2 ws-top"><form class="panel" id="cInfo"><h3>Details</h3><div class="form">' +
+        '<label class="full">Name<input name="name" required value="' + esc(c.name) + '"></label>' +
+        '<label class="full">Description<textarea name="description" rows="2">' + esc(c.description || '') + '</textarea></label>' +
+        '<label>Colour<input type="color" name="accent" value="' + esc(c.accent || '#0b2a6f') + '"></label>' +
+        '<div class="uploader" id="cCover"><div class="preview" style="width:120px;height:80px">' + (c.image ? '<img src="' + c.image + '" alt="">' : '<span class="hint">No cover</span>') + '</div><div class="btns"><input type="file" accept="image/*"><button type="button" class="btn sm danger" data-rm-img>Remove cover</button></div></div>' +
+        '<div class="full" style="display:flex;gap:18px;flex-wrap:wrap">' + sw('nav', inNav(), 'Show in header menu') + sw('home', !!c.homeRow, 'Show as a row on the homepage') + '</div>' +
+        '<div class="form-foot"><button class="btn primary">Save details</button></div></div></form>' +
+      '<div class="panel"><h3>Fill quickly <small>add every product that matches</small></h3><div class="form" style="grid-template-columns:1fr">' +
+        '<label>Rule<select id="rule"><option value="cat">From a category…</option><option value="from">Ships from a country…</option><option value="under">Priced under…</option><option value="sale">On discount</option><option value="flash">In the flash sale</option><option value="new">Newest 20 products</option></select></label>' +
+        '<label id="ruleValWrap">Choose<select id="ruleVal"></select></label>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="rulePreview">Preview</button><button type="button" class="btn primary" id="ruleAdd">Add matching products</button></div><p class="muted" id="ruleInfo" style="margin:0"></p></div></div></div>' +
+      '<div class="panel"><div class="head"><h3 id="mHead"></h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="mq" type="search" placeholder="Search in this collection…" style="width:220px">' +
+        '<button class="btn" id="mAdd">+ Add existing products</button><button class="btn primary" id="mNew">+ Create new product here</button></div></div>' +
+        '<div class="bulkbar" id="mBulk" hidden><b id="mbn"></b><button class="btn sm" data-b="sel-all">Select all</button>' +
+          '<span style="display:inline-flex;gap:4px"><input id="mdisc" type="number" min="1" max="90" placeholder="% off" style="width:80px"><button class="btn sm" data-b="disc">Apply discount</button></span>' +
+          '<button class="btn sm" data-b="flash-on">⚡ Flash on</button><button class="btn sm" data-b="flash-off">Flash off</button>' +
+          '<span style="display:inline-flex;gap:4px"><select id="morig">' + originOptions('china') + '</select><button class="btn sm" data-b="origin">Set ships from</button></span>' +
+          '<button class="btn sm" data-b="remove" style="border-color:#f87171">Remove from collection</button><button class="btn sm" data-b="clear">Clear</button></div>' +
+        '<p class="muted" style="margin:0 0 10px;font-size:12.5px">Drag tiles (or use ← →) to set the order customers see. Prices and stock save as you type.</p>' +
+        '<div class="tiles" id="tiles"></div></div>';
+
+    // ---- details form
+    var cover = c.image || '';
+    bindUploader($('#cCover'), function () { return '<span class="hint">No cover</span>'; }, function (u) { cover = u; });
+    $('#cInfo').onsubmit = function (e) {
       e.preventDefault(); var E = e.target.elements;
-      d.name = E.name.value.trim(); d.description = E.description.value.trim(); d.accent = E.accent.value;
-      if (c) Object.assign(c, d); else { d.id = SCG.slug(d.name); if (SCG.collectionById(d.id)) d.id = SCG.uid(d.id); db.collections.push(d); }
-      var chosen = $$('#coprods input:checked').map(function (x) { return x.value; });
-      db.products.forEach(function (p) {
-        var arr = (p.collections || []).filter(function (x) { return x !== d.id; });
-        if (chosen.indexOf(p.id) > -1) arr.push(d.id);
-        p.collections = arr;
-      });
-      commit('Collection saved'); closeModal(); route();
+      c.name = E.name.value.trim() || c.name; c.description = E.description.value.trim(); c.accent = E.accent.value; c.image = cover; c.homeRow = E.home.checked;
+      var link = '#col/' + c.id;
+      s.navLinks = s.navLinks || [];
+      var existing = s.navLinks.filter(function (l) { return l.link === link; })[0];
+      if (!E.nav.checked) s.navLinks = s.navLinks.filter(function (l) { return l.link !== link; });
+      else if (existing) existing.label = c.name;      // keep its place in the menu
+      else s.navLinks.push({ label: c.name, link: link });
+      $('#viewTitle').textContent = c.name;
+      commit('Collection saved');
     };
+    $('#cDel').onclick = function () {
+      if (!confirm('Delete the collection "' + c.name + '"? Its products stay in the shop.')) return;
+      db.collections = db.collections.filter(function (x) { return x.id !== c.id; });
+      db.products.forEach(function (p) { p.collections = (p.collections || []).filter(function (x) { return x !== c.id; }); });
+      s.navLinks = (s.navLinks || []).filter(function (l) { return l.link !== '#col/' + c.id; });
+      commit('Collection deleted'); location.hash = 'collections';
+    };
+
+    // ---- quick fill rules
+    function ruleOptions() {
+      var r = $('#rule').value, wrap = $('#ruleValWrap'), sv = $('#ruleVal');
+      wrap.hidden = r === 'sale' || r === 'flash' || r === 'new';
+      if (r === 'cat') sv.innerHTML = db.categories.map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + '</option>'; }).join('');
+      if (r === 'from') sv.innerHTML = originOptions('china');
+      if (r === 'under') sv.innerHTML = [1000, 2000, 3000, 5000, 10000].map(function (x) { return '<option value="' + x + '">' + money(x) + '</option>'; }).join('');
+      $('#ruleInfo').textContent = '';
+    }
+    function matches() {
+      var r = $('#rule').value, val = $('#ruleVal').value, list = db.products.slice();
+      if (r === 'cat') list = list.filter(function (p) { return p.category === val; });
+      if (r === 'from') list = list.filter(function (p) { return (p.origin || 'local') === val; });
+      if (r === 'under') list = list.filter(function (p) { return p.price < +val; });
+      if (r === 'sale') list = list.filter(function (p) { return p.comparePrice > p.price; });
+      if (r === 'flash') list = list.filter(function (p) { return p.flash; });
+      if (r === 'new') list = list.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); }).slice(0, 20);
+      return list.filter(function (p) { return (p.collections || []).indexOf(c.id) < 0; });
+    }
+    $('#rule').onchange = ruleOptions; $('#ruleVal').onchange = function () { $('#ruleInfo').textContent = ''; };
+    $('#rulePreview').onclick = function () { var m = matches(); $('#ruleInfo').textContent = m.length ? m.length + ' new products would be added: ' + m.slice(0, 5).map(function (p) { return p.name; }).join(', ') + (m.length > 5 ? '…' : '') : 'No new products match (they may already be in this collection).'; };
+    $('#ruleAdd').onclick = function () { var m = matches(); if (!m.length) { toast('No new products match'); return; } addProducts(m.map(function (p) { return p.id; })); };
+    ruleOptions();
+
+    function addProducts(ids) {
+      ids.forEach(function (id) { var p = SCG.productById(id); if (p && (p.collections || []).indexOf(c.id) < 0) p.collections = (p.collections || []).concat([c.id]); });
+      c.order = members().map(function (p) { return p.id; });
+      commit(ids.length + ' product(s) added'); draw();
+    }
+
+    // ---- product tiles
+    function draw() {
+      var all = members(), ql = q.toLowerCase();
+      var list = ql ? all.filter(function (p) { return (p.name + ' ' + (p.brand || '')).toLowerCase().indexOf(ql) > -1; }) : all;
+      $('#mHead').innerHTML = 'Products in this collection <small>' + all.length + '</small>';
+      $('#tiles').innerHTML = list.length ? list.map(function (p) {
+        var o = SCG.originInfo(p), off = SCG.discount(p);
+        return '<div class="tile' + (sel[p.id] ? ' sel' : '') + '" draggable="' + (!ql) + '" data-id="' + p.id + '">' +
+          '<label class="tchk"><input type="checkbox" data-sel' + (sel[p.id] ? ' checked' : '') + ' aria-label="Select ' + esc(p.name) + '"></label>' +
+          '<div class="tthumb" style="background:' + SCG.shade(p.color || '#0b2a6f', 170) + '">' + SCG.productVisual(p) + (off ? '<span class="toff">-' + off + '%</span>' : '') + (p.flash ? '<span class="tflash">⚡</span>' : '') + '</div>' +
+          '<b class="tname">' + esc(p.name) + '</b><small class="muted">' + esc(o.local ? 'Colombo stock' : 'From ' + o.name) + '</small>' +
+          '<div class="tfields"><label>Price<input type="number" min="0" step="10" data-f="price" value="' + p.price + '"></label><label>Stock<input type="number" min="0" data-f="stock" value="' + p.stock + '"></label></div>' +
+          '<div class="ttools"><button type="button" data-l title="Move earlier">←</button><button type="button" data-r title="Move later">→</button><button type="button" data-e title="Edit everything">✎ Edit</button><button type="button" data-x title="Remove from collection">✕</button></div></div>';
+      }).join('') : '<div class="empty-ws"><h3>' + (ql ? 'No products match your search' : 'This collection is empty') + '</h3><p class="muted">Use “Add existing products”, “Create new product here” or a quick-fill rule.</p></div>';
+      bulkUI();
+    }
+    function ids() { return Object.keys(sel).filter(function (k) { return sel[k]; }); }
+    function bulkUI() { var n = ids().length; $('#mBulk').hidden = !n; $('#mbn').textContent = n + ' selected'; }
+    function move(id, dir) {
+      var order = members().map(function (p) { return p.id; }), i = order.indexOf(id), j = i + dir;
+      if (j < 0 || j >= order.length) return;
+      order.splice(j, 0, order.splice(i, 1)[0]); saveOrder(order); draw();
+    }
+    $('#mq').oninput = function (e) { q = e.target.value; draw(); };
+    var tiles = $('#tiles');
+    tiles.addEventListener('change', function (e) {
+      var t = e.target.closest('.tile'); if (!t) return; var p = SCG.productById(t.dataset.id);
+      if (e.target.hasAttribute('data-sel')) { sel[p.id] = e.target.checked; t.classList.toggle('sel', e.target.checked); bulkUI(); return; }
+      var f = e.target.dataset.f; if (f) { p[f] = Math.max(0, +e.target.value || 0); commit('Updated ' + p.name); }
+    });
+    tiles.addEventListener('click', function (e) {
+      var t = e.target.closest('.tile'), b = e.target.closest('button'); if (!t || !b) return;
+      var id = t.dataset.id;
+      if (b.hasAttribute('data-l')) move(id, -1);
+      if (b.hasAttribute('data-r')) move(id, 1);
+      if (b.hasAttribute('data-e')) productForm(id, { back: 'collections/' + c.id });
+      if (b.hasAttribute('data-x')) { var p = SCG.productById(id); p.collections = (p.collections || []).filter(function (x) { return x !== c.id; }); delete sel[id]; commit('Removed from ' + c.name); draw(); }
+    });
+    // drag & drop ordering
+    var dragId = null;
+    tiles.addEventListener('dragstart', function (e) { var t = e.target.closest('.tile'); if (!t) return; dragId = t.dataset.id; t.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragId); } catch (err) {} });
+    tiles.addEventListener('dragend', function () { dragId = null; $$('.tile', tiles).forEach(function (x) { x.classList.remove('dragging', 'over'); }); });
+    tiles.addEventListener('dragover', function (e) { if (!dragId) return; e.preventDefault(); var t = e.target.closest('.tile'); $$('.tile.over', tiles).forEach(function (x) { if (x !== t) x.classList.remove('over'); }); if (t && t.dataset.id !== dragId) t.classList.add('over'); });
+    tiles.addEventListener('drop', function (e) {
+      e.preventDefault(); var t = e.target.closest('.tile'); if (!dragId || !t || t.dataset.id === dragId) return;
+      var order = members().map(function (p) { return p.id; });
+      order.splice(order.indexOf(dragId), 1); order.splice(order.indexOf(t.dataset.id), 0, dragId);
+      saveOrder(order); draw();
+    });
+    // bulk actions
+    $('#mBulk').onclick = function (e) {
+      var b = e.target.closest('[data-b]'); if (!b) return;
+      var act = b.dataset.b, list = ids().map(SCG.productById).filter(Boolean);
+      if (act === 'clear') { sel = {}; draw(); return; }
+      if (act === 'sel-all') { members().forEach(function (p) { sel[p.id] = true; }); draw(); return; }
+      if (act === 'disc' && !(+$('#mdisc').value)) { toast('Enter a discount % first'); return; }
+      list.forEach(function (p) {
+        if (act === 'remove') { p.collections = (p.collections || []).filter(function (x) { return x !== c.id; }); delete sel[p.id]; }
+        if (act === 'flash-on') { p.flash = true; if (!p.comparePrice) p.comparePrice = Math.round(p.price * 1.3 / 10) * 10; }
+        if (act === 'flash-off') p.flash = false;
+        if (act === 'origin') p.origin = $('#morig').value;
+        if (act === 'disc') { var pct = Math.min(90, Math.max(1, +$('#mdisc').value)), base = p.comparePrice > p.price ? p.comparePrice : p.price; p.comparePrice = base; p.price = Math.round(base * (1 - pct / 100) / 10) * 10; }
+      });
+      commit(list.length + ' product(s) updated'); draw();
+    };
+    // add existing / create new
+    $('#mNew').onclick = function () { productForm(null, { collection: c.id, back: 'collections/' + c.id }); };
+    $('#mAdd').onclick = function () {
+      openModal('Add products to ' + c.name,
+        '<div class="filters"><input id="pk-q" type="search" placeholder="Search products…"><select id="pk-c"><option value="">All categories</option>' + db.categories.map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + '</option>'; }).join('') + '</select>' +
+        '<select id="pk-o"><option value="">Any country</option>' + originOptions('').replace(' selected', '') + '</select></div>' +
+        '<div class="picker" id="pk"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px;flex-wrap:wrap"><span class="muted" id="pk-n">0 selected</span><button class="btn primary" id="pk-ok">Add selected</button></div>');
+      var picked = {};
+      function drawPick() {
+        var qq = $('#pk-q').value.toLowerCase(), cc = $('#pk-c').value, oo = $('#pk-o').value;
+        var list = db.products.filter(function (p) {
+          return (p.collections || []).indexOf(c.id) < 0 && (!cc || p.category === cc) && (!oo || (p.origin || 'local') === oo) && (!qq || p.name.toLowerCase().indexOf(qq) > -1);
+        });
+        $('#pk').innerHTML = list.length ? list.map(function (p) {
+          return '<label class="pk-item' + (picked[p.id] ? ' on' : '') + '"><input type="checkbox" value="' + p.id + '"' + (picked[p.id] ? ' checked' : '') + '>' + thumb(p) + '<span><b>' + esc(p.name) + '</b><small class="muted">' + money(p.price) + '</small></span></label>';
+        }).join('') : '<p class="muted">Every matching product is already in this collection.</p>';
+      }
+      ['#pk-q', '#pk-c', '#pk-o'].forEach(function (id) { $(id).oninput = $(id).onchange = drawPick; });
+      $('#pk').onchange = function (e) { picked[e.target.value] = e.target.checked; e.target.closest('.pk-item').classList.toggle('on', e.target.checked); $('#pk-n').textContent = Object.keys(picked).filter(function (k) { return picked[k]; }).length + ' selected'; };
+      $('#pk-ok').onclick = function () { var chosen = Object.keys(picked).filter(function (k) { return picked[k]; }); if (!chosen.length) { toast('Tick at least one product'); return; } closeModal(); addProducts(chosen); };
+      drawPick();
+    };
+    draw();
   }
 
   /* =========================================================

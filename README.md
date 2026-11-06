@@ -29,12 +29,14 @@ Every part of the website can be changed from `/admin/`:
 | Flash Sale | Title, daily / end-date / off timing, flash prices, add products, apply % to all |
 | Categories | Name, tagline, icon picture and colour, order in menus |
 | Import Countries | Countries on/off, product label, delivery days, which cities ship on the globe (with live preview) |
-| Collections | China Direct, Electronics, Global Imports, New Arrivals… and which products are in them |
+| Collections | Open a collection to work inside it: add existing products, create new ones there, quick-fill by rule (category, country, price, discount), drag to reorder, inline price/stock, bulk discount / flash / ships-from, show in header menu or as a homepage row |
 | Homepage & Globe | Globe headline and text, which Chinese cities ship, numbers, timeline steps, section on/off + order + titles, service icons (with live globe preview) |
 | Promo Banners | Banners beside the globe and wide banners below the categories |
 | Header & Footer | Announcement bar, header menu links, footer payment methods |
 | China Direct & FAQ | “How it works” steps and questions & answers |
 | Store Settings | Contact details, delivery days and fees, payment options and bank details, seller rating, admin login, backup |
+
+**Edit bar on the website:** while you are signed in to the admin panel, the website shows an ADMIN bar with “Edit this collection / product / homepage” shortcuts. Log out hides it.
 
 ## Data storage
 Data is saved in the browser's **localStorage**. Admin changes show up on the website in the same browser only. For a live shop where customers on many devices see the same products and their orders reach you, connect a backend such as Supabase or Firebase. `js/store.js` is the only file that needs to change.
