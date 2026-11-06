@@ -605,7 +605,11 @@
   });
 
   /* ---------------- admin edit bar ---------------- */
-  function adminOn() { try { var t = +localStorage.getItem('scg_admin_on'); return t && Date.now() - t < 12 * 3600e3; } catch (e) { return false; } }
+  // The bar is only shown in edit mode: switched on from the admin panel ("Edit on Website"),
+  // on a browser where the admin is signed in. Customers never see it.
+  function adminOn() {
+    try { var t = +localStorage.getItem('scg_admin_on'); return t && Date.now() - t < 12 * 3600e3 && localStorage.getItem('scg_edit_mode') === '1'; } catch (e) { return false; }
+  }
   function adminBar(k, v) {
     var bar = $('#adminBar');
     if (!adminOn()) { if (bar) bar.remove(); return; }
@@ -617,7 +621,8 @@
     if (k === 'flash') links.push(['admin/#flash', 'Edit flash sale']);
     if (k === 'from') links.push(['admin/#origins', 'Edit import countries']);
     if (!k || k === 'home') links.push(['admin/#homepage', 'Edit homepage']);
-    bar.innerHTML = '<span class="ab-tag">ADMIN</span>' + links.map(function (l) { return '<a href="' + l[0] + '">✎ ' + esc(l[1]) + '</a>'; }).join('') + '<a href="admin/#dashboard">Seller Center</a>';
+    bar.innerHTML = '<span class="ab-tag">ADMIN</span>' + links.map(function (l) { return '<a href="' + l[0] + '">✎ ' + esc(l[1]) + '</a>'; }).join('') + '<a href="admin/#dashboard">Seller Center</a><button type="button" id="abExit">✕ Exit edit mode</button>';
+    $('#abExit').onclick = function () { try { localStorage.removeItem('scg_edit_mode'); } catch (e) {} bar.remove(); toast('Edit mode off. You now see the site like a customer.'); };
   }
 
   /* ---------------- router ---------------- */

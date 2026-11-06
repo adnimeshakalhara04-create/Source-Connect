@@ -31,7 +31,10 @@
       showApp();
     } else $('#loginErr').textContent = 'Incorrect username or password.';
   };
-  $('#logout').onclick = function () { try { sessionStorage.removeItem(SESSION); localStorage.removeItem('scg_admin_on'); } catch (e) {} location.hash = ''; location.reload(); };
+  // Website edit mode: the ADMIN bar on the site only appears after "Edit on Website".
+  $('#editSite').onclick = function () { try { localStorage.setItem('scg_edit_mode', '1'); } catch (e) {} };
+  $('#viewSite').onclick = function () { try { localStorage.removeItem('scg_edit_mode'); } catch (e) {} };
+  $('#logout').onclick = function () { try { sessionStorage.removeItem(SESSION); localStorage.removeItem('scg_admin_on'); localStorage.removeItem('scg_edit_mode'); } catch (e) {} location.hash = ''; location.reload(); };
   $('#menuBtn').onclick = function (e) { e.stopPropagation(); $('#side').classList.toggle('open'); };
   document.addEventListener('click', function (e) { if (!e.target.closest('#side') && !e.target.closest('#menuBtn')) $('#side').classList.remove('open'); });
 
@@ -44,7 +47,8 @@
   $('#modal').addEventListener('click', function (e) { if (e.target.closest('[data-close]')) closeModal(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
   function setActions(html) { $('#topActions').innerHTML = html || ''; }
-  function preview(hash, label) { return '<a class="btn" target="_blank" rel="noopener" href="' + SITE + (hash || '') + '">' + (label || 'Preview on site') + ' ↗</a>'; }
+  function preview(hash, label) { return '<a class="btn" target="_blank" rel="noopener" data-edit-mode href="' + SITE + (hash || '') + '">' + (label || 'Preview on site') + ' ↗</a>'; }
+  document.addEventListener('click', function (e) { if (e.target.closest('[data-edit-mode]')) { try { localStorage.setItem('scg_edit_mode', '1'); } catch (err) {} } });
   function thumb(p, color) { return '<div class="thumb" style="background:' + SCG.shade(color || p.color || '#0b2a6f', 165) + '">' + SCG.productVisual(p, color) + '</div>'; }
   function countIn(catId) { return db.products.filter(function (p) { return p.category === catId; }).length; }
   function orders() { return SCG.getOrders(); }
