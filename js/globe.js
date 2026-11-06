@@ -42,7 +42,7 @@
     var stars = [];
     for (var s = 0; s < 160; s++) stars.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.2 + .2, p: Math.random() * 6.28 });
 
-    var routes = ORIGINS.map(function (o, k) {
+    var routes = ORIGINS.filter(function (o) { return !opts.cities || opts.cities.indexOf(o.name) > -1; }).map(function (o, k) {
       var a = vec(o.lon, o.lat), b = vec(DEST.lon, DEST.lat), pts = [];
       for (var j = 0; j <= 80; j++) pts.push(slerp(a, b, j / 80));
       return { o: o, pts: pts, delay: k * 1.15, dur: o.mode === 'air' ? 3.0 : 4.2, primary: k === 0 };
@@ -61,6 +61,7 @@
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       var narrow = W < 640;
+      if (opts.fit) { R = Math.min(W, H) * .4; cx = W / 2; cy = H / 2; return; }
       R = Math.min(W * (narrow ? .44 : .34), H * (narrow ? .3 : .42));
       cx = W * (narrow ? .5 : (opts.centerX || .66)); cy = H * (narrow ? .66 : .5);
     }
@@ -263,5 +264,5 @@
     };
   }
 
-  global.SCGGlobe = { mount: mount };
+  global.SCGGlobe = { mount: mount, CITIES: ORIGINS.map(function (o) { return o.name; }) };
 })(window);

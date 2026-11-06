@@ -84,6 +84,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .navbar a { padding: 0 12px; font-size: 13.5px; font-weight: 500; white-space: nowrap; height: 42px; display: flex; align-items: center; border-bottom: 2px solid transparent; }
 .navbar a:hover, .navbar a.on { color: var(--navy); border-bottom-color: var(--red); }
 .navbar a.hot { color: var(--red); font-weight: 700; }
+.navlinks { display: flex; gap: 4px; height: 100%; }
 .cats-drop { position: relative; height: 100%; }
 .cats-btn { height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 14px 0 0; font-weight: 700; font-size: 13.5px; color: var(--navy); }
 .cats-menu { position: fixed; z-index: 70; width: 250px; background: #fff; border-radius: 0 0 10px 10px; box-shadow: 0 24px 50px -20px rgba(5,11,28,.45); padding: 6px 0; opacity: 0; visibility: hidden; transform: translateY(6px); transition: .25s var(--ease); }

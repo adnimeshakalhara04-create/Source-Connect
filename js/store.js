@@ -207,7 +207,76 @@
         heroTitle: 'From China to\nYour Doorstep',
         heroSubtitle: 'We source fashion straight from trusted factories in China and deliver it across Sri Lanka at factory prices.',
         adminUser: 'admin',
-        adminPass: 'admin123'
+        adminPass: 'admin123',
+        // ---- delivery & payment ----
+        chinaDays: '10–14',
+        localDays: '2–4',
+        payCOD: true,
+        payBank: true,
+        bankDetails: 'Bank: Commercial Bank · Account: Source Connect Global · No: 0000000000 · Branch: Colombo',
+        paymentMethods: ['Cash on Delivery', 'VISA', 'Mastercard', 'Bank Transfer'],
+        returnDays: 7,
+        // ---- header ----
+        navLinks: [
+          { label: '⚡ Flash Sale', link: '#flash', hot: true },
+          { label: 'China Direct', link: '#col/china-direct' },
+          { label: 'New Arrivals', link: '#col/new-arrivals' },
+          { label: 'Best Sellers', link: '#col/best-sellers' },
+          { label: 'Under Rs. 2,000', link: '#col/under-2000' },
+          { label: 'All Products', link: '#shop' }
+        ],
+        // ---- homepage ----
+        sections: [
+          { id: 'services', name: 'Quick service icons', on: true },
+          { id: 'flash', name: 'Flash Sale', on: true },
+          { id: 'categories', name: 'Categories grid', on: true },
+          { id: 'banners', name: 'Wide promo banners', on: true },
+          { id: 'china', name: 'China Direct row', on: true, title: 'China Direct — Factory Prices' },
+          { id: 'best', name: 'Best Sellers row', on: true, title: 'Best Sellers' },
+          { id: 'jfy', name: 'Just For You feed', on: true, title: 'Just For You' }
+        ],
+        services: [
+          { label: 'Flash Sale', link: '#flash', icon: 'bolt', color: '#d7141a' },
+          { label: 'China Direct', link: '#col/china-direct', icon: 'plane', color: '#0b2a6f' },
+          { label: 'New Arrivals', link: '#col/new-arrivals', icon: 'tag', color: '#7c3aed' },
+          { label: 'Best Sellers', link: '#col/best-sellers', icon: 'star', color: '#f59e0b' },
+          { label: 'Under Rs. 2,000', link: '#col/under-2000', icon: 'cash', color: '#0f766e' },
+          { label: 'Free Delivery', link: '#help', icon: 'truck', color: '#0284c7' },
+          { label: '7-Day Returns', link: '#help', icon: 'swap', color: '#be185d' },
+          { label: 'Track Order', link: '#track', icon: 'pin', color: '#334155' }
+        ],
+        // ---- flash sale ----
+        flashTitle: 'Flash Sale',
+        flashMode: 'daily',        // 'daily' = resets every midnight, 'until' = ends at flashUntil, 'off'
+        flashUntil: '',
+        // ---- globe ----
+        globeCities: ['Shenzhen', 'Yiwu', 'Shanghai', 'Guangzhou', 'Beijing'],
+        globeStats: [
+          { value: '1,248', label: 'Parcels this month', live: true },
+          { value: '10–14', label: 'Days delivery' },
+          { value: '25+', label: 'Factories' }
+        ],
+        globeSteps: [
+          { title: 'Sourced', text: 'in China' }, { title: 'Checked', text: 'for quality' }, { title: 'Shipping', text: 'by sea & air' },
+          { title: 'Colombo', text: 'customs cleared' }, { title: 'Delivered', text: 'to your door' }
+        ],
+        // ---- product page ----
+        sellerStats: [{ value: '96%', label: 'Positive ratings' }, { value: '98%', label: 'Ship on time' }, { value: '92%', label: 'Chat response' }],
+        // ---- China Direct page ----
+        chinaSteps: [
+          { title: 'Sourced', text: 'We buy directly from vetted factories in Guangzhou, Yiwu, Shenzhen and Shanghai.' },
+          { title: 'Quality checked', text: 'Every batch is inspected by our team in China before packing.' },
+          { title: 'Shipped', text: 'Sea freight for bulk, air freight for fast orders. Fully tracked.' },
+          { title: 'Cleared in Colombo', text: 'We handle customs and duties. No surprise charges for you.' },
+          { title: 'Delivered', text: 'Islandwide delivery to your door, with Cash on Delivery.' }
+        ],
+        faq: [
+          { q: 'How long does China Direct delivery take?', a: 'Usually 10–14 days from order confirmation to your door. Items marked “Ships from Colombo” arrive in 2–4 days.' },
+          { q: 'Do I pay customs or import duty?', a: 'No. Prices include shipping from China and customs clearance in Sri Lanka.' },
+          { q: 'Can I pay cash on delivery?', a: 'Yes, Cash on Delivery is available islandwide. You can also pay by bank transfer.' },
+          { q: 'What if the item is wrong or damaged?', a: 'Contact us within 7 days of delivery and we will replace it or refund you.' },
+          { q: 'How do I track my order?', a: 'Use “Track My Order” with your order number and phone number.' }
+        ]
       },
       hero: [
         { id: 'h1', eyebrow: 'Mega Sale', title: 'Up to 60% OFF', subtitle: 'Fashion, shoes & bags', cta: 'Shop Sale', link: '#flash', color: '#d7141a', shape: 'sneaker', image: '' },

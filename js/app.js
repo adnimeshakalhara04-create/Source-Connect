@@ -86,6 +86,8 @@
     $('#footContact').innerHTML = '<li>' + esc(s.address) + '</li><li>' + esc(s.phone) + '</li><li>' + esc(s.email) + '</li>' +
       (s.whatsapp ? '<li><a target="_blank" rel="noopener" href="https://wa.me/' + esc(s.whatsapp) + '">WhatsApp us ↗</a></li>' : '');
     $('#year').textContent = new Date().getFullYear();
+    $('#navLinks').innerHTML = (s.navLinks || []).map(function (l) { return '<a href="' + esc(l.link || '#') + '"' + (l.hot ? ' class="hot"' : '') + '>' + esc(l.label) + '</a>'; }).join('');
+    $('#payList').innerHTML = (s.paymentMethods || []).map(function (m) { return '<span>' + esc(m) + '</span>'; }).join('');
     // position the fixed dropdown under its button
     var btn = $('#catsBtn'), menu = $('#catsMenu');
     $('.cats-drop').addEventListener('mouseenter', function () { var b = btn.getBoundingClientRect(); menu.style.left = b.left + 'px'; menu.style.top = b.bottom + 'px'; });
@@ -140,12 +142,21 @@
     };
   }
 
-  /* ---------------- countdown (flash sale ends at midnight) ---------------- */
-  function cdHTML() { return '<span class="countdown" data-cd>Ending in <b data-h>00</b>:<b data-m>00</b>:<b data-s>00</b></span>'; }
+  /* ---------------- flash sale timing (set in admin) ---------------- */
+  function flashEnd() {
+    var s = db.settings, now = new Date();
+    if (s.flashMode === 'off') return null;
+    if (s.flashMode === 'until') { var u = new Date(s.flashUntil); return isNaN(u) || u <= now ? null : u; }
+    var end = new Date(now); end.setHours(24, 0, 0, 0); return end;
+  }
+  function flashOn() { return !!flashEnd(); }
+  function isFlash(p) { return p.flash && flashOn(); }
+  function cdHTML() { return '<span class="countdown" data-cd>Ending in <b data-d hidden>0</b><b data-h>00</b>:<b data-m>00</b>:<b data-s>00</b></span>'; }
   function tickCountdowns() {
-    var now = new Date(), end = new Date(now); end.setHours(24, 0, 0, 0);
-    var d = Math.max(0, end - now), h = Math.floor(d / 36e5), m = Math.floor(d % 36e5 / 6e4), s = Math.floor(d % 6e4 / 1e3);
+    var end = flashEnd(), d = end ? Math.max(0, end - new Date()) : 0;
+    var days = Math.floor(d / 864e5), h = Math.floor(d % 864e5 / 36e5), m = Math.floor(d % 36e5 / 6e4), s = Math.floor(d % 6e4 / 1e3);
     $$('[data-cd]').forEach(function (el) {
+      var dd = $('[data-d]', el); dd.hidden = !days; dd.textContent = days + 'd';
       $('[data-h]', el).textContent = String(h).padStart(2, '0');
       $('[data-m]', el).textContent = String(m).padStart(2, '0');
       $('[data-s]', el).textContent = String(s).padStart(2, '0');
@@ -157,78 +168,95 @@
   var globe = null;
   function stageHTML(id) {
     var s = db.settings, lines = String(s.heroTitle || '').split('\n');
+    var stats = (s.globeStats || []).filter(function (x) { return x && x.value; });
     return '<div class="stage" id="' + id + '"><canvas aria-label="Animated globe showing shipments from China to Sri Lanka" role="img"></canvas>' +
       '<div class="stage-copy"><span class="chip"><i></i><span class="flag">China</span>' + '→' + '<span class="flag">Sri Lanka</span></span>' +
       '<h1>' + lines.map(function (l) { return '<span class="ln"><span>' + esc(l) + '</span></span>'; }).join('') + '</h1>' +
       '<p>' + esc(s.heroSubtitle || '') + '</p>' +
       '<div class="cta-row"><a class="btn" href="#col/china-direct">' + I.plane + 'Shop China Direct</a><a class="btn ghost" href="#china-direct">How it works</a></div>' +
-      '<div class="stage-stats"><div><b data-arrivals>1,248</b><small>Parcels this month</small></div><div><b>10–14</b><small>Days delivery</small></div><div><b>25+</b><small>Factories</small></div></div></div>' +
+      (stats.length ? '<div class="stage-stats">' + stats.map(function (x) { return '<div><b' + (x.live ? ' data-arrivals data-base="' + esc(x.value) + '"' : '') + '>' + esc(x.value) + '</b><small>' + esc(x.label) + '</small></div>'; }).join('') + '</div>' : '') + '</div>' +
       '<div class="legend"><span><i style="background:#ff5058"></i>Sea freight</span><span><i style="background:#ffd65a"></i>Air freight</span></div>' +
       '<div class="arrive-toast" data-arrive>' + I.box + '<span></span></div>' +
-      '<div class="timeline">' + [['Sourced', 'in China'], ['Checked', 'for quality'], ['Shipping', 'by sea & air'], ['Colombo', 'customs cleared'], ['Delivered', 'to your door']].map(function (t, i) { return '<div data-step="' + i + '"><b>' + (i + 1) + '. ' + t[0] + '</b>' + esc(t[1]) + '</div>'; }).join('') + '</div>' +
+      '<div class="timeline">' + (s.globeSteps || []).slice(0, 5).map(function (t, i) { return '<div data-step="' + i + '"><b>' + (i + 1) + '. ' + esc(t.title) + '</b>' + esc(t.text) + '</div>'; }).join('') + '</div>' +
       '</div>';
   }
   function mountGlobe(id) {
     if (globe) { globe.destroy(); globe = null; }
     var st = $('#' + id); if (!st || !window.SCGGlobe) return;
-    var base = 1248, steps = $$('[data-step]', st), toastEl = $('[data-arrive]', st), tid;
+    var live = $('[data-arrivals]', st), base = live ? parseInt(String(live.dataset.base).replace(/\D/g, ''), 10) : NaN;
+    var steps = $$('[data-step]', st), toastEl = $('[data-arrive]', st), tid;
     globe = SCGGlobe.mount($('canvas', st), {
+      cities: db.settings.globeCities,
       onPhase: function (ph) { steps.forEach(function (s, i) { s.classList.toggle('done', i < ph); s.classList.toggle('on', i === ph); }); },
       onArrive: function (n, origin) {
-        $('[data-arrivals]', st).textContent = (base + n).toLocaleString('en-US');
+        if (live && !isNaN(base)) live.textContent = (base + n).toLocaleString('en-US');
         $('span', toastEl).innerHTML = '<b>Arrived:</b> parcel from ' + esc(origin.name) + ' reached Colombo';
         toastEl.classList.add('show'); clearTimeout(tid); tid = setTimeout(function () { toastEl.classList.remove('show'); }, 2600);
       }
     });
+  }
+  function svcIcon(name) {
+    if (name === 'star') return I.star.replace('<svg', '<svg style="fill:#fff;stroke:none"');
+    return I[name] || I.tag;
   }
 
   /* ---------------- HOME ---------------- */
   var jfy = { list: [], shown: 0, tab: 'all', io: null };
   function renderHome() {
     setTitle('');
-    var flash = db.products.filter(function (p) { return p.flash; });
+    var s = db.settings;
+    var flash = flashOn() ? db.products.filter(function (p) { return p.flash; }) : [];
     var promos = db.hero.slice(0, 2), banners = db.hero.slice(2);
     var promoHTML = function (h) {
       return '<a class="promo" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><small>' + esc(h.eyebrow) + '</small><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle) + '</span><em>' + esc(h.cta || 'Shop now') + ' →</em>' +
         '<div class="art">' + (h.image ? '<img src="' + h.image + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div></a>';
     };
-    var svcs = [
-      ['#flash', 'Flash Sale', I.bolt, '#d7141a'], ['#col/china-direct', 'China Direct', I.plane, '#0b2a6f'], ['#col/new-arrivals', 'New Arrivals', I.tag, '#7c3aed'], ['#col/best-sellers', 'Best Sellers', I.star.replace('<svg', '<svg style="fill:#fff;stroke:none"'), '#f59e0b'],
-      ['#col/under-2000', 'Under Rs. 2,000', I.cash, '#0f766e'], ['#help', 'Free Delivery', I.truck, '#0284c7'], ['#help', '7-Day Returns', I.swap, '#be185d'], ['#track', 'Track Order', I.pin, '#334155']
-    ];
+    var parts = {
+      services: function () {
+        var list = s.services || []; if (!list.length) return '';
+        return '<section class="panel sec services" style="grid-template-columns:repeat(' + Math.min(8, list.length) + ',1fr)">' + list.map(function (v) { return '<a class="svc" href="' + esc(v.link || '#') + '"><span class="ic" style="--c:' + esc(v.color || '#0b2a6f') + '">' + svcIcon(v.icon) + '</span>' + esc(v.label) + '</a>'; }).join('') + '</section>';
+      },
+      flash: function () {
+        if (!flash.length) return '';
+        return '<section class="sec"><div class="sec-head"><h2>' + esc(s.flashTitle || 'Flash Sale') + '</h2></div><div class="panel">' +
+          '<div class="flash-head"><span class="on-sale">' + I.bolt + 'On Sale Now</span>' + cdHTML() + '<a class="more" href="#flash" style="color:var(--red);font-weight:700;font-size:13px">SHOP ALL PRODUCTS →</a></div>' +
+          '<div class="rail">' + flash.slice(0, 12).map(function (p) { return card(p, { flash: true }); }).join('') + '</div></div></section>';
+      },
+      categories: function () {
+        return '<section class="sec"><div class="sec-head"><h2>Categories</h2><a class="more" href="#categories">View all</a></div>' +
+          '<div class="panel catgrid" style="overflow:hidden">' + db.categories.map(function (c) { return '<a class="cat" href="#c/' + c.id + '" style="--c:' + (c.icon || '#0b2a6f') + '"><span class="ci">' + catIcon(c) + '</span>' + esc(c.name) + '</a>'; }).join('') + '</div></section>';
+      },
+      banners: function () {
+        if (!banners.length) return '';
+        return '<section class="sec banners">' + banners.slice(0, 6).map(function (h) {
+          var key = String(h.link || '').split('/')[1] || '';
+          var items = db.products.filter(function (p) { return p.category === key || (p.collections || []).indexOf(key) > -1; }).slice(0, 2);
+          if (!items.length) items = db.products.filter(function (p) { return p.shape === h.shape; }).slice(0, 2);
+          return '<a class="banner" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle || '') + '</span>' +
+            '<div class="stack">' + (h.image ? '<div><img src="' + h.image + '" alt="" style="border-radius:8px;height:100%;object-fit:cover"></div>' : items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
+        }).join('') + '</section>';
+      },
+      china: function (sec) { return rail(sec.title || 'China Direct', '#col/china-direct', db.products.filter(function (p) { return p.origin === 'china'; }).sort(function (a, b) { return SCG.discount(b) - SCG.discount(a); }).slice(0, 12)); },
+      best: function (sec) { return rail(sec.title || 'Best Sellers', '#col/best-sellers', db.products.slice().sort(function (a, b) { return b.sold - a.sold; }).slice(0, 12)); },
+      jfy: function (sec) {
+        return '<div class="jfy-head"><h2>' + esc(sec.title || 'Just For You') + '</h2><div class="jfy-tabs" id="jfyTabs"><button class="on" data-t="all">All</button>' + db.categories.map(function (c) { return '<button data-t="' + c.id + '">' + esc(c.name) + '</button>'; }).join('') + '</div></div>' +
+          '<div class="grid" id="jfy"></div><div class="loader" id="jfyMore"><span class="spinner"></span>Loading more products…</div>';
+      }
+    };
+    var body = (s.sections || []).filter(function (sec) { return sec.on && parts[sec.id]; }).map(function (sec) { return parts[sec.id](sec); }).join('');
     app.innerHTML =
       '<div class="wrap">' +
-      '<section class="hero">' +
+      '<section class="hero"' + (promos.length ? '' : ' style="grid-template-columns:230px minmax(0,1fr)"') + '>' +
         '<aside class="panel hero-cats"><h3>Categories</h3>' + catListHTML() + '</aside>' +
         stageHTML('stage') +
-        '<div class="promos">' + promos.map(promoHTML).join('') + '</div>' +
-      '</section>' +
-      '<section class="panel sec services">' + svcs.map(function (s) { return '<a class="svc" href="' + s[0] + '"><span class="ic" style="--c:' + s[3] + '">' + s[2] + '</span>' + s[1] + '</a>'; }).join('') + '</section>' +
-
-      '<section class="sec"><div class="sec-head"><h2>Flash Sale</h2></div><div class="panel">' +
-        '<div class="flash-head"><span class="on-sale">' + I.bolt + 'On Sale Now</span>' + cdHTML() + '<a class="more" href="#flash" style="color:var(--red);font-weight:700;font-size:13px">SHOP ALL PRODUCTS →</a></div>' +
-        '<div class="rail">' + flash.slice(0, 12).map(function (p) { return card(p, { flash: true }); }).join('') + '</div></div></section>' +
-
-      '<section class="sec"><div class="sec-head"><h2>Categories</h2><a class="more" href="#categories">View all</a></div>' +
-        '<div class="panel catgrid" style="overflow:hidden">' + db.categories.map(function (c) { return '<a class="cat" href="#c/' + c.id + '" style="--c:' + (c.icon || '#0b2a6f') + '"><span class="ci">' + catIcon(c) + '</span>' + esc(c.name) + '</a>'; }).join('') + '</div></section>' +
-
-      (banners.length ? '<section class="sec banners">' + banners.concat(db.collections.slice(0, Math.max(0, 3 - banners.length)).map(function (c) { return { link: '#col/' + c.id, color: c.accent, title: c.name, subtitle: c.description, coll: c.id }; })).slice(0, 3).map(function (h) {
-        var items = db.products.filter(function (p) { return h.coll ? (p.collections || []).indexOf(h.coll) > -1 : p.category === (String(h.link).split('/')[1] || ''); }).slice(0, 2);
-        if (!items.length) items = db.products.filter(function (p) { return p.shape === h.shape; }).slice(0, 2);
-        return '<a class="banner" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle || '') + '</span>' +
-          '<div class="stack">' + (h.image ? '<div><img src="' + h.image + '" alt="" style="border-radius:8px;height:100%;object-fit:cover"></div>' : items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
-      }).join('') + '</section>' : '') +
-
-      rail('China Direct — Factory Prices', '#col/china-direct', db.products.filter(function (p) { return p.origin === 'china'; }).sort(function (a, b) { return SCG.discount(b) - SCG.discount(a); }).slice(0, 12)) +
-      rail('Best Sellers', '#col/best-sellers', db.products.slice().sort(function (a, b) { return b.sold - a.sold; }).slice(0, 12)) +
-
-      '<div class="jfy-head"><h2>Just For You</h2><div class="jfy-tabs" id="jfyTabs"><button class="on" data-t="all">All</button>' + db.categories.map(function (c) { return '<button data-t="' + c.id + '">' + esc(c.name) + '</button>'; }).join('') + '</div></div>' +
-      '<div class="grid" id="jfy"></div><div class="loader" id="jfyMore"><span class="spinner"></span>Loading more products…</div>' +
-      '</div>';
+        (promos.length ? '<div class="promos">' + promos.map(promoHTML).join('') + '</div>' : '') +
+      '</section>' + body + '</div>';
     mountGlobe('stage');
     tickCountdowns();
-    $('#jfyTabs').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; $$('#jfyTabs button').forEach(function (x) { x.classList.toggle('on', x === b); }); startJFY(b.dataset.t); };
-    startJFY('all');
+    if ($('#jfyTabs')) {
+      $('#jfyTabs').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; $$('#jfyTabs button').forEach(function (x) { x.classList.toggle('on', x === b); }); startJFY(b.dataset.t); };
+      startJFY('all');
+    }
   }
   function rail(title, link, list) {
     return '<section class="sec"><div class="sec-head"><h2>' + esc(title) + '</h2><a class="more" href="' + link + '">Shop more</a></div><div class="panel"><div class="rail">' + list.map(function (p) { return card(p); }).join('') + '</div></div></section>';
@@ -263,17 +291,17 @@
     var st = { cats: [], min: '', max: '', rating: 0, origins: [], sale: false, sort: 'pop', q: '', coll: '', limit: 30 };
     if (kind === 'c') { var c = SCG.categoryById(val); if (c) { title = c.name; sub = c.tagline; color = c.icon || color; art = c.shape; st.cats = [c.id]; } }
     if (kind === 'col') { var co = SCG.collectionById(val); if (co) { title = co.name; sub = co.description; color = co.accent; art = 'bag'; st.coll = co.id; } }
-    if (kind === 'flash') { title = 'Flash Sale'; sub = 'Huge discounts — today only.'; color = '#d7141a'; art = 'sneaker'; st.sale = true; st.flashOnly = true; st.sort = 'off'; }
+    if (kind === 'flash') { title = db.settings.flashTitle || 'Flash Sale'; sub = flashOn() ? 'Huge discounts for a limited time.' : 'This flash sale has ended. Check back soon for new deals.'; color = '#d7141a'; art = 'sneaker'; st.sale = true; st.flashOnly = true; st.sort = 'off'; }
     if (kind === 'search') { st.q = val; title = 'Results for “' + val + '”'; sub = ''; if (extra) st.cats = [extra]; }
     setTitle(kind === 'search' ? 'Search' : title);
 
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>' + esc(title) + '</span></div>' +
-      (kind !== 'search' ? '<div class="cat-hero reveal" style="--c:' + color + '"><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + '<div class="art">' + SCG.productSVG(art, '#ffffff', 'solid', color) + '</div></div>' : '') +
+      (kind !== 'search' ? '<div class="cat-hero reveal" style="--c:' + color + '"><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' && flashOn() ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + '<div class="art">' + SCG.productSVG(art, '#ffffff', 'solid', color) + '</div></div>' : '') +
       '<div class="listing"><aside class="panel filters" id="filters">' +
         '<div class="grp"><h4>Category</h4>' + db.categories.map(function (c) { return '<label><input type="checkbox" name="fc" value="' + c.id + '"' + (st.cats.indexOf(c.id) > -1 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') + '</div>' +
         '<div class="grp"><h4>Price (Rs.)</h4><div class="price-row"><input id="fmin" type="number" min="0" placeholder="Min"><span>–</span><input id="fmax" type="number" min="0" placeholder="Max"></div></div>' +
         '<div class="grp"><h4>Rating</h4>' + [0, 4.5, 4, 3.5].map(function (r) { return '<label><input type="radio" name="fr" value="' + r + '"' + (r === 0 ? ' checked' : '') + '>' + (r ? stars(r) + ' ' + r + ' &amp; up' : 'Any rating') + '</label>'; }).join('') + '</div>' +
-        '<div class="grp"><h4>Shipped from</h4><label><input type="checkbox" name="fo" value="china">China Direct (10–14 days)</label><label><input type="checkbox" name="fo" value="local">Colombo stock (2–4 days)</label></div>' +
+        '<div class="grp"><h4>Shipped from</h4><label><input type="checkbox" name="fo" value="china">China Direct (' + esc(db.settings.chinaDays) + ' days)</label><label><input type="checkbox" name="fo" value="local">Colombo stock (' + esc(db.settings.localDays) + ' days)</label></div>' +
         '<div class="grp"><h4>Offers</h4><label><input type="checkbox" id="fsale"' + (st.sale ? ' checked' : '') + '>On discount only</label></div>' +
         '<button class="btn full filter-btn" id="fDone">Show results</button>' +
       '</aside><div>' +
@@ -288,7 +316,7 @@
       var list = db.products.filter(function (p) {
         if (st.cats.length && st.cats.indexOf(p.category) < 0) return false;
         if (st.coll && (p.collections || []).indexOf(st.coll) < 0) return false;
-        if (st.flashOnly && !p.flash) return false;
+        if (st.flashOnly && !isFlash(p)) return false;
         if (st.min !== '' && p.price < +st.min) return false;
         if (st.max !== '' && p.price > +st.max) return false;
         if (st.rating && p.rating < st.rating) return false;
@@ -341,7 +369,7 @@
           '<div class="thumbs" id="thumbs">' + vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('') + '</div></div>' +
         '<div><h1>' + esc(p.name) + '</h1>' +
           '<div class="sub">' + stars(p.rating) + '<span>' + p.rating + ' · ' + p.reviews + ' ratings</span><span>' + fmtCount(p.sold) + ' sold</span><span>Brand: <a href="#search/' + encodeURIComponent(p.brand) + '">' + esc(p.brand) + '</a></span></div>' +
-          (p.flash ? '<div class="flash-strip"><span>⚡ Flash Sale</span>' + cdHTML() + '</div>' : '') +
+          (isFlash(p) ? '<div class="flash-strip"><span>⚡ ' + esc(db.settings.flashTitle || 'Flash Sale') + '</span>' + cdHTML() + '</div>' : '') +
           '<div class="price-box"><div class="now">' + money(p.price) + '</div>' + (p.comparePrice ? '<div class="old"><s>' + money(p.comparePrice) + '</s><b>-' + off + '%</b></div>' : '') + '</div>' +
           (vars.length > 1 ? '<div class="opt"><span>Colour</span><div class="swatches" id="sw">' + vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('') + '</div></div>' : '') +
           ((p.sizes || []).length ? '<div class="opt"><span>Size</span><div class="sizes" id="sz">' + p.sizes.map(function (z) { return '<button class="' + (z === st.size ? 'on' : '') + '" data-s="' + esc(z) + '">' + esc(z) + '</button>'; }).join('') + '</div></div>' : '') +
@@ -353,21 +381,21 @@
       '<aside><div class="panel side-box"><h4>Delivery</h4>' +
         '<div class="side-row">' + I.pin + '<div><b>' + esc(s.address || 'Sri Lanka') + '</b><small>Islandwide delivery</small></div></div>' +
         (p.origin === 'china'
-          ? '<div class="side-row">' + I.plane + '<div><b>China Direct · 10–14 days</b><small>Shipped from our partner factories in China</small></div></div>'
-          : '<div class="side-row">' + I.truck + '<div><b>Standard · 2–4 days</b><small>In stock at our Colombo warehouse</small></div></div>') +
-        '<div class="side-row">' + I.cash + '<div><b>Cash on Delivery available</b><small>' + (s.freeShipping ? 'Free delivery over ' + money(s.freeShipping) : '') + '</small></div></div>' +
+          ? '<div class="side-row">' + I.plane + '<div><b>China Direct · ' + esc(s.chinaDays) + ' days</b><small>Shipped from our partner factories in China</small></div></div>'
+          : '<div class="side-row">' + I.truck + '<div><b>Standard · ' + esc(s.localDays) + ' days</b><small>In stock at our Colombo warehouse</small></div></div>') +
+        '<div class="side-row">' + I.cash + '<div><b>' + (s.payCOD ? 'Cash on Delivery available' : 'Secure payment') + '</b><small>' + (s.freeShipping ? 'Free delivery over ' + money(s.freeShipping) : '') + '</small></div></div>' +
         '<h4 style="margin-top:14px">Service</h4>' +
-        '<div class="side-row">' + I.swap + '<div><b>7-day easy returns</b><small>Change of mind is not applicable</small></div></div>' +
+        '<div class="side-row">' + I.swap + '<div><b>' + esc(s.returnDays) + '-day easy returns</b><small>Change of mind is not applicable</small></div></div>' +
         '<div class="side-row">' + I.shield + '<div><b>Quality checked</b><small>Inspected before it leaves China</small></div></div>' +
         (p.origin === 'china' ? '<div class="route-mini"><b>Shipping route</b><div class="line">🇨🇳 ' + 'China<i></i>Colombo 🇱🇰</div></div>' : '') +
       '</div><div class="panel side-box" style="margin-top:12px"><h4>Sold by</h4><div class="seller"><img src="assets/logo.jpg" alt=""><div><b>Source Connect Global</b><small style="display:block;color:var(--muted)">Official store</small></div></div>' +
-        '<div class="seller-stats"><div><b>96%</b><small>Positive ratings</small></div><div><b>98%</b><small>Ship on time</small></div><div><b>92%</b><small>Chat response</small></div></div></div></aside></div>' +
+        '<div class="seller-stats">' + (s.sellerStats || []).map(function (x) { return '<div><b>' + esc(x.value) + '</b><small>' + esc(x.label) + '</small></div>'; }).join('') + '</div></div></aside></div>' +
       (related.length ? rail('More from ' + (cat ? cat.name : 'this category'), '#c/' + p.category, related) : '') +
       '</div>';
 
     function tab(t) {
       $$('#ptabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); });
-      $('#pbody').innerHTML = t === 'd' ? '<p style="margin-top:0">' + esc(p.description) + '</p><ul style="color:var(--muted)"><li>Brand: ' + esc(p.brand) + '</li><li>' + (p.origin === 'china' ? 'Ships directly from China (10–14 days)' : 'Ships from Colombo (2–4 days)') + '</li><li>Cash on Delivery available islandwide</li></ul>'
+      $('#pbody').innerHTML = t === 'd' ? '<p style="margin-top:0">' + esc(p.description) + '</p><ul style="color:var(--muted)"><li>Brand: ' + esc(p.brand) + '</li><li>' + (p.origin === 'china' ? 'Ships directly from China (' + esc(s.chinaDays) + ' days)' : 'Ships from Colombo (' + esc(s.localDays) + ' days)') + '</li>' + (s.payCOD ? '<li>Cash on Delivery available islandwide</li>' : '') + '</ul>'
         : t === 's' ? '<table class="spec"><tr><td>Brand</td><td>' + esc(p.brand) + '</td></tr><tr><td>Category</td><td>' + esc(cat ? cat.name : '') + '</td></tr><tr><td>SKU</td><td>' + esc(p.id.toUpperCase()) + '</td></tr>' + ((p.sizes || []).length ? '<tr><td>Sizes</td><td>' + esc(p.sizes.join(', ')) + '</td></tr>' : '') + '<tr><td>Origin</td><td>' + (p.origin === 'china' ? 'China' : 'Sri Lanka stock') + '</td></tr><tr><td>In stock</td><td>' + p.stock + '</td></tr></table>'
           : '<div class="rating-sum"><div><div class="big">' + p.rating + '<small style="font-size:18px;color:var(--muted)">/5</small></div>' + stars(p.rating) + '<div style="color:var(--muted);font-size:12px">' + p.reviews + ' ratings</div></div><div class="rbars">' + dist.map(function (n, i) { return '<div><span>' + (5 - i) + '★</span><i><em style="width:' + (p.reviews ? n / p.reviews * 100 : 0) + '%"></em></i><span>' + n + '</span></div>'; }).join('') + '</div></div>';
     }
@@ -444,7 +472,7 @@
     setTitle('Checkout');
     var lines = cartLines().filter(function (x) { return x.l.sel !== false; });
     if (!lines.length) { location.hash = 'cart'; return; }
-    var t = totals(lines), china = lines.some(function (x) { return x.p.origin === 'china'; });
+    var t = totals(lines), china = lines.some(function (x) { return x.p.origin === 'china'; }), s = db.settings;
     var districts = ['Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya', 'Galle', 'Matara', 'Hambantota', 'Jaffna', 'Kilinochchi', 'Mannar', 'Vavuniya', 'Mullaitivu', 'Batticaloa', 'Ampara', 'Trincomalee', 'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla', 'Moneragala', 'Ratnapura', 'Kegalle'];
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<a href="#cart">Cart</a>›<span>Checkout</span></div><div class="cart-wrap">' +
       '<form class="panel form" id="co"><h3>Delivery information</h3>' +
@@ -455,18 +483,19 @@
       '<label>District<select name="district">' + districts.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select></label>' +
       '<label class="full">Note for delivery (optional)<textarea name="note" rows="2"></textarea></label>' +
       '<h3 style="margin-top:6px">Payment method</h3><div class="pay-opts full">' +
-      '<label class="pay-opt"><input type="radio" name="pay" value="Cash on Delivery" checked>' + I.cash + '<span><b>Cash on Delivery</b><br><small>Pay when your order arrives</small></span></label>' +
-      '<label class="pay-opt"><input type="radio" name="pay" value="Bank Transfer">' + I.shield + '<span><b>Bank Transfer</b><br><small>We will send bank details by SMS / WhatsApp</small></span></label></div>' +
-      (china ? '<p class="full" style="margin:0;font-size:12.5px;color:var(--muted)">' + I.plane.replace('<svg', '<svg style="width:14px;height:14px;vertical-align:-2px"') + ' Some items ship from China and arrive in 10–14 days.</p>' : '') +
+      (s.payCOD !== false ? '<label class="pay-opt"><input type="radio" name="pay" value="Cash on Delivery" required>' + I.cash + '<span><b>Cash on Delivery</b><br><small>Pay when your order arrives</small></span></label>' : '') +
+      (s.payBank ? '<label class="pay-opt"><input type="radio" name="pay" value="Bank Transfer" required>' + I.shield + '<span><b>Bank Transfer</b><br><small>Bank details are shown after you place the order</small></span></label>' : '') + '</div>' +
+      (china ? '<p class="full" style="margin:0;font-size:12.5px;color:var(--muted)">' + I.plane.replace('<svg', '<svg style="width:14px;height:14px;vertical-align:-2px"') + ' Some items ship from China and arrive in ' + esc(s.chinaDays) + ' days.</p>' : '') +
       '<button class="btn lg full" style="grid-column:1/-1">Place Order · ' + money(t.total) + '</button></form>' +
       '<aside class="panel summary"><h3>Your order</h3>' + lines.map(function (x) { return '<div class="sum-row" style="gap:10px"><span style="color:var(--text)">' + esc(x.p.name) + ' <small style="color:var(--muted)">×' + x.l.qty + (x.l.size ? ' · ' + esc(x.l.size) : '') + '</small></span><span>' + money(x.p.price * x.l.qty) + '</span></div>'; }).join('') +
       '<div class="sum-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px"><span>Subtotal</span><span>' + money(t.sub) + '</span></div><div class="sum-row"><span>Delivery</span><span>' + (t.ship ? money(t.ship) : 'FREE') + '</span></div>' +
       '<div class="sum-row total"><span>Total</span><span>' + money(t.total) + '</span></div></aside></div></div>';
+    var firstPay = $('#co input[name=pay]'); if (firstPay) firstPay.checked = true;
     $('#co').onsubmit = function (e) {
       e.preventDefault();
       var fd = new FormData(e.target), orders = SCG.getOrders();
       var order = {
-        id: 'SCG' + Date.now().toString().slice(-7), date: new Date().toISOString(), status: 'Pending', payment: fd.get('pay'),
+        id: 'SCG' + Date.now().toString().slice(-7), date: new Date().toISOString(), status: 'Pending', payment: fd.get('pay') || 'Cash on Delivery',
         customer: { name: fd.get('name'), phone: fd.get('phone'), address: fd.get('address') + ', ' + fd.get('city') + ', ' + fd.get('district'), note: fd.get('note') },
         items: lines.map(function (x) { return { id: x.p.id, name: x.p.name, size: x.l.size, color: x.l.color, qty: x.l.qty, price: x.p.price, origin: x.p.origin }; }),
         subtotal: t.sub, shipping: t.ship, total: t.total
@@ -476,6 +505,7 @@
       SCG.saveCart(SCG.getCart().filter(function (l) { return l.sel === false; })); updateCounts();
       app.innerHTML = '<div class="wrap"><div class="panel success" style="margin-top:16px"><div class="tick">' + I.check + '</div><h2 style="margin:0 0 6px">Thank you! Your order is placed.</h2>' +
         '<p>Order number <b>' + order.id + '</b> · Total <b>' + money(order.total) + '</b></p><p style="color:var(--muted)">We will call ' + esc(order.customer.phone) + ' to confirm. Keep your order number to track it.</p>' +
+        (order.payment === 'Bank Transfer' && s.bankDetails ? '<p class="free-note need" style="max-width:520px;margin:12px auto"><b>Bank transfer details:</b><br>' + esc(s.bankDetails) + '<br>Use <b>' + order.id + '</b> as the reference.</p>' : '') +
         '<div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap"><a class="btn navy" href="#track/' + order.id + '">Track order</a><a class="btn line" href="#">Continue shopping</a></div></div></div>';
       scrollTo(0, 0);
     };
@@ -513,7 +543,7 @@
   }
   function renderChinaDirect() {
     setTitle('How China Direct works');
-    var steps = [['Sourced', 'We buy directly from vetted factories in Guangzhou, Yiwu, Shenzhen and Shanghai.'], ['Quality checked', 'Every batch is inspected by our team in China before packing.'], ['Shipped', 'Sea freight for bulk, air freight for fast orders. Fully tracked.'], ['Cleared in Colombo', 'We handle customs and duties. No surprise charges for you.'], ['Delivered', 'Islandwide delivery to your door, with Cash on Delivery.']];
+    var steps = (db.settings.chinaSteps || []).map(function (x) { return [esc(x.title), esc(x.text)]; });
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>How China Direct works</span></div>' +
       '<div class="cd-hero">' + stageHTML('stage2') + '</div>' +
       '<section class="sec"><div class="sec-head"><h2>From the factory to your door in 5 steps</h2></div><div class="steps">' + steps.map(function (s, i) { return '<div class="panel step reveal" style="animation-delay:' + i * .08 + 's"><div class="n">' + (i + 1) + '</div><h4>' + s[0] + '</h4><p>' + s[1] + '</p></div>'; }).join('') + '</div></section>' +
@@ -522,7 +552,7 @@
     mountGlobe('stage2');
   }
   function faq() {
-    var q = [['How long does China Direct delivery take?', 'Usually 10–14 days from order confirmation to your door. Items marked “Ships from Colombo” arrive in 2–4 days.'], ['Do I pay customs or import duty?', 'No. Prices include shipping from China and customs clearance in Sri Lanka.'], ['Can I pay cash on delivery?', 'Yes, Cash on Delivery is available islandwide. You can also pay by bank transfer.'], ['What if the item is wrong or damaged?', 'Contact us within 7 days of delivery and we will replace it or refund you.'], ['How do I track my order?', 'Use “Track My Order” with your order number and phone number.']];
+    var q = (db.settings.faq || []).map(function (x) { return [esc(x.q), esc(x.a)]; }); if (!q.length) return '';
     return '<section class="sec"><div class="sec-head"><h2>Questions &amp; answers</h2></div><div class="panel faq">' + q.map(function (x) { return '<details><summary>' + x[0] + '</summary><p>' + x[1] + '</p></details>'; }).join('') + '</div></section>';
   }
   function renderHelp() {
