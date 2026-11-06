@@ -9,7 +9,7 @@
   var db = SCG.load();
   var SESSION = 'scg_admin_session';
   var MIN_PER_CATEGORY = 10;
-  var BADGES = ['', 'New', 'Best Seller', 'Limited', 'Sale', 'Hot'];
+  var BADGES = ['', 'New', 'Best Seller', 'Flash Sale', 'Limited', 'Hot'];
   var SHAPES = Object.keys(SCG.SHAPES);
 
   /* ---------------- Auth ---------------- */
@@ -60,7 +60,7 @@
     products: { title: 'Products', render: products },
     categories: { title: 'Categories', render: categories },
     collections: { title: 'Collections', render: collections },
-    hero: { title: 'Hero Banners', render: hero },
+    hero: { title: 'Promo Banners', render: hero },
     orders: { title: 'Orders', render: ordersView },
     settings: { title: 'Settings', render: settings }
   };
@@ -162,39 +162,54 @@
     var isNew = !p;
     var d = p ? JSON.parse(JSON.stringify(p)) : {
       name: '', category: pf.cat !== 'all' ? pf.cat : db.categories[0].id, collections: [], price: 0, comparePrice: 0, stock: 20,
-      color: '#0b2a6f', image: '', sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], badge: 'New', featured: false, description: ''
+      color: '#0b2a6f', accent: '#f3f4f6', shape: '', pattern: 'solid', brand: 'SC Global', origin: 'china', flash: false,
+      rating: 4.5, reviews: 0, sold: 0, image: '', sizes: ['S', 'M', 'L', 'XL', 'XXL'], badge: 'New', featured: false, description: ''
     };
-    function preview() { var c = SCG.categoryById(d.category); return d.image ? '<img src="' + d.image + '" alt="">' : SCG.garmentSVG(c ? c.shape : 'tshirt', d.color); }
+    function curShape() { var c = SCG.categoryById(d.category); return d.shape || (c ? c.shape : 'tshirt'); }
+    function preview() { return d.image ? '<img src="' + d.image + '" alt="">' : SCG.productSVG(curShape(), d.color, d.pattern, d.accent); }
     openModal(isNew ? 'Add Product' : 'Edit Product',
       '<form class="form" id="pform">' +
       '<label class="full">Product name<input name="name" required value="' + esc(d.name) + '" placeholder="e.g. Classic Crew Tee"></label>' +
       '<label>Category<select name="category">' + db.categories.map(function (c) { return '<option value="' + c.id + '"' + (c.id === d.category ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') + '</select></label>' +
-      '<label>Badge<select name="badge">' + BADGES.map(function (b) { return '<option' + (b === d.badge ? ' selected' : '') + ' value="' + b + '">' + (b || 'None') + '</option>'; }).join('') + '</select></label>' +
+      '<label>Brand<input name="brand" value="' + esc(d.brand || '') + '"></label>' +
       '<label>Price (' + esc(db.settings.currency) + ')<input name="price" type="number" min="0" step="10" required value="' + d.price + '"></label>' +
-      '<label>Compare-at price<input name="comparePrice" type="number" min="0" step="10" placeholder="Optional — shown as strikethrough" value="' + (d.comparePrice || '') + '"></label>' +
+      '<label>Original price (before discount)<input name="comparePrice" type="number" min="0" step="10" placeholder="Optional, shows -% off" value="' + (d.comparePrice || '') + '"></label>' +
       '<label>Stock quantity<input name="stock" type="number" min="0" required value="' + d.stock + '"></label>' +
-      '<label>Colour<input name="color" type="color" value="' + esc(d.color) + '"></label>' +
-       '<label class="full">Sizes (comma separated)<input name="sizes" value="' + esc((d.sizes || []).join(', ')) + '"></label>' +
+      '<label>Ships from<select name="origin"><option value="china"' + (d.origin === 'china' ? ' selected' : '') + '>China Direct (10–14 days)</option><option value="local"' + (d.origin !== 'china' ? ' selected' : '') + '>Colombo stock (2–4 days)</option></select></label>' +
+      '<label>Badge<select name="badge">' + BADGES.map(function (b) { return '<option' + (b === d.badge ? ' selected' : '') + ' value="' + b + '">' + (b || 'None') + '</option>'; }).join('') + '</select></label>' +
+      '<label>Rating (0–5)<input name="rating" type="number" min="0" max="5" step="0.1" value="' + (d.rating || 0) + '"></label>' +
+      '<label>Ratings count<input name="reviews" type="number" min="0" value="' + (d.reviews || 0) + '"></label>' +
+      '<label>Units sold<input name="sold" type="number" min="0" value="' + (d.sold || 0) + '"></label>' +
+      '<label class="full">Sizes (comma separated, leave empty for bags and watches)<input name="sizes" value="' + esc((d.sizes || []).join(', ')) + '"></label>' +
       '<div class="full"><label style="margin-bottom:8px">Collections</label><div class="checks">' + db.collections.map(function (c) {
         return '<label><input type="checkbox" name="collections" value="' + c.id + '"' + ((d.collections || []).indexOf(c.id) > -1 ? ' checked' : '') + '> ' + esc(c.name) + '</label>';
       }).join('') + '</div></div>' +
       '<div class="full"><label style="margin-bottom:8px">Product photo</label><div class="uploader" id="pup"><div class="preview">' + preview() + '</div><div class="btns">' +
       '<input type="file" accept="image/*"><button type="button" class="btn sm danger" data-rm-img>Remove photo</button>' +
-      '<span class="hint">No photo? A styled illustration in the chosen colour is shown instead. Images are auto-resized.</span></div></div></div>' +
+      '<span class="hint">No photo? The illustration below is shown instead. Photos are auto-resized.</span></div></div></div>' +
+      '<label>Illustration<select name="shape"><option value="">Same as category</option>' + Object.keys(SCG.SHAPES).map(function (s) { return '<option' + (s === d.shape ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
+      '<label>Pattern<select name="pattern">' + SCG.PATTERNS.map(function (s) { return '<option' + (s === (d.pattern || 'solid') ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
+      '<label>Main colour<input name="color" type="color" value="' + esc(d.color) + '"></label>' +
+      '<label>Accent colour<input name="accent" type="color" value="' + esc(d.accent || '#f3f4f6') + '"></label>' +
       '<label class="full">Description<textarea name="description" rows="3">' + esc(d.description) + '</textarea></label>' +
-      '<label class="full" style="flex-direction:row;display:flex;gap:8px;align-items:center"><input type="checkbox" name="featured"' + (d.featured ? ' checked' : '') + '> Featured product</label>' +
+      '<div class="full checks"><label><input type="checkbox" name="flash"' + (d.flash ? ' checked' : '') + '> Show in Flash Sale</label><label><input type="checkbox" name="featured"' + (d.featured ? ' checked' : '') + '> Featured</label></div>' +
       '<div class="form-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">' + (isNew ? 'Add Product' : 'Save Changes') + '</button></div></form>');
     var f = $('#pform');
     bindUploader($('#pup'), preview, function (url) { d.image = url; });
-    f.category.onchange = f.color.oninput = function () { d.category = f.category.value; d.color = f.color.value; if (!d.image) $('#pup .preview').innerHTML = preview(); };
+    f.category.onchange = f.color.oninput = f.accent.oninput = f.shape.onchange = f.pattern.onchange = function () {
+      d.category = f.category.value; d.color = f.color.value; d.accent = f.accent.value; d.shape = f.shape.value; d.pattern = f.pattern.value;
+      if (!d.image) $('#pup .preview').innerHTML = preview();
+    };
     f.onsubmit = function (e) {
       e.preventDefault();
       var out = Object.assign(d, {
-        name: f.name.value.trim(), category: f.category.value, badge: f.badge.value,
-        price: +f.price.value || 0, comparePrice: +f.comparePrice.value || 0, stock: +f.stock.value || 0, color: f.color.value,
+        name: f.elements.name.value.trim(), category: f.category.value, badge: f.badge.value, brand: f.brand.value.trim(),
+        price: +f.price.value || 0, comparePrice: +f.comparePrice.value || 0, stock: +f.stock.value || 0,
+        color: f.color.value, accent: f.accent.value, shape: f.shape.value, pattern: f.pattern.value, origin: f.origin.value,
+        rating: Math.min(5, +f.rating.value || 0), reviews: +f.reviews.value || 0, sold: +f.sold.value || 0,
         sizes: f.sizes.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean),
         collections: $$('input[name=collections]:checked', f).map(function (x) { return x.value; }),
-        description: f.description.value.trim(), featured: f.featured.checked
+        description: f.description.value.trim(), featured: f.featured.checked, flash: f.flash.checked
       });
       if (isNew) { out.id = SCG.uid(out.category); out.createdAt = Date.now(); db.products.unshift(out); }
       else { var i = db.products.indexOf(p); db.products[i] = out; }
@@ -297,8 +312,8 @@
   /* ----- Hero banners ----- */
   function hero(v) {
     setActions('<button class="btn primary" id="addHero">+ Add Slide</button>');
-    v.innerHTML = '<p class="muted" style="margin-top:0">These are the cinematic slides at the top of the homepage. Use a new line in the title to split it into two animated lines.</p><div class="cards">' + db.hero.map(function (h, i) {
-      return '<div class="item-card"><div class="cover" style="background:linear-gradient(120deg,#050b1c,' + h.color + ')">' + (h.image ? '<img src="' + h.image + '" alt="">' : SCG.garmentSVG(h.shape, h.color)) + '</div>' +
+    v.innerHTML = '<p class="muted" style="margin-top:0">The first two banners show beside the globe at the top of the homepage. The rest show as wide banners below the categories. The globe headline is edited in Settings.</p><div class="cards">' + db.hero.map(function (h, i) {
+      return '<div class="item-card"><div class="cover" style="background:linear-gradient(120deg,#050b1c,' + h.color + ')">' + (h.image ? '<img src="' + h.image + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div>' +
         '<div class="body"><small class="muted">SLIDE ' + (i + 1) + ' · ' + esc(h.eyebrow) + '</small><h4>' + esc(h.title).replace(/\n/g, ' ') + '</h4><p>' + esc(h.subtitle) + '</p></div>' +
         '<div class="foot"><button class="btn sm" data-up="' + i + '"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="btn sm" data-edit="' + i + '">Edit</button><button class="btn sm danger" data-del="' + i + '">Delete</button></div></div>';
     }).join('') + '</div>';
@@ -312,7 +327,7 @@
   }
   function heroForm(i) {
     var h = i > -1 ? JSON.parse(JSON.stringify(db.hero[i])) : { id: SCG.uid('h'), eyebrow: 'New Season', title: 'Your Headline\nHere', subtitle: '', cta: 'Shop Now', link: '#shop', color: '#0b2a6f', shape: 'tshirt', image: '' };
-    function prev() { return h.image ? '<img src="' + h.image + '" alt="">' : SCG.garmentSVG(h.shape, h.color); }
+    function prev() { return h.image ? '<img src="' + h.image + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color); }
     var links = ['#shop'].concat(db.categories.map(function (c) { return '#category/' + c.id; }), db.collections.map(function (c) { return '#collection/' + c.id; }));
     openModal(i > -1 ? 'Edit Slide' : 'Add Slide',
       '<form class="form" id="hform"><label>Eyebrow (small label)<input name="eyebrow" value="' + esc(h.eyebrow) + '"></label>' +
@@ -344,7 +359,7 @@
           '<td><b>' + esc(o.customer.name) + '</b><br><a href="tel:' + esc(o.customer.phone) + '">' + esc(o.customer.phone) + '</a><br><small class="muted">' + esc(o.customer.address) + '</small></td>' +
           '<td>' + o.items.map(function (it) { return esc(it.name) + ' <span class="muted">(' + esc(it.size) + ') ×' + it.qty + '</span>'; }).join('<br>') + '</td>' +
           '<td><b>' + SCG.money(o.total) + '</b></td>' +
-          '<td><select data-st="' + i + '" style="width:auto">' + ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'].map(function (s) { return '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td>' +
+          '<td><select data-st="' + i + '" style="width:auto">' + ['Pending', 'Confirmed', 'Shipped', 'Arrived in Sri Lanka', 'Delivered', 'Cancelled'].map(function (s) { return '<option' + (s === o.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td>' +
           '<td><button class="btn sm danger" data-del="' + i + '">Delete</button></td></tr>';
       }).join('') + '</tbody></table></div>'
       : '<div class="panel" style="text-align:center;padding:60px"><h3>No orders yet</h3><p class="muted">When customers check out on the website, their orders appear here.</p></div>';
@@ -358,7 +373,11 @@
     v.innerHTML =
       '<div class="panel"><h3>Store details</h3><form class="form" id="sform">' +
       '<label class="full">Announcement bar text<textarea name="announcement" rows="2">' + esc(s.announcement) + '</textarea></label>' +
-      '<label>Currency<input name="currency" value="' + esc(s.currency) + '"></label>' +
+      '<label class="full">Homepage globe headline (new line = second line)<textarea name="heroTitle" rows="2">' + esc(s.heroTitle) + '</textarea></label>' +
+      '<label class="full">Homepage globe text<textarea name="heroSubtitle" rows="2">' + esc(s.heroSubtitle) + '</textarea></label>' +
+      '<label>Currency symbol<input name="currency" value="' + esc(s.currency) + '"></label>' +
+      '<label>Free delivery over (0 = never)<input name="freeShipping" type="number" min="0" value="' + (s.freeShipping || 0) + '"></label>' +
+      '<label>Delivery fee<input name="shippingFee" type="number" min="0" value="' + (s.shippingFee || 0) + '"></label>' +
       '<label>Phone<input name="phone" value="' + esc(s.phone) + '"></label>' +
       '<label>Email<input name="email" type="email" value="' + esc(s.email) + '"></label>' +
       '<label>WhatsApp number <span class="hint">(international, digits only)</span><input name="whatsapp" value="' + esc(s.whatsapp) + '"></label>' +
@@ -375,7 +394,8 @@
       '<button class="btn danger" id="rst">Reset to demo data</button></div></div>';
     $('#sform').onsubmit = function (e) {
       e.preventDefault(); var f = e.target;
-      ['announcement', 'currency', 'phone', 'email', 'whatsapp', 'address'].forEach(function (k) { s[k] = f[k].value.trim(); });
+      ['announcement', 'heroTitle', 'heroSubtitle', 'currency', 'phone', 'email', 'whatsapp', 'address'].forEach(function (k) { s[k] = f.elements[k].value.trim(); });
+      s.freeShipping = +f.elements.freeShipping.value || 0; s.shippingFee = +f.elements.shippingFee.value || 0;
       commit('Store details saved');
     };
     $('#aform').onsubmit = function (e) {
