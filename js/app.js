@@ -412,7 +412,7 @@
         '<div class="side-row">' + I.swap + '<div><b>' + esc(s.returnDays) + '-day easy returns</b><small>Change of mind is not applicable</small></div></div>' +
         '<div class="side-row">' + I.shield + '<div><b>Quality checked</b><small>' + (oi.local ? 'Checked at our Colombo warehouse' : 'Inspected before it leaves ' + esc(oi.name)) + '</small></div></div>' +
         (!oi.local ? '<div class="route-mini"><b>Shipping route</b><div class="line">' + codeBadge(oi.code) + ' ' + esc(oi.name) + '<i></i>Colombo ' + codeBadge('LK') + '</div></div>' : '') +
-      '</div><div class="panel side-box" style="margin-top:12px"><h4>Sold by</h4><div class="seller"><img src="assets/logo.jpg" alt=""><div><b>Source Connect Global</b><small style="display:block;color:var(--muted)">Official store</small></div></div>' +
+      '</div><div class="panel side-box" style="margin-top:12px"><h4>Sold by</h4><div class="seller"><img src="assets/logo.jpg?v=1829ee97" alt=""><div><b>Source Connect Global</b><small style="display:block;color:var(--muted)">Official store</small></div></div>' +
         '<div class="seller-stats">' + (s.sellerStats || []).map(function (x) { return '<div><b>' + esc(x.value) + '</b><small>' + esc(x.label) + '</small></div>'; }).join('') + '</div></div></aside></div>' +
       (related.length ? rail('More from ' + (cat ? cat.name : 'this category'), '#c/' + p.category, related) : '') +
       '</div>';
