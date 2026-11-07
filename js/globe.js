@@ -196,7 +196,7 @@
       ctx.beginPath(); ctx.arc(p[0], p[1], 4 + pulse * (big ? 26 : 16), 0, 6.2832); ctx.stroke();
       ctx.fillStyle = color.replace('A', '1'); ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 14;
       ctx.beginPath(); ctx.arc(p[0], p[1], big ? 5 : 3.2, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
-      if (!label) return;
+      if (!label || opts.labels === false) return;
       ctx.font = '700 ' + (big ? 12 : 10) + 'px Roboto, system-ui, sans-serif';
       var tx = p[0] + (big ? 12 : 8), ty = p[1] + (big ? 4 : 3), w = ctx.measureText(label).width;
       ctx.fillStyle = 'rgba(5,11,28,.6)'; ctx.fillRect(tx - 4, ty - (big ? 12 : 10), w + 8, big ? 16 : 13);
@@ -204,6 +204,7 @@
       if (sub) { ctx.font = '500 10px Roboto, system-ui, sans-serif'; ctx.fillStyle = 'rgba(220,228,255,.85)'; ctx.fillText(sub, tx, ty + 14); }
     }
     function regionLabel(text, lon, lat, alpha) {
+      if (opts.labels === false) return;
       var p = project(lon, lat); if (p[2] <= .1) return;
       ctx.font = '800 ' + Math.round(clamp(scale / 15, 11, 19)) + 'px "Playfair Display", Georgia, serif';
       ctx.fillStyle = 'rgba(255,200,200,' + (.9 * alpha * p[2]) + ')';

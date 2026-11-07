@@ -750,6 +750,14 @@
       '<div class="panel"><div class="head"><h3>Live preview</h3><button class="btn sm" id="hPrev">Replay</button></div><div class="globe-prev"><span class="cap">China → Sri Lanka</span><canvas></canvas></div></div></div>' +
       '<div class="grid2"><div class="panel"><h3>Numbers under the headline <small>tick “Live” to count up as parcels arrive</small></h3><div id="hStats"></div></div>' +
       '<div class="panel"><h3>Shipping timeline <small>5 steps along the bottom of the globe</small></h3><div id="hSteps"></div></div></div>' +
+      '<div class="panel"><div class="head"><h3>Welcome intro <small>the cinematic screen when the site opens, with an Enter button</small></h3><a class="btn sm" target="_blank" rel="noopener" href="../?intro=1">▶ Preview intro</a></div><div class="form">' +
+        '<div class="full" style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">' + sw('wOn', (s.welcome || {}).on !== false, 'Show the welcome intro') +
+        '<label style="flex-direction:row;display:flex;align-items:center;gap:8px">Show it<select id="wMode" style="width:auto">' +
+        [['session', 'once per visit (recommended)'], ['first', 'only on a customer’s first visit'], ['visit', 'every time a page loads']].map(function (o) { return '<option value="' + o[0] + '"' + (((s.welcome || {}).mode || 'session') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>' +
+        '<label>Small text above the logo<input id="wEyebrow" value="' + esc((s.welcome || {}).eyebrow || 'Welcome to') + '"></label>' +
+        '<label>Button text<input id="wButton" value="' + esc((s.welcome || {}).button || 'Enter the Store') + '"></label>' +
+        '<label class="full">Line under the logo<textarea id="wSub" rows="2">' + esc((s.welcome || {}).subtitle || '') + '</textarea></label>' +
+        '<p class="full muted" style="margin:0;font-size:12px">Uses your logo (emblem + “Global Source Connect” wordmark), the globe and the import countries switched on in Import Countries. Visitors can always skip it.</p></div></div>' +
       '<div class="panel"><h3>Homepage sections <small>switch on/off, rename and reorder</small></h3><div class="sections" id="hSecs"></div></div>' +
       '<div class="panel"><h3>Quick service icons <small>the round icons under the globe</small></h3><div id="hSvc"></div></div>' +
       '<div class="save-bar"><button class="btn primary" id="hSave">Save homepage</button></div>';
@@ -789,6 +797,7 @@
       s.heroTitle = $('#hTitle').value.trim(); s.heroSubtitle = $('#hSub').value.trim();
       s.globeStats = getStats(); s.globeSteps = getSteps().slice(0, 5);
       s.services = getSvc(); s.sections = secs;
+      s.welcome = { on: $('input[name=wOn]').checked, mode: $('#wMode').value, eyebrow: $('#wEyebrow').value.trim(), subtitle: $('#wSub').value.trim(), button: $('#wButton').value.trim() || 'Enter the Store' };
       commit('Homepage saved');
     };
   }

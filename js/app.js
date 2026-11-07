@@ -763,4 +763,11 @@
   updateAccount();
   window.addEventListener('hashchange', route);
   route();
+  // cinematic welcome; when it ends, replay the homepage's own entrance animation
+  if (window.SCGIntro) {
+    SCGIntro.show({
+      welcome: db.settings.welcome, origins: SCG.origins(), cities: db.settings.globeCities,
+      onDone: function (played) { if (played && !location.hash.replace('#', '')) route(); }
+    });
+  }
 })();

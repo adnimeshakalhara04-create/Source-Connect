@@ -8,6 +8,7 @@ A marketplace-style fashion store for **Source Connect Global**: products source
 | `/admin/` | Admin panel. Default login: **admin / admin123** (change it in *Settings*) |
 
 ## Storefront
+- **Cinematic welcome intro** when the site opens: letterbox bars, the SC emblem (from the logo) flies in with a light sweep, glowing rings and orbiting stars over the globe, then “Welcome to”, the Global Source Connect wordmark, the import-country route and an **Enter the Store** button. Plays once per visit by default; Skip / Esc / Enter close it; static for reduced-motion users. Admin → Homepage & Globe → *Welcome intro* (on/off, how often, texts, ▶ Preview). Add `?intro=1` to the address to replay it.
 - **Cinematic globe hero**: a dotted 3D globe tours each import country in turn (China, USA, Australia, UK, UAE, Japan, and optionally India and Germany) and shows ships and planes flying from its cities to Colombo. A 5-step timeline follows each shipment, arrival notices pop up, and you can drag the globe to spin it.
 - Marketplace layout: utility bar, search with live suggestions, category menu, quick-service icons, **Flash Sale** with a live countdown and "sold" bars, category grid, promo banners, product rails, and an infinite-scroll **Just For You** feed
 - **12 categories × 12 = 144 products**: Men's, Women's, Kids, Shoes, Bags & Wallets, Watches, Accessories, Sportswear, Office Wear, Winter & Jackets, **Electronics & Gadgets** and **Mobile & Accessories**. Each has an illustration (37 styles) until you upload real photos; products can have up to 8 photos

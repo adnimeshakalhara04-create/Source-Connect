@@ -306,6 +306,8 @@
         bankDetails: 'Bank: Commercial Bank · Account: Source Connect Global · No: 0000000000 · Branch: Colombo',
         paymentMethods: ['Cash on Delivery', 'Bank Transfer'],
         returnDays: 7,
+        // ---- welcome intro (cinematic, plays when the site opens) ----
+        welcome: { on: true, mode: 'session', eyebrow: 'Welcome to', subtitle: 'Fashion & electronics from around the world, delivered to your door in Sri Lanka.', button: 'Enter the Store' },
         // ---- header ----
         navLinks: [
           { label: '⚡ Flash Sale', link: '#flash', hot: true },
