@@ -268,12 +268,18 @@
       });
       d.version = 3; changed = true;
     }
+    if (d.version < 4) {
+      var s4 = d.settings;
+      if (String(s4.paymentMethods) === 'Cash on Delivery,VISA,Mastercard,Bank Transfer') s4.paymentMethods = ['Cash on Delivery', 'Bank Transfer'];
+      (s4.globeStats || []).forEach(function (x) { x.live = false; });
+      d.version = 4; changed = true;
+    }
     return changed;
   }
 
   function seed() {
     return {
-      version: 3,
+      version: 4,
       settings: {
         brand: 'Source Connect Global',
         announcement: 'Free delivery islandwide on orders over Rs. 10,000  ✦  China Direct: factory prices, delivered in 10–14 days  ✦  Cash on Delivery available',
@@ -287,7 +293,9 @@
         heroTitle: 'From the World to\nYour Doorstep',
         heroSubtitle: 'We import fashion and electronics from China, the USA, Australia, the UK, Dubai and Japan, and deliver across Sri Lanka at great prices.',
         adminUser: 'admin',
-        adminPass: 'admin123',
+        adminPassHash: '',      // salted SHA-256; empty = the default password is still in use
+        adminSalt: '',
+        adminDefault: true,
         // ---- import countries ----
         origins: DEFAULT_ORIGINS(),
         // ---- delivery & payment ----
@@ -296,7 +304,7 @@
         payCOD: true,
         payBank: true,
         bankDetails: 'Bank: Commercial Bank · Account: Source Connect Global · No: 0000000000 · Branch: Colombo',
-        paymentMethods: ['Cash on Delivery', 'VISA', 'Mastercard', 'Bank Transfer'],
+        paymentMethods: ['Cash on Delivery', 'Bank Transfer'],
         returnDays: 7,
         // ---- header ----
         navLinks: [
@@ -339,7 +347,7 @@
         // ---- globe ----
         globeCities: ['Shenzhen', 'Yiwu', 'Shanghai', 'Guangzhou', 'Los Angeles', 'New York', 'Sydney', 'Melbourne', 'London', 'Dubai', 'Tokyo'],
         globeStats: [
-          { value: '1,248', label: 'Parcels this month', live: true },
+          { value: '1,248', label: 'Parcels this month', live: false },
           { value: '10–14', label: 'Days delivery' },
           { value: '6', label: 'Countries' }
         ],
@@ -381,7 +389,7 @@
   function safeGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
   function safeSet(key, val) {
     try { localStorage.setItem(key, val); return true; }
-    catch (e) { if (global.alert) alert('Storage is full. Use smaller images, or export a backup and reset.'); return false; }
+    catch (e) { return false; }
   }
 
   var cache = null;
@@ -446,13 +454,29 @@
 
   function getJSON(k, d) { try { return JSON.parse(safeGet(k) || d); } catch (e) { return JSON.parse(d); } }
   function getOrders() { return getJSON(ORDERS_KEY, '[]'); }
-  function saveOrders(o) { safeSet(ORDERS_KEY, JSON.stringify(o)); }
+  function saveOrders(o) { return safeSet(ORDERS_KEY, JSON.stringify(o)); }
   function getCart() { return getJSON(CART_KEY, '[]'); }
-  function saveCart(c) { safeSet(CART_KEY, JSON.stringify(c)); }
+  function saveCart(c) { return safeSet(CART_KEY, JSON.stringify(c)); }
   function getWish() { return getJSON(WISH_KEY, '[]'); }
   function saveWish(w) { safeSet(WISH_KEY, JSON.stringify(w)); }
   /* Customer profile, saved on this device. Created automatically from the first order's
      checkout details. (Sign in with Google can be connected later through a backend.) */
+  /* Admin password hashing (salted SHA-256). This only hides the password in saved data;
+     real protection needs a server login (planned with the backend). */
+  function hashPassword(pw, salt) {
+    var text = 'scg::' + salt + '::' + pw;
+    try {
+      if (global.crypto && crypto.subtle && global.TextEncoder) {
+        return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) {
+          return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+        });
+      }
+    } catch (e) {}
+    var h = 2166136261; for (var i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } // fallback
+    return Promise.resolve('f' + h.toString(16));
+  }
+  var DEMO_ID = /^(mens|womens|kids|shoes|bags|watches|accessories|sportswear|officewear|winter|electronics|mobile)-\d+$/;
+  function isDemoProduct(p) { return DEMO_ID.test(p.id); }
   function getProfile() { var p = getJSON(PROFILE_KEY, 'null'); return p && p.phone ? p : null; }
   function saveProfile(p) { safeSet(PROFILE_KEY, JSON.stringify(p)); }
   function clearProfile() { try { localStorage.removeItem(PROFILE_KEY); } catch (e) {} }
@@ -495,6 +519,7 @@
     productSVG: productSVG, garmentSVG: garmentSVG, productVisual: productVisual, shade: shade,
     categoryById: categoryById, collectionById: collectionById, productById: productById,
     origins: origins, originById: originById, originInfo: originInfo, productImages: productImages, collectionProducts: collectionProducts, storageUsed: storageUsed, DEFAULT_ORIGINS: DEFAULT_ORIGINS,
+    hashPassword: hashPassword, isDemoProduct: isDemoProduct,
     getProfile: getProfile, saveProfile: saveProfile, clearProfile: clearProfile, profileOrders: profileOrders, phoneKey: phoneKey,
     getOrders: getOrders, saveOrders: saveOrders, getCart: getCart, saveCart: saveCart, getWish: getWish, saveWish: saveWish,
     imageToDataURL: imageToDataURL,

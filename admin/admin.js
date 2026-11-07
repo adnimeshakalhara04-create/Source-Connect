@@ -23,13 +23,27 @@
   }
   window.addEventListener('storage', function (e) { if (e.key === 'scg_admin_on' && !e.newValue) location.reload(); });
   function showApp() { try { localStorage.setItem('scg_admin_on', String(Date.now())); } catch (e) {} $('#login').hidden = true; $('#shell').hidden = false; route(); }
+  // Older saves kept the password as plain text: hash it once and remove the plain copy.
+  (function upgradePassword() {
+    var st = db.settings;
+    if (st.adminPass === undefined) return;
+    var plain = st.adminPass, salt = SCG.uid('s');
+    SCG.hashPassword(plain, salt).then(function (h) {
+      if (plain !== 'admin123') { st.adminPassHash = h; st.adminSalt = salt; st.adminDefault = false; }
+      delete st.adminPass; SCG.save(); if ($('#defHint')) $('#defHint').hidden = st.adminDefault === false;
+    });
+  })();
+  if (db.settings.adminDefault === false && $('#defHint')) $('#defHint').hidden = true;
   $('#loginForm').onsubmit = function (e) {
     e.preventDefault();
-    var f = e.target;
-    if (f.elements.user.value === db.settings.adminUser && f.elements.pass.value === db.settings.adminPass) {
-      try { sessionStorage.setItem(SESSION, '1'); } catch (err) {}
-      showApp();
-    } else $('#loginErr').textContent = 'Incorrect username or password.';
+    var f = e.target, st = db.settings, user = f.elements.user.value.trim(), pass = f.elements.pass.value;
+    var check = st.adminPassHash ? SCG.hashPassword(pass, st.adminSalt || '').then(function (h) { return h === st.adminPassHash; }) : Promise.resolve(pass === 'admin123');
+    check.then(function (ok) {
+      if (ok && user === st.adminUser) {
+        try { sessionStorage.setItem(SESSION, '1'); } catch (err) {}
+        showApp();
+      } else $('#loginErr').textContent = 'Incorrect username or password.';
+    });
   };
   // Website edit mode: the ADMIN bar on the site only appears after "Edit on Website".
   $('#editSite').onclick = function () { try { localStorage.setItem('scg_edit_mode', '1'); } catch (e) {} };
@@ -41,7 +55,7 @@
   /* ---------------- helpers ---------------- */
   var tt;
   function toast(m) { var t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(function () { t.classList.remove('show'); }, 2200); }
-  function commit(msg) { if (SCG.save()) { toast(msg || 'Saved'); return true; } return false; }
+  function commit(msg) { if (SCG.save()) { toast(msg || 'Saved'); return true; } toast('Not saved: browser storage is full. Remove photos or use image links.'); return false; }
   function openModal(title, html) { $('#modalTitle').textContent = title; $('#modalBody').innerHTML = html; $('#modal').classList.add('open'); }
   function closeModal() { $('#modal').classList.remove('open'); }
   $('#modal').addEventListener('click', function (e) { if (e.target.closest('[data-close]')) closeModal(); });
@@ -159,7 +173,7 @@
     var dmax = Math.max.apply(null, days.map(function (x) { return x.total; }).concat([1]));
     var top = db.products.slice().sort(function (a, b) { return b.sold - a.sold; }).slice(0, 6);
     setActions('<a class="btn primary" href="#products/new">+ Add Product</a>' + preview('', 'View website'));
-    v.innerHTML =
+    v.innerHTML = launchChecklist() +
       '<div class="stats">' +
       stat('Revenue', money(revenue), '#f59e0b') + stat('Orders', os.length, '#0f766e') +
       stat('Pending', os.filter(function (o) { return o.status === 'Pending'; }).length, '#d97706') +
@@ -184,6 +198,30 @@
       }).join('') : '<p class="muted">No orders yet. Orders placed on the website appear here.</p>') + '</div>' +
       '<div class="panel"><h3>Low stock <small>5 or fewer</small></h3>' + (low.length ? '<div class="filters">' + low.map(function (p) { return '<a class="tag warn" href="#products/edit:' + p.id + '">' + esc(p.name) + ' · ' + p.stock + '</a>'; }).join('') + '</div>' : '<p class="muted">All products are well stocked.</p>') + '</div></div>';
   }
+  /* What still has to change before real customers use the shop. */
+  function launchChecklist() {
+    var s = db.settings, demo = db.products.filter(SCG.isDemoProduct).length;
+    var noPhoto = db.products.filter(function (p) { return !SCG.productImages(p).length; }).length;
+    var items = [
+      [s.adminDefault === false, 'Change the admin password from the default', '#settings'],
+      [s.phone && s.phone.replace(/\D/g, '') !== '94770000000', 'Enter your real phone number', '#settings'],
+      [s.whatsapp && s.whatsapp !== '94770000000', 'Enter your real WhatsApp number', '#settings'],
+      [!/0000000000/.test(s.bankDetails || '') || !s.payBank, 'Enter real bank details (or turn bank transfer off)', '#settings'],
+      [!(s.globeStats || []).some(function (x) { return x.value === '1,248'; }), 'Replace the sample numbers under the globe', '#homepage'],
+      [!demo, demo + ' demo products are still listed (prices, ratings and sold counts are made up)', '#settings'],
+      [!noPhoto, noPhoto + ' products have no real photo yet', '#products/'],
+      [false, 'Connect an online database so orders from every phone reach this panel', null, 'Needs the backend step'],
+      [false, 'Server-side admin login (the current one runs in the browser)', null, 'Needs the backend step']
+    ];
+    var done = items.filter(function (x) { return x[0]; }).length;
+    if (done === items.length) return '';
+    return '<div class="panel checklist"><div class="head"><h3>Before you go live <small>' + done + ' of ' + items.length + ' done</small></h3><div class="bar-track" style="width:200px"><i style="width:' + (done / items.length * 100) + '%"></i></div></div>' +
+      items.map(function (x) {
+        return '<div class="ck' + (x[0] ? ' ok' : '') + '"><span class="ck-i">' + (x[0] ? '✓' : '!') + '</span><span>' + esc(x[1]) + '</span>' +
+          (x[0] ? '' : x[2] ? '<a class="btn sm" href="' + x[2] + '"' + (x[2] === '#products/' ? ' data-nophoto' : '') + '>Fix</a>' : '<span class="tag">' + esc(x[3]) + '</span>') + '</div>';
+      }).join('') + '</div>';
+  }
+  document.addEventListener('click', function (e) { if (e.target.closest('[data-nophoto]')) pf.extra = 'nophoto'; });
   function stat(label, val, color) { return '<div class="stat" style="--a:' + color + '"><small>' + label + '</small><b>' + val + '</b></div>'; }
 
   /* =========================================================
@@ -292,7 +330,7 @@
     var d = p ? JSON.parse(JSON.stringify(p)) : {
       name: '', category: pf.cat !== 'all' ? pf.cat : db.categories[0].id, collections: opts.collection ? [opts.collection] : [], price: 0, comparePrice: 0, stock: 20,
       color: '#0b2a6f', accent: '#f3f4f6', shape: '', pattern: 'solid', brand: 'SC Global', origin: 'china', flash: false,
-      rating: 4.5, reviews: 0, sold: 0, image: '', images: [], sizes: ['S', 'M', 'L', 'XL', 'XXL'], badge: 'New', featured: false, description: ''
+      rating: 0, reviews: 0, sold: 0, image: '', images: [], sizes: ['S', 'M', 'L', 'XL', 'XXL'], badge: 'New', featured: false, description: ''
     };
     d.images = SCG.productImages(d).slice();
     function curShape() { var c = SCG.categoryById(d.category); return d.shape || (c ? c.shape : 'tshirt'); }
@@ -1008,7 +1046,7 @@
 
       '<div class="panel"><h3>Backup &amp; data</h3><p class="muted" style="margin-top:0">Everything is stored in this browser. Export a backup regularly, or import it on another computer.</p>' + storageMeter() +
       '<div class="filters"><button class="btn" id="exp">⬇ Export backup</button><label class="btn" style="display:inline-flex;color:var(--text);font-size:13px">⬆ Import backup<input type="file" accept="application/json" id="imp" hidden></label>' +
-      '<button class="btn danger" id="rst">Reset to demo data</button><button class="btn danger" id="rstOrders">Delete all orders</button></div></div>';
+      '<button class="btn danger" id="rmDemo">Remove all demo products</button><button class="btn danger" id="rst">Reset to demo data</button><button class="btn danger" id="rstOrders">Delete all orders</button></div></div>';
 
     $('#sform').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements; ['brand', 'currency', 'phone', 'email', 'whatsapp', 'address'].forEach(function (k) { s[k] = E[k].value.trim(); }); commit('Store details saved'); };
     $('#dform').onsubmit = function (e) {
@@ -1023,8 +1061,12 @@
     $('#ssave').onclick = function () { s.sellerStats = getSS().slice(0, 3); commit('Seller rating saved'); };
     $('#aform').onsubmit = function (e) {
       e.preventDefault(); var E = e.target.elements;
-      s.adminUser = E.adminUser.value.trim(); if (E.adminPass.value) s.adminPass = E.adminPass.value;
-      commit('Login updated'); E.adminPass.value = '';
+      s.adminUser = E.adminUser.value.trim();
+      var pw = E.adminPass.value; E.adminPass.value = '';
+      if (!pw) { commit('Login updated'); return; }
+      if (pw === 'admin123') { toast('Choose a password other than the default'); return; }
+      var salt = SCG.uid('s');
+      SCG.hashPassword(pw, salt).then(function (h) { s.adminPassHash = h; s.adminSalt = salt; s.adminDefault = false; delete s.adminPass; commit('Password changed. Use it next time you sign in.'); });
     };
     $('#exp').onclick = function () {
       var blob = new Blob([JSON.stringify({ db: db, orders: orders() }, null, 2)], { type: 'application/json' });
@@ -1041,6 +1083,13 @@
         if (data.orders) SCG.saveOrders(data.orders);
         location.reload();
       }).catch(function () { alert('That file is not a valid Source Connect backup.'); });
+    };
+    $('#rmDemo').onclick = function () {
+      var n = db.products.filter(SCG.isDemoProduct).length;
+      if (!n) { toast('No demo products left'); return; }
+      if (!confirm('Remove the ' + n + ' demo products? Products you added yourself stay. Export a backup first if unsure.')) return;
+      db.products = db.products.filter(function (p) { return !SCG.isDemoProduct(p); });
+      commit(n + ' demo products removed'); route();
     };
     $('#rst').onclick = function () { if (confirm('Reset ALL products, categories, collections, banners and site texts to the demo data? Orders are kept.')) { db = SCG.reset(); toast('Demo data restored'); route(); } };
     $('#rstOrders').onclick = function () { if (confirm('Delete ALL orders? This cannot be undone.')) { SCG.saveOrders([]); toast('All orders deleted'); route(); } };

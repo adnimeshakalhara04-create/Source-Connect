@@ -37,6 +37,7 @@
     for (var i = 1; i <= 5; i++) out += I.star.replace('<svg', '<svg class="' + (r >= i - .25 ? '' : 'off') + '"');
     return out + '</span>';
   }
+  function ratingLine(p) { return p.reviews ? stars(p.rating) + '<span>(' + p.reviews + ')</span>' : '<span>No ratings yet</span>'; }
   function originTag(p) {
     var o = SCG.originInfo(p);
     return o.local ? '<span class="origin local">' + I.truck + 'Ships from Colombo</span>' : '<span class="origin">' + I.plane + esc(o.label) + '</span>';
@@ -67,8 +68,8 @@
       '<div class="was">' + (p.comparePrice ? '<s>' + money(p.comparePrice) + '</s><b>-' + off + '%</b>' : '') + '</div>' +
       (opts.flash
         ? '<div class="soldbar"><i style="width:' + soldPct + '%"></i><span>' + fmtCount(p.sold) + ' sold</span></div>'
-        : '<div class="meta">' + stars(p.rating) + '<span>(' + p.reviews + ')</span></div>' + originTag(p)) +
-      (opts.add ? '<div class="add-mini"><button data-add="' + p.id + '">Add to Cart</button></div>' : '') +
+        : '<div class="meta">' + ratingLine(p) + '</div>' + originTag(p)) +
+      (opts.add ? '<div class="add-mini">' + (p.stock > 0 ? '<button data-add="' + p.id + '">Add to Cart</button>' : '<button disabled>Out of stock</button>') + '</div>' : '') +
       '</div></article>';
   }
 
@@ -196,7 +197,7 @@
       onCountry: function (id, name) { var f = $('[data-from]', st); if (f) { f.style.opacity = 0; setTimeout(function () { f.textContent = name; f.style.opacity = 1; }, 250); } },
       onArrive: function (n, origin) {
         if (live && !isNaN(base)) live.textContent = (base + n).toLocaleString('en-US');
-        $('span', toastEl).innerHTML = '<b>Arrived:</b> parcel from ' + esc(origin.name) + ', ' + esc(origin.countryName) + ' reached Colombo';
+        $('span', toastEl).innerHTML = '<b>Route:</b> ' + esc(origin.name) + ', ' + esc(origin.countryName) + ' → Colombo';
         toastEl.classList.add('show'); clearTimeout(tid); tid = setTimeout(function () { toastEl.classList.remove('show'); }, 2600);
       }
     });
@@ -322,7 +323,7 @@
       (kind !== 'search' ? '<div class="cat-hero reveal" style="--c:' + color + '"><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' && flashOn() ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + '<div class="art">' + SCG.productSVG(art, '#ffffff', 'solid', color) + '</div></div>' : '') +
       '<div class="listing"><aside class="panel filters" id="filters">' +
         '<div class="grp"><h4>Category</h4>' + db.categories.map(function (c) { return '<label><input type="checkbox" name="fc" value="' + c.id + '"' + (st.cats.indexOf(c.id) > -1 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') + '</div>' +
-        '<div class="grp"><h4>Price (Rs.)</h4><div class="price-row"><input id="fmin" type="number" min="0" placeholder="Min"><span>–</span><input id="fmax" type="number" min="0" placeholder="Max"></div></div>' +
+        '<div class="grp"><h4>Price (Rs.)</h4><div class="price-row"><input id="fmin" type="number" min="0" placeholder="Min" aria-label="Minimum price"><span aria-hidden="true">–</span><input id="fmax" type="number" min="0" placeholder="Max" aria-label="Maximum price"></div></div>' +
         '<div class="grp"><h4>Rating</h4>' + [0, 4.5, 4, 3.5].map(function (r) { return '<label><input type="radio" name="fr" value="' + r + '"' + (r === 0 ? ' checked' : '') + '>' + (r ? stars(r) + ' ' + r + ' &amp; up' : 'Any rating') + '</label>'; }).join('') + '</div>' +
         '<div class="grp"><h4>Shipped from</h4>' + activeOrigins().map(function (o) { return '<label><input type="checkbox" name="fo" value="' + o.id + '"' + (st.origins.indexOf(o.id) > -1 ? ' checked' : '') + '>' + esc(o.name) + ' (' + esc(o.days) + ' days)</label>'; }).join('') + '<label><input type="checkbox" name="fo" value="local"' + (st.origins.indexOf('local') > -1 ? ' checked' : '') + '>Colombo stock (' + esc(db.settings.localDays) + ' days)</label></div>' +
         '<div class="grp"><h4>Offers</h4><label><input type="checkbox" id="fsale"' + (st.sale ? ' checked' : '') + '>On discount only</label></div>' +
@@ -392,13 +393,13 @@
         '<div class="gallery"><div class="big" id="big" style="--c:' + p.color + '">' + visual(p) + '</div>' +
           '<div class="thumbs" id="thumbs">' + (imgs.length > 1 ? imgs.map(function (src, i) { return '<button class="' + (i ? '' : 'on') + '" data-img="' + i + '" aria-label="Photo ' + (i + 1) + '"><img src="' + src + '" alt=""></button>'; }).join('') : imgs.length ? '' : vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('')) + '</div></div>' +
         '<div><h1>' + esc(p.name) + '</h1>' +
-          '<div class="sub">' + stars(p.rating) + '<span>' + p.rating + ' · ' + p.reviews + ' ratings</span><span>' + fmtCount(p.sold) + ' sold</span><span>Brand: <a href="#search/' + encodeURIComponent(p.brand) + '">' + esc(p.brand) + '</a></span></div>' +
+          '<div class="sub">' + (p.reviews ? stars(p.rating) + '<span>' + p.rating + ' · ' + p.reviews + ' ratings</span>' : '<span>No ratings yet</span>') + (p.sold ? '<span>' + fmtCount(p.sold) + ' sold</span>' : '') + (p.brand ? '<span>Brand: <a href="#search/' + encodeURIComponent(p.brand) + '">' + esc(p.brand) + '</a></span>' : '') + '</div>' +
           (isFlash(p) ? '<div class="flash-strip"><span>⚡ ' + esc(db.settings.flashTitle || 'Flash Sale') + '</span>' + cdHTML() + '</div>' : '') +
           '<div class="price-box"><div class="now">' + money(p.price) + '</div>' + (p.comparePrice ? '<div class="old"><s>' + money(p.comparePrice) + '</s><b>-' + off + '%</b></div>' : '') + '</div>' +
           (vars.length > 1 ? '<div class="opt"><span>Colour</span><div class="swatches" id="sw">' + vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('') + '</div></div>' : '') +
           ((p.sizes || []).length ? '<div class="opt"><span>Size</span><div class="sizes" id="sz">' + p.sizes.map(function (z) { return '<button class="' + (z === st.size ? 'on' : '') + '" data-s="' + esc(z) + '">' + esc(z) + '</button>'; }).join('') + '</div></div>' : '') +
           '<div class="opt"><span>Quantity</span><div><div class="qty"><button data-q="-1" aria-label="Less">−</button><span id="qv">1</span><button data-q="1" aria-label="More">+</button></div> <small style="color:' + (p.stock > 0 ? 'var(--muted)' : 'var(--red)') + ';margin-left:8px">' + (p.stock > 0 ? p.stock + ' available' : 'Out of stock') + '</small></div></div>' +
-          '<div class="buy-row"><button class="btn navy" id="buyNow">Buy Now</button><button class="btn" id="addCart">Add to Cart</button><button class="btn line heart-btn" data-wish="' + p.id + '" aria-label="Wishlist" style="flex:0 0 auto;padding:14px">' + I.heart + '</button></div>' +
+          '<div class="buy-row"><button class="btn navy" id="buyNow"' + (p.stock > 0 ? '' : ' disabled') + '>' + (p.stock > 0 ? 'Buy Now' : 'Out of stock') + '</button><button class="btn" id="addCart"' + (p.stock > 0 ? '' : ' disabled') + '>Add to Cart</button><button class="btn line heart-btn" data-wish="' + p.id + '" aria-label="Wishlist" style="flex:0 0 auto;padding:14px">' + I.heart + '</button></div>' +
         '</div></div>' +
         '<div class="panel tabs-box"><nav id="ptabs"><button class="on" data-t="d">Description</button><button data-t="s">Specifications</button><button data-t="r">Ratings</button></nav><div class="body" id="pbody"></div></div>' +
       '</div>' +
@@ -412,7 +413,7 @@
         '<div class="side-row">' + I.swap + '<div><b>' + esc(s.returnDays) + '-day easy returns</b><small>Change of mind is not applicable</small></div></div>' +
         '<div class="side-row">' + I.shield + '<div><b>Quality checked</b><small>' + (oi.local ? 'Checked at our Colombo warehouse' : 'Inspected before it leaves ' + esc(oi.name)) + '</small></div></div>' +
         (!oi.local ? '<div class="route-mini"><b>Shipping route</b><div class="line">' + codeBadge(oi.code) + ' ' + esc(oi.name) + '<i></i>Colombo ' + codeBadge('LK') + '</div></div>' : '') +
-      '</div><div class="panel side-box" style="margin-top:12px"><h4>Sold by</h4><div class="seller"><img src="assets/logo.jpg?v=1829ee97" alt=""><div><b>Source Connect Global</b><small style="display:block;color:var(--muted)">Official store</small></div></div>' +
+      '</div><div class="panel side-box" style="margin-top:12px"><h4>Sold by</h4><div class="seller"><img src="assets/logo-sm.jpg?v=1829ee97" alt=""><div><b>Source Connect Global</b><small style="display:block;color:var(--muted)">Official store</small></div></div>' +
         '<div class="seller-stats">' + (s.sellerStats || []).map(function (x) { return '<div><b>' + esc(x.value) + '</b><small>' + esc(x.label) + '</small></div>'; }).join('') + '</div></div></aside></div>' +
       (related.length ? rail('More from ' + (cat ? cat.name : 'this category'), '#c/' + p.category, related) : '') +
       '</div>';
@@ -421,19 +422,20 @@
       $$('#ptabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); });
       $('#pbody').innerHTML = t === 'd' ? '<p style="margin-top:0">' + esc(p.description) + '</p><ul style="color:var(--muted)"><li>Brand: ' + esc(p.brand) + '</li><li>' + (oi.local ? 'Ships from Colombo (' + esc(oi.days) + ' days)' : 'Imported from ' + esc(oi.name) + ' (' + esc(oi.days) + ' days)') + '</li>' + (s.payCOD ? '<li>Cash on Delivery available islandwide</li>' : '') + '</ul>'
         : t === 's' ? '<table class="spec"><tr><td>Brand</td><td>' + esc(p.brand) + '</td></tr><tr><td>Category</td><td>' + esc(cat ? cat.name : '') + '</td></tr><tr><td>SKU</td><td>' + esc(p.id.toUpperCase()) + '</td></tr>' + ((p.sizes || []).length ? '<tr><td>Sizes</td><td>' + esc(p.sizes.join(', ')) + '</td></tr>' : '') + '<tr><td>Ships from</td><td>' + (oi.local ? 'Colombo stock' : esc(oi.name)) + '</td></tr><tr><td>In stock</td><td>' + p.stock + '</td></tr></table>'
-          : '<div class="rating-sum"><div><div class="big">' + p.rating + '<small style="font-size:18px;color:var(--muted)">/5</small></div>' + stars(p.rating) + '<div style="color:var(--muted);font-size:12px">' + p.reviews + ' ratings</div></div><div class="rbars">' + dist.map(function (n, i) { return '<div><span>' + (5 - i) + '★</span><i><em style="width:' + (p.reviews ? n / p.reviews * 100 : 0) + '%"></em></i><span>' + n + '</span></div>'; }).join('') + '</div></div>';
+          : !p.reviews ? '<p style="margin:0;color:var(--muted)">No ratings yet. Ratings appear here after customers review this product.</p>' : '<div class="rating-sum"><div><div class="big">' + p.rating + '<small style="font-size:18px;color:var(--muted)">/5</small></div>' + stars(p.rating) + '<div style="color:var(--muted);font-size:12px">' + p.reviews + ' ratings</div></div><div class="rbars">' + dist.map(function (n, i) { return '<div><span>' + (5 - i) + '★</span><i><em style="width:' + (p.reviews ? n / p.reviews * 100 : 0) + '%"></em></i><span>' + n + '</span></div>'; }).join('') + '</div></div>';
     }
     tab('d');
     $('#ptabs').onclick = function (e) { var b = e.target.closest('button'); if (b) tab(b.dataset.t); };
     $('#thumbs').addEventListener('click', function (e) { var b = e.target.closest('[data-img]'); if (!b) return; $('#big').innerHTML = '<img src="' + imgs[+b.dataset.img] + '" alt="' + esc(p.name) + '">'; $$('#thumbs button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     function pick(c) { st.color = c; $('#big').innerHTML = visual(p, c); ['#thumbs', '#sw'].forEach(function (s) { if ($(s)) $$('button', $(s)).forEach(function (b) { b.classList.toggle('on', b.dataset.c === c); }); }); }
-    ['#thumbs', '#sw'].forEach(function (s) { if ($(s)) $(s).onclick = function (e) { var b = e.target.closest('button'); if (b) pick(b.dataset.c); }; });
+    // colour buttons only (photo thumbnails have their own handler above)
+    ['#thumbs', '#sw'].forEach(function (s) { if ($(s)) $(s).onclick = function (e) { var b = e.target.closest('button[data-c]'); if (b) pick(b.dataset.c); }; });
     if ($('#sz')) $('#sz').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; st.size = b.dataset.s; $$('#sz button').forEach(function (x) { x.classList.toggle('on', x === b); }); };
     $$('[data-q]').forEach(function (b) { b.onclick = function () { st.qty = Math.max(1, Math.min(Math.max(1, p.stock), st.qty + +b.dataset.q)); $('#qv').textContent = st.qty; }; });
     var big = $('#big');
     big.addEventListener('mousemove', function (e) { var r = big.getBoundingClientRect(), el = big.firstElementChild; el.style.transformOrigin = ((e.clientX - r.left) / r.width * 100) + '% ' + ((e.clientY - r.top) / r.height * 100) + '%'; el.style.transform = 'scale(1.8)'; });
     big.addEventListener('mouseleave', function () { big.firstElementChild.style.transform = ''; });
-    function add() { if (p.stock <= 0) { toast('Sorry, this item is out of stock'); return false; } addToCart(p.id, st.size, st.qty, st.color); return true; }
+    function add() { return addToCart(p.id, st.size, st.qty, st.color) > 0 || inCart(p.id) > 0; }
     $('#addCart').onclick = add;
     $('#buyNow').onclick = function () { if (add()) location.hash = 'cart'; };
     tickCountdowns();
@@ -441,13 +443,21 @@
   }
 
   /* ---------------- CART ---------------- */
+  function inCart(id, cart) { return (cart || SCG.getCart()).reduce(function (s, l) { return s + (l.id === id ? l.qty : 0); }, 0); }
+  /** Adds to the cart without ever going over the stock. Returns how many were added. */
   function addToCart(id, size, qty, color) {
-    var p = SCG.productById(id); if (!p) return;
+    var p = SCG.productById(id); if (!p) return 0;
     if (size === undefined || size === null) size = (p.sizes || [])[Math.min(1, (p.sizes || []).length - 1)] || '';
-    color = color || p.color;
-    var cart = SCG.getCart(), line = cart.filter(function (l) { return l.id === id && l.size === size && l.color === color; })[0];
-    if (line) line.qty += qty || 1; else cart.push({ id: id, size: size, color: color, qty: qty || 1, sel: true });
-    SCG.saveCart(cart); updateCounts(true); toast('✓ Added to cart: ' + p.name);
+    color = color || p.color; qty = Math.max(1, qty || 1);
+    var cart = SCG.getCart(), left = Math.max(0, (p.stock || 0) - inCart(id, cart));
+    if (!left) { toast(p.stock > 0 ? 'You already have all ' + p.stock + ' in stock in your cart' : 'Sorry, ' + p.name + ' is out of stock'); return 0; }
+    var add = Math.min(qty, left);
+    var line = cart.filter(function (l) { return l.id === id && l.size === size && l.color === color; })[0];
+    if (line) line.qty += add; else cart.push({ id: id, size: size, color: color, qty: add, sel: true });
+    if (!SCG.saveCart(cart)) { toast('Could not save your cart. Browser storage is full.'); return 0; }
+    updateCounts(true);
+    toast(add < qty ? 'Only ' + add + ' more available. Added ' + add + ' to cart.' : '✓ Added to cart: ' + p.name);
+    return add;
   }
   function cartLines() { return SCG.getCart().map(function (l, i) { var p = SCG.productById(l.id); return p ? { l: l, p: p, i: i } : null; }).filter(Boolean); }
   function totals(lines) {
@@ -462,11 +472,11 @@
     if (!lines.length) { app.innerHTML = '<div class="wrap"><div class="panel empty" style="margin-top:16px"><h3>Your cart is empty</h3><p>Browse flash deals and imports from around the world to get started.</p><a class="btn" href="#flash">Shop Flash Sale</a></div></div>'; return; }
     var t = totals(lines);
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>Cart</span></div><div class="cart-wrap"><div class="panel">' +
-      '<div class="cart-row" style="grid-template-columns:24px 1fr auto;padding:12px 14px"><input type="checkbox" id="selAll"' + (lines.every(function (x) { return x.l.sel !== false; }) ? ' checked' : '') + ' aria-label="Select all"><b>Select all (' + lines.length + ')</b><button class="rm" id="delSel">' + I.trash + '</button></div>' +
+      '<div class="cart-row" style="grid-template-columns:24px 1fr auto;padding:12px 14px"><input type="checkbox" id="selAll"' + (lines.every(function (x) { return x.l.sel !== false; }) ? ' checked' : '') + ' aria-label="Select all"><b>Select all (' + lines.length + ')</b><button class="rm" id="delSel" aria-label="Delete selected items">' + I.trash + '</button></div>' +
       lines.map(function (x) {
         return '<div class="cart-row"><input type="checkbox" data-sel="' + x.i + '"' + (x.l.sel !== false ? ' checked' : '') + ' aria-label="Select"><a class="th" href="#p/' + x.p.id + '" style="background:' + SCG.shade(x.l.color || x.p.color, 175) + '">' + visual(x.p, x.l.color) + '</a>' +
           '<div><h4><a href="#p/' + x.p.id + '">' + esc(x.p.name) + '</a></h4><small>' + (x.l.size ? 'Size: ' + esc(x.l.size) + ' · ' : '') + esc(x.p.brand) + '</small><div style="margin-top:6px">' + originTag(x.p) + '</div>' +
-          '<div class="qty" style="margin-top:8px"><button data-cq="-1" data-i="' + x.i + '">−</button><span>' + x.l.qty + '</span><button data-cq="1" data-i="' + x.i + '">+</button></div></div>' +
+          '<div class="qty" style="margin-top:8px"><button data-cq="-1" data-i="' + x.i + '" aria-label="Decrease quantity">−</button><span>' + x.l.qty + '</span><button data-cq="1" data-i="' + x.i + '" aria-label="Increase quantity">+</button></div>' + (inCart(x.p.id) > x.p.stock ? '<div class="stock-warn">' + (x.p.stock > 0 ? 'Only ' + x.p.stock + ' left. Lower the quantity to check out.' : 'Out of stock. Please remove it.') + '</div>' : '') + '</div>' +
           '<div class="p">' + money(x.p.price * x.l.qty) + (x.p.comparePrice ? '<div style="font-size:12px;color:var(--muted);font-weight:400"><s>' + money(x.p.comparePrice * x.l.qty) + '</s></div>' : '') + '</div>' +
           '<button class="rm" data-rm="' + x.i + '" aria-label="Remove">' + I.trash + '</button></div>';
       }).join('') + '</div>' +
@@ -485,7 +495,11 @@
     };
     app.onclick = function (e) {
       var cart = SCG.getCart(), b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.cq) { var l = cart[+b.dataset.i]; l.qty = Math.max(1, l.qty + +b.dataset.cq); }
+      if (b.dataset.cq) {
+        var l = cart[+b.dataset.i], pr = SCG.productById(l.id), room = pr ? pr.stock - inCart(l.id, cart) : 0;
+        if (+b.dataset.cq > 0 && room <= 0) { toast('Only ' + (pr ? pr.stock : 0) + ' in stock'); return; }
+        l.qty = Math.max(1, l.qty + +b.dataset.cq);
+      }
       else if (b.dataset.rm) cart.splice(+b.dataset.rm, 1);
       else if (b.id === 'delSel') cart = cart.filter(function (l) { return l.sel === false; });
       else return;
@@ -523,9 +537,13 @@
       '<div class="sum-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px"><span>Subtotal</span><span>' + money(t.sub) + '</span></div><div class="sum-row"><span>Delivery</span><span>' + (t.ship ? money(t.ship) : 'FREE') + '</span></div>' +
       '<div class="sum-row total"><span>Total</span><span>' + money(t.total) + '</span></div></aside></div></div>';
     var firstPay = $('#co input[name=pay]'); if (firstPay) firstPay.checked = true;
+    function coError(msg) { var el = $('#coErr'); if (!el) { el = document.createElement('div'); el.id = 'coErr'; el.className = 'co-err full'; el.setAttribute('role', 'alert'); $('#co').insertBefore(el, $('#co').firstChild); } el.textContent = msg; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     if (prof) { var E = $('#co').elements; ['name', 'phone', 'email', 'address', 'city', 'district'].forEach(function (k) { if (prof[k]) E[k].value = prof[k]; }); }
     $('#co').onsubmit = function (e) {
       e.preventDefault();
+      db = SCG.load();
+      var short = lines.filter(function (x) { var pr = SCG.productById(x.p.id); return !pr || inCart(x.p.id, lines.map(function (y) { return y.l; })) > pr.stock; });
+      if (short.length) { coError('Not enough stock for: ' + short.map(function (x) { return x.p.name; }).join(', ') + '. Please update your cart.'); return; }
       var fd = new FormData(e.target), orders = SCG.getOrders();
       var order = {
         id: 'SCG' + Date.now().toString().slice(-7), date: new Date().toISOString(), status: 'Pending', payment: fd.get('pay') || 'Cash on Delivery',
@@ -533,13 +551,15 @@
         items: lines.map(function (x) { return { id: x.p.id, name: x.p.name, size: x.l.size, color: x.l.color, qty: x.l.qty, price: x.p.price, origin: x.p.origin }; }),
         subtotal: t.sub, shipping: t.ship, total: t.total
       };
-      // create the customer's profile on the first order, or refresh it with the latest details
+      // create the customer's profile on the first order, or refresh it with the latest details (saved after the order succeeds)
       var p0 = SCG.getProfile(), isNewProfile = !p0 || SCG.phoneKey(p0.phone) !== SCG.phoneKey(fd.get('phone'));
       var profile = isNewProfile ? { id: SCG.uid('cust'), createdAt: new Date().toISOString(), source: 'first order' } : p0;
       ['name', 'phone', 'email', 'address', 'city', 'district'].forEach(function (k) { var v = String(fd.get(k) || '').trim(); if (v || k !== 'email') profile[k] = v; });
       profile.lastOrderAt = order.date;
-      SCG.saveProfile(profile); order.customer.profileId = profile.id;
-      orders.unshift(order); SCG.saveOrders(orders); updateAccount();
+      order.customer.profileId = profile.id;
+      orders.unshift(order);
+      if (!SCG.saveOrders(orders)) { coError('Sorry, your order could not be saved because this browser’s storage is full. Nothing was charged. Please call us on ' + s.phone + ' to order.'); return; }
+      SCG.saveProfile(profile); updateAccount();
       lines.forEach(function (x) { x.p.stock = Math.max(0, (x.p.stock || 0) - x.l.qty); x.p.sold = (x.p.sold || 0) + x.l.qty; }); SCG.save();
       SCG.saveCart(SCG.getCart().filter(function (l) { return l.sel === false; })); updateCounts();
       app.innerHTML = '<div class="wrap"><div class="panel success" style="margin-top:16px"><div class="tick">' + I.check + '</div><h2 style="margin:0 0 6px">Thank you! Your order is placed.</h2>' +

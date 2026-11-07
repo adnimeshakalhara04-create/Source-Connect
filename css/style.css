@@ -577,3 +577,9 @@ main { min-height: 60vh; padding-bottom: 40px; }
 .form .pay-opt svg { flex-shrink: 0; }
 .form .pay-opt input { width: auto; flex: 0 0 auto; padding: 0; }
 .form .pay-opt span { flex: 1; min-width: 0; }
+
+/* ---------- stock + checkout errors ---------- */
+.stock-warn { margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--red); }
+.co-err { background: #fde8e9; color: #991b1b; border: 1px solid #f7c6c8; border-radius: 10px; padding: 12px 14px; font-size: 13.5px; font-weight: 500; }
+.btn:disabled, .btn[disabled] { opacity: .5; cursor: not-allowed; box-shadow: none; }
+.add-mini button:disabled { border-color: var(--line); color: var(--muted); cursor: not-allowed; background: #f3f5fa; }

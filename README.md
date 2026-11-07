@@ -39,6 +39,15 @@ Every part of the website can be changed from `/admin/`:
 
 **Edit bar on the website:** while you are signed in to the admin panel, the website shows an ADMIN bar with “Edit this collection / product / homepage” shortcuts. Log out hides it.
 
+## Status: still in development (not ready for real orders yet)
+Fixed so far: stock limits (cart, checkout and sold-out products), checkout never shows success if the order was not saved, photo gallery, admin password stored as a salted hash instead of plain text, footer only lists accepted payments, no fake ratings on new products, smaller logo file, accessibility labels. The admin **Dashboard** shows a *Before you go live* checklist of everything still to change.
+
+Still needs a backend (planned next):
+1. **Online database** (e.g. Supabase): products, orders and customers shared by every device, so orders from customers' phones reach the admin panel.
+2. **Server login** for the admin panel, and **Sign in with Google** for customers.
+3. **Card payments** through a Sri Lankan payment gateway (e.g. PayHere), which needs a merchant account.
+4. Product photos stored online instead of in the browser.
+
 ## Data storage
 Data is saved in the browser's **localStorage**. Admin changes show up on the website in the same browser only. For a live shop where customers on many devices see the same products and their orders reach you, connect a backend such as Supabase or Firebase. `js/store.js` is the only file that needs to change.
 
