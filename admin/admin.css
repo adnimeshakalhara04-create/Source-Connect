@@ -318,8 +318,8 @@ a.item-card.coll-open:hover { transform: translateY(-3px); box-shadow: 0 16px 30
 .ck.ok .ck-i { background: #e7f6ec; color: var(--ok); }
 
 /* ---------- live preview panel ---------- */
-.shell.has-pv { grid-template-columns: 250px minmax(0, 1fr) minmax(420px, 42%); }
-.shell.has-pv.pv-full { grid-template-columns: 250px 300px minmax(0, 1fr); }
+.shell.has-pv { grid-template-columns: 250px minmax(0, 1fr) var(--pvw, 50%); }
+.shell.has-pv.pv-full { grid-template-columns: 250px minmax(0, 1fr) var(--pvw, 70%); }
 .pv { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: #dfe3ec; border-left: 1px solid var(--line); min-width: 0; }
 .pv-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #fff; border-bottom: 1px solid var(--line); }
 .pv-bar b { font-size: 13px; white-space: nowrap; }
@@ -333,6 +333,9 @@ a.item-card.coll-open:hover { transform: translateY(-3px); box-shadow: 0 16px 30
 .pv-frame { position: relative; flex: 1; overflow: hidden; margin: 12px; border-radius: 10px; background: #fff; box-shadow: 0 10px 30px -14px rgba(5,11,28,.45); }
 .pv-frame.mobile { background: transparent; box-shadow: none; }
 .pv-frame iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: top left; background: #fff; }
+.pv-sizer { position: relative; margin: 0 auto; overflow: hidden; }
+.pv-frame.scrolls { overflow-x: auto; overflow-y: hidden; }
+.pv-frame.scrolls .pv-sizer { margin: 0; }
 .pv-frame.mobile iframe { border-radius: 22px; box-shadow: 0 0 0 10px #0b1229, 0 20px 40px -10px rgba(0,0,0,.5); top: 10px; }
 .pv-tip { margin: 0 12px 12px; font-size: 12px; color: var(--muted); }
 .pv-fab { position: fixed; right: 18px; bottom: 18px; z-index: 30; background: var(--navy); color: #fff; padding: 11px 16px; border-radius: 999px; font-weight: 600; font-size: 13px; box-shadow: 0 10px 24px -8px rgba(5,11,28,.6); }
@@ -355,8 +358,8 @@ a.item-card.coll-open:hover { transform: translateY(-3px); box-shadow: 0 16px 30
 }
 /* while the preview is open, editors open beside it so the website stays visible */
 @media (min-width: 1101px) {
-  body.pv-on .modal { right: 42%; }
-  body.pv-on.pv-wide .modal { right: 38%; }
+  body.pv-on .modal { right: var(--pvw, 50%); }
+  body.pv-on.pv-wide .modal { right: min(var(--pvw, 70%), calc(100% - 800px)); }
   body.pv-on .modal .modal-box { width: min(760px, 100%); }
 }
 /* the editor column is narrower while the preview is open: stack two-column layouts */
@@ -366,3 +369,14 @@ a.item-card.coll-open:hover { transform: translateY(-3px); box-shadow: 0 16px 30
 .shell.has-pv .form { grid-template-columns: 1fr 1fr; }
 .shell.has-pv .stats { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 .shell.has-pv .gp-panel { display: none; }
+
+/* divider between the admin and the preview */
+.pv { position: sticky; }
+.pv-split { position: absolute; left: -6px; top: 0; bottom: 0; width: 12px; z-index: 5; cursor: col-resize; display: grid; place-items: center; touch-action: none; }
+.pv-split span { width: 4px; height: 56px; border-radius: 4px; background: #b8c0d4; transition: background .2s, height .2s; }
+.pv-split:hover span, .pv-split:focus-visible span, body.pv-dragging .pv-split span { background: var(--red); height: 90px; }
+.pv-split:focus-visible { outline: none; }
+body.pv-dragging { cursor: col-resize; user-select: none; }
+body.pv-dragging iframe { pointer-events: none; }
+.pv-bar #pvZoom { flex: 0 0 auto; width: auto; padding: 7px 6px; }
+@media (max-width: 1100px) { .pv-split { display: none; } }

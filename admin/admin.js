@@ -167,7 +167,7 @@
      ========================================================= */
   // which website page each admin screen previews (undefined = no preview)
   var PV_PAGES = {
-    editor: function () { return pv.page || ''; }, homepage: '', banners: '', header: '', origins: '', settings: '#help',
+    editor: function () { return pv.page || ''; }, homepage: '', banners: '', header: '', settings: '#help',
     pages: '#china-direct', flash: '#flash', categories: '#categories',
     products: function (a) { return a && a.indexOf('edit:') === 0 ? '#p/' + a.slice(5) : undefined; },   // keep the table full width
     collections: function (a) { return a ? '#col/' + a : '#shop'; }
@@ -186,11 +186,48 @@
   }
   function pvScale() {
     var fr = $('#pvFrame'), fw = fr.clientWidth, fh = fr.clientHeight; if (!fw) return;
-    var W = pv.dev === 'mobile' ? 390 : 1280, k = Math.min(1, fw / W);
-    pvIf.style.width = W + 'px'; pvIf.style.height = Math.round(fh / k) + 'px';
+    var W = pv.dev === 'mobile' ? 390 : 1280, fit = Math.min(1, fw / W);
+    var k = pv.zoom === 'fit' ? fit : +pv.zoom;
+    if (pv.dev === 'mobile' && pv.zoom !== 'fit') k = Math.min(1, k * 1.6);   // phone view needs less shrinking
+    var sz = $('#pvSizer');
+    sz.style.width = Math.round(W * k) + 'px'; sz.style.height = fh - (W * k > fw ? 12 : 0) + 'px';
+    pvIf.style.width = W + 'px'; pvIf.style.height = Math.round(sz.clientHeight / k) + 'px';
     pvIf.style.transform = 'scale(' + k + ')';
-    pvIf.style.left = Math.max(0, (fw - W * k) / 2) + 'px';
+    fr.classList.toggle('scrolls', W * k > fw + 1);
   }
+  // ---- resizable split between the admin and the preview ----
+  pv.zoom = 'fit';
+  try { pv.zoom = localStorage.getItem('scg_pv_zoom') || 'fit'; } catch (e) {}
+  $('#pvZoom').value = pv.zoom;
+  $('#pvZoom').onchange = function (e) { pv.zoom = e.target.value; try { localStorage.setItem('scg_pv_zoom', pv.zoom); } catch (err) {} pvScale(); };
+  function pvWidthKey() { return $('#shell').classList.contains('pv-full') ? 'scg_pv_wf' : 'scg_pv_w'; }
+  function pvApplyWidth() {
+    var w = null; try { w = localStorage.getItem(pvWidthKey()); } catch (e) {}
+    var full = $('#shell').classList.contains('pv-full');
+    var px = w ? +w : Math.round((innerWidth - 250) * (full ? .72 : .5));
+    px = Math.max(360, Math.min(px, innerWidth - 250 - (full ? 240 : 380)));
+    document.documentElement.style.setProperty('--pvw', px + 'px');
+    pvScale();
+  }
+  (function () {
+    var sp = $('#pvSplit'), drag = false;
+    function move(x) {
+      var full = $('#shell').classList.contains('pv-full');
+      var px = Math.max(360, Math.min(innerWidth - x, innerWidth - 250 - (full ? 240 : 380)));
+      document.documentElement.style.setProperty('--pvw', px + 'px'); pvScale();
+      try { localStorage.setItem(pvWidthKey(), String(px)); } catch (e) {}
+    }
+    sp.addEventListener('pointerdown', function (e) { drag = true; sp.setPointerCapture(e.pointerId); document.body.classList.add('pv-dragging'); e.preventDefault(); });
+    sp.addEventListener('pointermove', function (e) { if (drag) move(e.clientX); });
+    function end() { drag = false; document.body.classList.remove('pv-dragging'); }
+    sp.addEventListener('pointerup', end); sp.addEventListener('pointercancel', end);
+    sp.addEventListener('dblclick', function () { try { localStorage.removeItem(pvWidthKey()); } catch (e) {} pvApplyWidth(); });
+    sp.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault();
+      var cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--pvw'), 10) || 600;
+      move(innerWidth - cur + (e.key === 'ArrowLeft' ? -40 : 40));
+    });
+  })();
   function pvGo(page) {
     pv.page = page || '';
     $('#pvOpen').href = SITE + pv.page;
@@ -204,14 +241,14 @@
     shell.classList.toggle('has-pv', visible);
     $('#pv').hidden = !visible; $('#pvFab').hidden = !(has && !visible);
     document.body.classList.toggle('pv-on', visible); document.body.classList.toggle('pv-wide', visible && shell.classList.contains('pv-full'));
-    if (visible) { pvGo(page); requestAnimationFrame(pvScale); }
+    if (visible) { pvGo(page); pvApplyWidth(); requestAnimationFrame(pvScale); }
   }
   $('#pvPage').onchange = function (e) { pvGo(e.target.value); };
   $('#pvReload').onclick = function () { pvIf.src = SITE + '?preview=1' + pv.page; };
   $('#pvHide').onclick = function () { pv.hidden = true; try { localStorage.setItem('scg_pv_hidden', '1'); } catch (e) {} if ($('#shell').classList.contains('pv-full')) location.hash = 'dashboard'; else route(); };
   $('#pvFab').onclick = function () { pv.hidden = false; try { localStorage.removeItem('scg_pv_hidden'); } catch (e) {} route(); };
   $$('.pv-dev button').forEach(function (b) { b.onclick = function () { pv.dev = b.dataset.dev; $$('.pv-dev button').forEach(function (x) { x.classList.toggle('on', x === b); }); $('#pvFrame').classList.toggle('mobile', pv.dev === 'mobile'); pvScale(); }; });
-  window.addEventListener('resize', pvScale);
+  window.addEventListener('resize', function () { if (!$('#pv').hidden) pvApplyWidth(); });
   if ('ResizeObserver' in window) new ResizeObserver(pvScale).observe($('#pvFrame'));
   function currentHash() { return location.hash.replace('#', '') || 'dashboard'; }
 

@@ -310,17 +310,17 @@
 
   /* ---------------- LISTING ---------------- */
   function renderListing(kind, val, extra) {
-    var title = 'All Products', sub = 'Everything we sell, in one place.', color = '#0b2a6f', art = 'tshirt';
+    var title = 'All Products', sub = 'Everything we sell, in one place.', color = '#0b2a6f', art = 'tshirt', artImg = '', cover = '';
     var st = { cats: [], min: '', max: '', rating: 0, origins: [], sale: false, sort: 'pop', q: '', coll: '', limit: 30 };
-    if (kind === 'c') { var c = SCG.categoryById(val); if (c) { title = c.name; sub = c.tagline; color = c.icon || color; art = c.shape; st.cats = [c.id]; } }
-    if (kind === 'col') { var co = SCG.collectionById(val); if (co) { title = co.name; sub = co.description; color = co.accent; art = 'bag'; st.coll = co.id; st.sort = 'rec'; } }
+    if (kind === 'c') { var c = SCG.categoryById(val); if (c) { title = c.name; sub = c.tagline; color = c.icon || color; art = c.shape; artImg = c.image || ''; st.cats = [c.id]; } }
+    if (kind === 'col') { var co = SCG.collectionById(val); if (co) { title = co.name; sub = co.description; color = co.accent; art = 'bag'; cover = co.image || ''; st.coll = co.id; st.sort = 'rec'; } }
     if (kind === 'flash') { title = db.settings.flashTitle || 'Flash Sale'; sub = flashOn() ? 'Huge discounts for a limited time.' : 'This flash sale has ended. Check back soon for new deals.'; color = '#d7141a'; art = 'sneaker'; st.sale = true; st.flashOnly = true; st.sort = 'off'; }
     if (kind === 'from') { var oi = val === 'local' ? { name: 'Colombo stock', days: db.settings.localDays, local: true } : SCG.originById(val); if (oi) { title = oi.local ? 'Ships from Colombo' : 'Imported from ' + oi.name; sub = 'Delivered to your door in ' + oi.days + ' days.'; color = '#0f766e'; art = 'bag'; st.origins = [val]; } }
     if (kind === 'search') { st.q = val; title = 'Results for “' + val + '”'; sub = ''; if (extra) st.cats = [extra]; }
     setTitle(kind === 'search' ? 'Search' : title);
 
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>' + esc(title) + '</span></div>' +
-      (kind !== 'search' ? '<div class="cat-hero reveal" ' + ({ c: 'data-ed="category" data-id="' + esc(val) + '"', col: 'data-ed="collection" data-id="' + esc(val) + '"', flash: 'data-ed="flash"', from: 'data-ed="origins"', shop: '' }[kind] || '') + ' style="--c:' + color + '"><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' && flashOn() ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + '<div class="art">' + SCG.productSVG(art, '#ffffff', 'solid', color) + '</div></div>' : '') +
+      (kind !== 'search' ? '<div class="cat-hero reveal" ' + ({ c: 'data-ed="category" data-id="' + esc(val) + '"', col: 'data-ed="collection" data-id="' + esc(val) + '"', flash: 'data-ed="flash"', from: 'data-ed="origins"', shop: '' }[kind] || '') + ' style="--c:' + color + (cover ? ';--cover:url(' + cover + ')' : '') + '"' + (cover ? ' data-cover' : '') + '><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' && flashOn() ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + (cover ? '' : '<div class="art' + (artImg ? ' photo' : '') + '">' + (artImg ? '<img src="' + artImg + '" alt="">' : SCG.productSVG(art, '#ffffff', 'solid', color)) + '</div>') + '</div>' : '') +
       '<div class="listing"><aside class="panel filters" id="filters">' +
         '<div class="grp"><h4>Category</h4>' + db.categories.map(function (c) { return '<label><input type="checkbox" name="fc" value="' + c.id + '"' + (st.cats.indexOf(c.id) > -1 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') + '</div>' +
         '<div class="grp"><h4>Price (Rs.)</h4><div class="price-row"><input id="fmin" type="number" min="0" placeholder="Min" aria-label="Minimum price"><span aria-hidden="true">–</span><input id="fmax" type="number" min="0" placeholder="Max" aria-label="Maximum price"></div></div>' +

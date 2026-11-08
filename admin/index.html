@@ -69,9 +69,11 @@
 
     <!-- Live website preview: click anything inside it to edit -->
     <aside class="pv" id="pv" aria-label="Live website preview" hidden>
+      <div class="pv-split" id="pvSplit" role="separator" aria-orientation="vertical" aria-label="Drag to resize the preview" tabindex="0" title="Drag to resize · double-click to reset"><span></span></div>
       <div class="pv-bar">
         <b>Live preview</b>
         <select id="pvPage" aria-label="Page shown in the preview"></select>
+        <select id="pvZoom" aria-label="Preview size" title="Preview size"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option></select>
         <div class="pv-dev" role="group" aria-label="Device">
           <button type="button" data-dev="desktop" class="on" title="Computer"><svg viewBox="0 0 24 24"><path d="M3 5h18v11H3zM8 20h8M12 16v4"/></svg></button>
           <button type="button" data-dev="mobile" title="Phone"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg></button>
@@ -80,7 +82,7 @@
         <a class="icon-btn" id="pvOpen" target="_blank" rel="noopener" title="Open this page in a new tab"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></a>
         <button type="button" class="icon-btn" id="pvHide" title="Hide preview"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
-      <div class="pv-frame" id="pvFrame"><iframe id="pvIf" title="Website preview" loading="lazy"></iframe></div>
+      <div class="pv-frame" id="pvFrame"><div class="pv-sizer" id="pvSizer"><iframe id="pvIf" title="Website preview" loading="lazy"></iframe></div></div>
       <p class="pv-tip">Point at anything in the preview, then click <b>✎ Edit</b> or <b>🖼 Change photo</b>. Saved changes show here instantly.</p>
     </aside>
     <button type="button" class="pv-fab" id="pvFab" hidden>👁 Show preview</button>
