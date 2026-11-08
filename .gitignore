@@ -1,0 +1,9 @@
+node_modules/
+server/dist/
+server/.env
+server/uploads/
+*.env
+!.env.example
+e2e/out/
+.pgdata/
+*.log
