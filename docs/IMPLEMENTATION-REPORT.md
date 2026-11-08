@@ -46,7 +46,7 @@ Commits on the branch, in order: Phase 0 audit → backend (DB + API + auth + ch
 | Image backup | `images-sync.sh` with rclone (local remotes) | **pass**: deleted/overwritten images kept under `_deleted/<date>/` |
 | Docker image | `docker build` + run against PostgreSQL | **pass**: non-root, migrations inside the image, docs off in production, graceful stop |
 | Load test (2 pinned cores, not the real VPS) | `node e2e/load/load-test.mjs` | **0 % errors** in every scenario; checkout 244 orders/s, p95 ≈ 193 ms; no overselling (`docs/budget-and-capacity.md`) |
-| CI workflow | `.github/workflows/ci.yml` | **written, not yet run on GitHub** (it runs on the next push to the branch) |
+| CI workflow | `.github/workflows/ci.yml` | **Did not run on GitHub.** Run #1 (commit `c5a2f96`) failed in 3 s with no runner assigned and no logs, even for the trivial syntax job, so GitHub never started it. This usually means an account-level Actions block (billing or spending limit). **Owner:** check GitHub → Settings → Billing and Actions, then re-run. The same commands pass locally (see above) |
 
 **Defects found by these tests and fixed:**
 - Failed staff logins returned HTTP 500, so account lockout never applied (a parameter typing bug).
