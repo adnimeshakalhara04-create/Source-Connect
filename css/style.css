@@ -671,3 +671,12 @@ html.intro-on body::before { content: ''; position: fixed; inset: 0; z-index: 99
   .in-sub { font-size: 13.5px; }
   .in-enter { padding: 15px 28px; font-size: 14px; }
 }
+
+/* ---------- admin visual editor (preview mode only) ---------- */
+.ed-box { position: fixed; z-index: 9998; pointer-events: none; border: 2px solid #d7141a; border-radius: 8px; box-shadow: 0 0 0 4px rgba(215,20,26,.15); transition: all .12s ease; }
+.ed-bar { position: fixed; z-index: 9999; display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 8px; background: #050b1c; color: #fff; font: 600 12px/1 'Roboto', system-ui, sans-serif; box-shadow: 0 8px 24px -6px rgba(0,0,0,.5); max-width: calc(100% - 8px); }
+.ed-bar span { padding: 0 8px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .85; }
+.ed-bar button { background: #d7141a; color: #fff; border-radius: 6px; padding: 7px 10px; font: inherit; white-space: nowrap; }
+.ed-bar button[data-a=photo] { background: #0b2a6f; }
+.ed-bar button:hover { filter: brightness(1.15); }
+html.is-preview .admin-bar { display: none; }

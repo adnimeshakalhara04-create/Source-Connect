@@ -127,6 +127,7 @@
 
   /* ---------------- router ---------------- */
   var VIEWS = {
+    editor: { title: 'Visual Editor', sub: 'Your website with click-to-edit. Point at anything and click ✎ Edit.', render: editorView },
     dashboard: { title: 'Dashboard', sub: 'Your store at a glance', render: dashboard },
     orders: { title: 'Orders', sub: 'Orders placed on the website', render: ordersView },
     customers: { title: 'Customers', sub: 'Everyone who has ordered', render: customers },
@@ -153,10 +154,128 @@
     var v = $('#view'); v.onclick = null; v.onchange = null; v.oninput = null;
     v.style.animation = 'none'; void v.offsetWidth; v.style.animation = '';
     setActions('');
-    VIEWS[key].render(v, decodeURIComponent(parts.slice(1).join('/')));
+    var arg = decodeURIComponent(parts.slice(1).join('/'));
+    $('#shell').classList.toggle('pv-full', key === 'editor');
+    var pr = PV_PAGES[key]; pvShow(typeof pr === 'function' ? pr(arg) : pr);
+    VIEWS[key].render(v, arg);
     updatePill();
   }
   window.addEventListener('hashchange', route);
+
+  /* =========================================================
+     LIVE PREVIEW PANEL + CLICK-TO-EDIT
+     ========================================================= */
+  // which website page each admin screen previews (undefined = no preview)
+  var PV_PAGES = {
+    editor: function () { return pv.page || ''; }, homepage: '', banners: '', header: '', origins: '', settings: '#help',
+    pages: '#china-direct', flash: '#flash', categories: '#categories',
+    products: function (a) { return a && a.indexOf('edit:') === 0 ? '#p/' + a.slice(5) : undefined; },   // keep the table full width
+    collections: function (a) { return a ? '#col/' + a : '#shop'; }
+  };
+  var pv = { page: '', dev: 'desktop', loaded: false, hidden: false };
+  try { pv.hidden = localStorage.getItem('scg_pv_hidden') === '1'; } catch (e) {}
+  var pvIf = $('#pvIf');
+  function pvPages() {
+    var opts = [['', 'Home'], ['#shop', 'All products'], ['#flash', 'Flash sale'], ['#categories', 'Categories']]
+      .concat(db.collections.map(function (c) { return ['#col/' + c.id, 'Collection: ' + c.name]; }))
+      .concat(db.categories.map(function (c) { return ['#c/' + c.id, 'Category: ' + c.name]; }))
+      .concat(db.products[0] ? [['#p/' + db.products[0].id, 'A product page']] : [])
+      .concat([['#china-direct', 'How importing works'], ['#help', 'Help'], ['#cart', 'Cart'], ['#account', 'My account']]);
+    if (pv.page && !opts.some(function (o) { return o[0] === pv.page; })) opts.unshift([pv.page, 'Current page']);
+    $('#pvPage').innerHTML = opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === pv.page ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
+  }
+  function pvScale() {
+    var fr = $('#pvFrame'), fw = fr.clientWidth, fh = fr.clientHeight; if (!fw) return;
+    var W = pv.dev === 'mobile' ? 390 : 1280, k = Math.min(1, fw / W);
+    pvIf.style.width = W + 'px'; pvIf.style.height = Math.round(fh / k) + 'px';
+    pvIf.style.transform = 'scale(' + k + ')';
+    pvIf.style.left = Math.max(0, (fw - W * k) / 2) + 'px';
+  }
+  function pvGo(page) {
+    pv.page = page || '';
+    $('#pvOpen').href = SITE + pv.page;
+    if (!pv.loaded) { pv.loaded = true; pvIf.src = SITE + '?preview=1' + pv.page; }
+    else { try { var w = pvIf.contentWindow; if (w.location.hash !== pv.page) w.location.hash = pv.page || '#'; } catch (e) { pvIf.src = SITE + '?preview=1' + pv.page; } }
+    pvPages();
+  }
+  function pvShow(page) {
+    var shell = $('#shell'), has = page !== undefined && page !== null;
+    var visible = has && (!pv.hidden || shell.classList.contains('pv-full'));
+    shell.classList.toggle('has-pv', visible);
+    $('#pv').hidden = !visible; $('#pvFab').hidden = !(has && !visible);
+    document.body.classList.toggle('pv-on', visible); document.body.classList.toggle('pv-wide', visible && shell.classList.contains('pv-full'));
+    if (visible) { pvGo(page); requestAnimationFrame(pvScale); }
+  }
+  $('#pvPage').onchange = function (e) { pvGo(e.target.value); };
+  $('#pvReload').onclick = function () { pvIf.src = SITE + '?preview=1' + pv.page; };
+  $('#pvHide').onclick = function () { pv.hidden = true; try { localStorage.setItem('scg_pv_hidden', '1'); } catch (e) {} if ($('#shell').classList.contains('pv-full')) location.hash = 'dashboard'; else route(); };
+  $('#pvFab').onclick = function () { pv.hidden = false; try { localStorage.removeItem('scg_pv_hidden'); } catch (e) {} route(); };
+  $$('.pv-dev button').forEach(function (b) { b.onclick = function () { pv.dev = b.dataset.dev; $$('.pv-dev button').forEach(function (x) { x.classList.toggle('on', x === b); }); $('#pvFrame').classList.toggle('mobile', pv.dev === 'mobile'); pvScale(); }; });
+  window.addEventListener('resize', pvScale);
+  if ('ResizeObserver' in window) new ResizeObserver(pvScale).observe($('#pvFrame'));
+  function currentHash() { return location.hash.replace('#', '') || 'dashboard'; }
+
+  // messages from the preview: open the right editor or apply a new photo
+  window.addEventListener('message', function (e) {
+    if (e.origin !== location.origin || e.source !== pvIf.contentWindow || !e.data || !loggedIn()) return;
+    var d = e.data;
+    if (d.type === 'scg-page') { pv.page = d.page || ''; $('#pvOpen').href = SITE + pv.page; pvPages(); return; }
+    if (d.type === 'scg-edit') {
+      var go = { services: 'homepage', sections: 'homepage', flash: 'flash', origins: 'origins', header: 'header', settings: 'settings', pages: 'pages' };
+      if (d.ed === 'product') productForm(d.id, { back: currentHash() });
+      else if (d.ed === 'banner') bannerForm(d.i);
+      else if (d.ed === 'category') catForm(d.id);
+      else if (d.ed === 'collection') location.hash = 'collections/' + d.id;
+      else if (d.ed === 'hero') heroForm();
+      else if (go[d.ed]) location.hash = go[d.ed];
+      return;
+    }
+    if (d.type === 'scg-photo' && typeof d.url === 'string' && /^data:image\//.test(d.url)) {
+      var name = '';
+      if (d.ed === 'product') { var p = SCG.productById(d.id); if (!p) return; var imgs = SCG.productImages(p).slice(); imgs[0] = d.url; p.images = imgs.slice(0, 8); p.image = d.url; name = p.name; }
+      else if (d.ed === 'banner') { if (!db.hero[d.i]) return; db.hero[d.i].image = d.url; name = db.hero[d.i].title; }
+      else if (d.ed === 'category') { var c = SCG.categoryById(d.id); if (!c) return; c.image = d.url; name = c.name; }
+      else if (d.ed === 'collection') { var co = SCG.collectionById(d.id); if (!co) return; co.image = d.url; name = co.name; }
+      else return;
+      if (commit('Photo changed: ' + name) && !$('#modal').classList.contains('open')) route();
+    }
+  });
+  // the preview (or another tab) saved something: pick it up so we never overwrite it
+  window.addEventListener('storage', function (e) {
+    if (e.key !== SCG.keys.DB_KEY || !e.newValue) return;
+    db = SCG.reload();
+    if (loggedIn() && !$('#modal').classList.contains('open')) route();
+  });
+
+  /* Globe headline: quick editor opened from the preview */
+  function heroForm() {
+    var s = db.settings;
+    openModal('Globe headline',
+      '<form class="form" id="heroF"><label class="full">Headline (new line = second, gold line)<textarea name="t" rows="2">' + esc(s.heroTitle) + '</textarea></label>' +
+      '<label class="full">Text under the headline<textarea name="s" rows="3">' + esc(s.heroSubtitle) + '</textarea></label>' +
+      '<p class="full muted" style="margin:0;font-size:12.5px">Numbers, timeline, cities and the welcome intro are in <a href="#homepage" data-close style="color:var(--red)">Homepage &amp; Globe</a>.</p>' +
+      '<div class="form-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Save</button></div></form>');
+    $('#heroF').onsubmit = function (e) { e.preventDefault(); s.heroTitle = e.target.elements.t.value.trim(); s.heroSubtitle = e.target.elements.s.value.trim(); commit('Headline saved'); closeModal(); };
+  }
+
+  /* Visual Editor: the website, big, with shortcuts on the left */
+  function editorView(v) {
+    if (pv.hidden) { pv.hidden = false; try { localStorage.removeItem('scg_pv_hidden'); } catch (e) {} pvShow(pv.page || ''); }
+    var jump = [['', 'Home page'], ['#shop', 'All products'], ['#flash', 'Flash sale'], ['#categories', 'Categories'], ['#china-direct', 'Importing page']]
+      .concat(db.collections.slice(0, 7).map(function (c) { return ['#col/' + c.id, c.name]; }));
+    v.innerHTML =
+      '<div class="ed-help"><h3>How to edit</h3><ol><li><b>Point</b> at anything on the website: a product, banner, category, headline, menu or footer.</li><li>Click <b>✎ Edit</b> to change its text, price or settings.</li><li>Click <b>🖼 Change photo</b> to pick a new picture from your computer or phone.</li><li>Changes save straight away and appear in the preview.</li></ol></div>' +
+      '<div class="ed-help"><h3>Go to a page</h3><div class="ed-jump">' + jump.map(function (j) { return '<button type="button" data-p="' + esc(j[0]) + '">' + esc(j[1]) + '</button>'; }).join('') + '</div></div>' +
+      '<div class="ed-help"><h3>Add something new</h3><div class="ed-jump"><button type="button" data-new="product">+ Product</button><button type="button" data-new="banner">+ Banner</button><button type="button" data-new="collection">+ Collection</button><button type="button" data-new="category">+ Category</button></div></div>';
+    v.onclick = function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.p !== undefined) pvGo(b.dataset.p);
+      if (b.dataset.new === 'product') productForm(null, { back: 'editor' });
+      if (b.dataset.new === 'banner') bannerForm(-1);
+      if (b.dataset.new === 'category') catForm(null);
+      if (b.dataset.new === 'collection') { var id = SCG.uid('collection'); db.collections.push({ id: id, name: 'New collection', description: '', accent: '#0b2a6f', image: '', order: [] }); commit('Collection created'); location.hash = 'collections/' + id; }
+    };
+  }
 
   /* =========================================================
      DASHBOARD
@@ -268,7 +387,7 @@
         return '<tr data-id="' + p.id + '" class="' + (sel[p.id] ? 'sel' : '') + '"><td class="chk"><input type="checkbox" data-sel' + (sel[p.id] ? ' checked' : '') + ' aria-label="Select"></td>' +
           '<td><div class="prod-cell">' + thumb(p) + '<div><b>' + esc(p.name) + '</b><small>' + esc(p.brand || '') + ' · ' + esc(p.id) + '</small></div></div></td>' +
           '<td>' + esc(c ? c.name : '—') + '</td>' +
-          '<td><input class="inline" type="number" min="0" step="10" data-f="price" value="' + p.price + '" aria-label="Price">' + (off ? '<br><small class="muted"><s>' + money(p.comparePrice) + '</s> -' + off + '%</small>' : '') + '</td>' +
+          '<td><input class="inline" type="number" min="0" data-f="price" value="' + p.price + '" aria-label="Price">' + (off ? '<br><small class="muted"><s>' + money(p.comparePrice) + '</s> -' + off + '%</small>' : '') + '</td>' +
           '<td><input class="inline" type="number" min="0" data-f="stock" value="' + p.stock + '" aria-label="Stock" style="width:64px' + (p.stock <= 5 ? ';border-color:#f59e0b' : '') + '"></td>' +
           '<td><select data-f="origin" style="width:auto;padding:6px">' + originOptions(p.origin) + '</select></td>' +
           '<td>' + sw('flash', p.flash) + '</td>' +
@@ -326,6 +445,7 @@
 
   function productForm(id, opts) {
     opts = opts || {};
+    if (id && !$('#pv').hidden) pvGo('#p/' + id);
     var p = id ? SCG.productById(id) : null, isNew = !p;
     var d = p ? JSON.parse(JSON.stringify(p)) : {
       name: '', category: pf.cat !== 'all' ? pf.cat : db.categories[0].id, collections: opts.collection ? [opts.collection] : [], price: 0, comparePrice: 0, stock: 20,
@@ -340,8 +460,8 @@
       '<label class="full">Product name<input name="name" required value="' + esc(d.name) + '" placeholder="e.g. Classic Crew Tee"></label>' +
       '<label>Category<select name="category">' + db.categories.map(function (c) { return '<option value="' + c.id + '"' + (c.id === d.category ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') + '</select></label>' +
       '<label>Brand<input name="brand" value="' + esc(d.brand || '') + '"></label>' +
-      '<label>Price (' + esc(db.settings.currency) + ')<input name="price" type="number" min="0" step="10" required value="' + d.price + '"></label>' +
-      '<label>Original price (before discount)<input name="comparePrice" type="number" min="0" step="10" placeholder="Optional, shows -% off" value="' + (d.comparePrice || '') + '"></label>' +
+      '<label>Price (' + esc(db.settings.currency) + ')<input name="price" type="number" min="0" required value="' + d.price + '"></label>' +
+      '<label>Original price (before discount)<input name="comparePrice" type="number" min="0" placeholder="Optional, shows -% off" value="' + (d.comparePrice || '') + '"></label>' +
       '<label>Stock quantity<input name="stock" type="number" min="0" required value="' + d.stock + '"></label>' +
       '<label>Ships from<select name="origin">' + originOptions(d.origin) + '</select></label>' +
       '<label>Badge<select name="badge">' + BADGES.map(function (b) { return '<option' + (b === d.badge ? ' selected' : '') + ' value="' + b + '">' + (b || 'None') + '</option>'; }).join('') + '</select></label>' +
@@ -448,8 +568,8 @@
       '<div class="panel" style="padding:0;overflow:hidden"><div class="table-wrap" style="border:0"><table><thead><tr><th>Product</th><th>Flash price</th><th>Original price</th><th>Discount</th><th>Stock</th><th></th></tr></thead><tbody id="ftb">' +
       (list.length ? list.map(function (p) {
         return '<tr data-id="' + p.id + '"><td><div class="prod-cell">' + thumb(p) + '<b>' + esc(p.name) + '</b></div></td>' +
-          '<td><input class="inline" type="number" min="0" step="10" data-f="price" value="' + p.price + '"></td>' +
-          '<td><input class="inline" type="number" min="0" step="10" data-f="comparePrice" value="' + (p.comparePrice || '') + '"></td>' +
+          '<td><input class="inline" type="number" min="0" data-f="price" value="' + p.price + '"></td>' +
+          '<td><input class="inline" type="number" min="0" data-f="comparePrice" value="' + (p.comparePrice || '') + '"></td>' +
           '<td><span class="tag red">-' + SCG.discount(p) + '%</span></td><td>' + p.stock + '</td>' +
           '<td><div class="actions"><button class="btn sm" data-edit>Edit</button><button class="btn sm danger" data-rm>Remove</button></div></td></tr>';
       }).join('') : '<tr><td colspan="6" class="muted" style="text-align:center;padding:40px">No flash deals yet. Click “Add products to flash sale”.</td></tr>') + '</tbody></table></div></div>';
@@ -656,7 +776,7 @@
           '<label class="tchk"><input type="checkbox" data-sel' + (sel[p.id] ? ' checked' : '') + ' aria-label="Select ' + esc(p.name) + '"></label>' +
           '<div class="tthumb" style="background:' + SCG.shade(p.color || '#0b2a6f', 170) + '">' + SCG.productVisual(p) + (off ? '<span class="toff">-' + off + '%</span>' : '') + (p.flash ? '<span class="tflash">⚡</span>' : '') + '</div>' +
           '<b class="tname">' + esc(p.name) + '</b><small class="muted">' + esc(o.local ? 'Colombo stock' : 'From ' + o.name) + '</small>' +
-          '<div class="tfields"><label>Price<input type="number" min="0" step="10" data-f="price" value="' + p.price + '"></label><label>Stock<input type="number" min="0" data-f="stock" value="' + p.stock + '"></label></div>' +
+          '<div class="tfields"><label>Price<input type="number" min="0" data-f="price" value="' + p.price + '"></label><label>Stock<input type="number" min="0" data-f="stock" value="' + p.stock + '"></label></div>' +
           '<div class="ttools"><button type="button" data-l title="Move earlier">←</button><button type="button" data-r title="Move later">→</button><button type="button" data-e title="Edit everything">✎ Edit</button><button type="button" data-x title="Remove from collection">✕</button></div></div>';
       }).join('') : '<div class="empty-ws"><h3>' + (ql ? 'No products match your search' : 'This collection is empty') + '</h3><p class="muted">Use “Add existing products”, “Create new product here” or a quick-fill rule.</p></div>';
       bulkUI();
@@ -747,7 +867,7 @@
         '<label>Text under the headline<textarea id="hSub" rows="3">' + esc(s.heroSubtitle) + '</textarea></label>' +
         '<p class="muted" style="margin:0">Which countries and cities appear on the globe is set in <a href="#origins" style="color:var(--red)">Import Countries</a>.</p>' +
       '</div></div>' +
-      '<div class="panel"><div class="head"><h3>Live preview</h3><button class="btn sm" id="hPrev">Replay</button></div><div class="globe-prev"><span class="cap">China → Sri Lanka</span><canvas></canvas></div></div></div>' +
+      '<div class="panel gp-panel"><div class="head"><h3>Globe preview</h3><button class="btn sm" id="hPrev">Replay</button></div><div class="globe-prev"><span class="cap">China → Sri Lanka</span><canvas></canvas></div></div></div>' +
       '<div class="grid2"><div class="panel"><h3>Numbers under the headline <small>tick “Live” to count up as parcels arrive</small></h3><div id="hStats"></div></div>' +
       '<div class="panel"><h3>Shipping timeline <small>5 steps along the bottom of the globe</small></h3><div id="hSteps"></div></div></div>' +
       '<div class="panel"><div class="head"><h3>Welcome intro <small>the cinematic screen when the site opens, with an Enter button</small></h3><a class="btn sm" target="_blank" rel="noopener" href="../?intro=1">▶ Preview intro</a></div><div class="form">' +

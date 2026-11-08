@@ -405,6 +405,7 @@
   }
   function save() { return safeSet(DB_KEY, JSON.stringify(cache)); }
   function reset() { cache = seed(); save(); return cache; }
+  function reload() { cache = null; return load(); }
 
   function uid(prefix) { return (prefix || 'id') + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function slug(s) { return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || uid('x'); }
@@ -516,7 +517,7 @@
 
   global.SCG = {
     SHAPES: SHAPES, PATTERNS: PATTERNS,
-    load: load, save: save, reset: reset, seed: seed,
+    load: load, save: save, reset: reset, reload: reload, seed: seed,
     uid: uid, slug: slug, money: money, discount: discount, escapeHTML: escapeHTML,
     productSVG: productSVG, garmentSVG: garmentSVG, productVisual: productVisual, shade: shade,
     categoryById: categoryById, collectionById: collectionById, productById: productById,

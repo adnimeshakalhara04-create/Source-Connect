@@ -316,3 +316,53 @@ a.item-card.coll-open:hover { transform: translateY(-3px); box-shadow: 0 16px 30
 .ck-i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 900; background: #fdf3e2; color: var(--warn); flex-shrink: 0; }
 .ck.ok { color: var(--muted); }
 .ck.ok .ck-i { background: #e7f6ec; color: var(--ok); }
+
+/* ---------- live preview panel ---------- */
+.shell.has-pv { grid-template-columns: 250px minmax(0, 1fr) minmax(420px, 42%); }
+.shell.has-pv.pv-full { grid-template-columns: 250px 300px minmax(0, 1fr); }
+.pv { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: #dfe3ec; border-left: 1px solid var(--line); min-width: 0; }
+.pv-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #fff; border-bottom: 1px solid var(--line); }
+.pv-bar b { font-size: 13px; white-space: nowrap; }
+.pv-bar b::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; margin-right: 6px; box-shadow: 0 0 0 3px #dcfce7; }
+.pv-bar select { flex: 1; min-width: 0; width: auto; padding: 7px 8px; font-size: 12.5px; }
+.pv-dev { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.pv-dev button { width: 34px; height: 32px; display: grid; place-items: center; color: var(--muted); }
+.pv-dev button.on { background: var(--navy); color: #fff; }
+.pv-dev svg, .pv-bar .icon-btn svg { width: 17px; height: 17px; }
+.pv-bar .icon-btn { width: 32px; height: 32px; }
+.pv-frame { position: relative; flex: 1; overflow: hidden; margin: 12px; border-radius: 10px; background: #fff; box-shadow: 0 10px 30px -14px rgba(5,11,28,.45); }
+.pv-frame.mobile { background: transparent; box-shadow: none; }
+.pv-frame iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: top left; background: #fff; }
+.pv-frame.mobile iframe { border-radius: 22px; box-shadow: 0 0 0 10px #0b1229, 0 20px 40px -10px rgba(0,0,0,.5); top: 10px; }
+.pv-tip { margin: 0 12px 12px; font-size: 12px; color: var(--muted); }
+.pv-fab { position: fixed; right: 18px; bottom: 18px; z-index: 30; background: var(--navy); color: #fff; padding: 11px 16px; border-radius: 999px; font-weight: 600; font-size: 13px; box-shadow: 0 10px 24px -8px rgba(5,11,28,.6); }
+.nav-hi .pill.easy { background: #22c55e; color: #fff; font-size: 9.5px; letter-spacing: .08em; }
+/* visual editor left column */
+.pv-full .content { padding: 18px 16px; }
+.pv-full .top { padding: 14px 16px; }
+.pv-full .top-actions { display: none; }
+.ed-help { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.ed-help h3 { margin: 0 0 8px; font-size: 14px; }
+.ed-help ol { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.ed-help ol b { color: var(--text); }
+.ed-jump { display: flex; flex-wrap: wrap; gap: 6px; }
+.ed-jump button { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: #f8f9fc; font-size: 12.5px; font-weight: 500; }
+.ed-jump button:hover { border-color: var(--red); color: var(--red); }
+@media (max-width: 1100px) {
+  .shell.has-pv, .shell.has-pv.pv-full { grid-template-columns: 1fr; }
+  .shell.has-pv .pv { position: fixed; inset: auto 0 0 0; height: 62vh; z-index: 35; border-left: 0; border-top: 1px solid var(--line); box-shadow: 0 -20px 40px -20px rgba(5,11,28,.5); }
+  .shell.has-pv .main { padding-bottom: 62vh; }
+}
+/* while the preview is open, editors open beside it so the website stays visible */
+@media (min-width: 1101px) {
+  body.pv-on .modal { right: 42%; }
+  body.pv-on.pv-wide .modal { right: 38%; }
+  body.pv-on .modal .modal-box { width: min(760px, 100%); }
+}
+/* the editor column is narrower while the preview is open: stack two-column layouts */
+.shell.has-pv .grid2, .shell.has-pv .cols { grid-template-columns: minmax(0, 1fr); }
+.shell.has-pv .rep-row { grid-template-columns: 1fr !important; }
+.shell.has-pv .rep-row .tools { justify-content: flex-end; }
+.shell.has-pv .form { grid-template-columns: 1fr 1fr; }
+.shell.has-pv .stats { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.shell.has-pv .gp-panel { display: none; }

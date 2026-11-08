@@ -59,7 +59,7 @@
     opts = opts || {};
     var off = SCG.discount(p), wish = SCG.getWish().indexOf(p.id) > -1, imgs = SCG.productImages(p);
     var soldPct = Math.min(96, 30 + (p.sold % 60));
-    return '<article class="card" style="--c:' + p.color + '">' +
+    return '<article class="card" data-ed="product" data-id="' + p.id + '" style="--c:' + p.color + '">' +
       '<a class="media' + (imgs[1] ? ' has-alt' : '') + '" href="#p/' + p.id + '" aria-label="' + esc(p.name) + '">' + visual(p) + (imgs[1] ? '<img class="alt" src="' + imgs[1] + '" alt="" loading="lazy">' : '') +
       (off ? '<span class="tag-off">-' + off + '%</span>' : (p.badge === 'New' ? '<span class="tag-new">NEW</span>' : '')) + '</a>' +
       '<button class="heart' + (wish ? ' on' : '') + '" data-wish="' + p.id + '" aria-label="Add to wishlist">' + I.heart + '</button>' +
@@ -76,7 +76,7 @@
   /* ---------------- chrome ---------------- */
   function catListHTML() {
     return '<div class="catlist">' + db.categories.map(function (c) {
-      return '<a href="#c/' + c.id + '"><span class="ci" style="background:' + SCG.shade(c.icon || '#0b2a6f', 190) + '">' + catIcon(c) + '</span>' + esc(c.name) + '</a>';
+      return '<a href="#c/' + c.id + '" data-ed="category" data-id="' + c.id + '"><span class="ci" style="background:' + SCG.shade(c.icon || '#0b2a6f', 190) + '">' + catIcon(c) + '</span>' + esc(c.name) + '</a>';
     }).join('') + '</div>';
   }
   function renderChrome() {
@@ -175,7 +175,7 @@
   function stageHTML(id) {
     var s = db.settings, lines = String(s.heroTitle || '').split('\n');
     var stats = (s.globeStats || []).filter(function (x) { return x && x.value; });
-    return '<div class="stage" id="' + id + '"><canvas aria-label="Animated globe showing shipments from abroad to Sri Lanka" role="img"></canvas>' +
+    return '<div class="stage" id="' + id + '" data-ed="hero"><canvas aria-label="Animated globe showing shipments from abroad to Sri Lanka" role="img"></canvas>' +
       '<div class="stage-copy"><span class="chip"><i></i><span class="flag" data-from>World</span>' + '→' + '<span class="flag">Sri Lanka</span></span>' +
       '<h1>' + lines.map(function (l) { return '<span class="ln"><span>' + esc(l) + '</span></span>'; }).join('') + '</h1>' +
       '<p>' + esc(s.heroSubtitle || '') + '</p>' +
@@ -214,49 +214,49 @@
     var s = db.settings;
     var flash = flashOn() ? db.products.filter(function (p) { return p.flash; }) : [];
     var promos = db.hero.slice(0, 2), banners = db.hero.slice(2);
-    var promoHTML = function (h) {
-      return '<a class="promo" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><small>' + esc(h.eyebrow) + '</small><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle) + '</span><em>' + esc(h.cta || 'Shop now') + ' →</em>' +
+    var promoHTML = function (h, i) {
+      return '<a class="promo" data-ed="banner" data-i="' + i + '" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><small>' + esc(h.eyebrow) + '</small><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle) + '</span><em>' + esc(h.cta || 'Shop now') + ' →</em>' +
         '<div class="art">' + (h.image ? '<img src="' + h.image + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div></a>';
     };
     var parts = {
       services: function () {
         var list = s.services || []; if (!list.length) return '';
-        return '<section class="panel sec services" style="--n:' + Math.min(8, list.length) + '">' + list.map(function (v) { return '<a class="svc" href="' + esc(v.link || '#') + '"><span class="ic" style="--c:' + esc(v.color || '#0b2a6f') + '">' + svcIcon(v.icon) + '</span>' + esc(v.label) + '</a>'; }).join('') + '</section>';
+        return '<section class="panel sec services" data-ed="services" style="--n:' + Math.min(8, list.length) + '">' + list.map(function (v) { return '<a class="svc" href="' + esc(v.link || '#') + '"><span class="ic" style="--c:' + esc(v.color || '#0b2a6f') + '">' + svcIcon(v.icon) + '</span>' + esc(v.label) + '</a>'; }).join('') + '</section>';
       },
       flash: function () {
         if (!flash.length) return '';
-        return '<section class="sec"><div class="sec-head"><h2>' + esc(s.flashTitle || 'Flash Sale') + '</h2></div><div class="panel">' +
+        return '<section class="sec" data-ed="flash"><div class="sec-head"><h2>' + esc(s.flashTitle || 'Flash Sale') + '</h2></div><div class="panel">' +
           '<div class="flash-head"><span class="on-sale">' + I.bolt + 'On Sale Now</span>' + cdHTML() + '<a class="more" href="#flash" style="color:var(--red);font-weight:700;font-size:13px">SHOP ALL PRODUCTS →</a></div>' +
           '<div class="rail">' + flash.slice(0, 12).map(function (p) { return card(p, { flash: true }); }).join('') + '</div></div></section>';
       },
       categories: function () {
         return '<section class="sec"><div class="sec-head"><h2>Categories</h2><a class="more" href="#categories">View all</a></div>' +
-          '<div class="panel catgrid" style="overflow:hidden">' + db.categories.map(function (c) { return '<a class="cat" href="#c/' + c.id + '" style="--c:' + (c.icon || '#0b2a6f') + '"><span class="ci">' + catIcon(c) + '</span>' + esc(c.name) + '</a>'; }).join('') + '</div></section>';
+          '<div class="panel catgrid" style="overflow:hidden">' + db.categories.map(function (c) { return '<a class="cat" data-ed="category" data-id="' + c.id + '" href="#c/' + c.id + '" style="--c:' + (c.icon || '#0b2a6f') + '"><span class="ci">' + catIcon(c) + '</span>' + esc(c.name) + '</a>'; }).join('') + '</div></section>';
       },
       banners: function () {
         if (!banners.length) return '';
-        return '<section class="sec banners" style="--n:' + Math.min(3, banners.length) + '">' + banners.slice(0, 6).map(function (h) {
+        return '<section class="sec banners" style="--n:' + Math.min(3, banners.length) + '">' + banners.slice(0, 6).map(function (h, j) {
           var key = String(h.link || '').split('/')[1] || '';
           var items = db.products.filter(function (p) { return p.category === key || (p.collections || []).indexOf(key) > -1; }).slice(0, 2);
           if (!items.length) items = db.products.filter(function (p) { return p.shape === h.shape; }).slice(0, 2);
-          return '<a class="banner" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle || '') + '</span>' +
+          return '<a class="banner" data-ed="banner" data-i="' + (j + 2) + '" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle || '') + '</span>' +
             '<div class="stack">' + (h.image ? '<div><img src="' + h.image + '" alt="" style="border-radius:8px;height:100%;object-fit:cover"></div>' : items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
         }).join('') + '</section>';
       },
       countries: function (sec) {
         var list = activeOrigins(); if (!list.length) return '';
-        return '<section class="sec"><div class="sec-head"><h2>' + esc(sec.title || 'Shop by Country') + '</h2><a class="more" href="#china-direct">How importing works</a></div><div class="countries">' +
+        return '<section class="sec" data-ed="origins"><div class="sec-head"><h2>' + esc(sec.title || 'Shop by Country') + '</h2><a class="more" href="#china-direct">How importing works</a></div><div class="countries">' +
           list.map(function (o) {
             var n = db.products.filter(function (p) { return p.origin === o.id; }).length;
             return '<a class="country" href="#from/' + o.id + '">' + codeBadge(o.code) + '<b>' + esc(o.name) + '</b><small>' + n + ' products · ' + esc(o.days) + ' days</small></a>';
           }).join('') +
           '<a class="country local" href="#from/local">' + codeBadge('LK') + '<b>Colombo stock</b><small>' + db.products.filter(function (p) { return !p.origin || p.origin === 'local'; }).length + ' products · ' + esc(s.localDays) + ' days</small></a></div></section>';
       },
-      electronics: function (sec) { return rail(sec.title || 'Electronics', '#col/electronics', db.products.filter(function (p) { return (p.collections || []).indexOf('electronics') > -1; }).sort(function (a, b) { return b.sold - a.sold; }).slice(0, 12)); },
+      electronics: function (sec) { return rail(sec.title || 'Electronics', '#col/electronics', db.products.filter(function (p) { return (p.collections || []).indexOf('electronics') > -1; }).sort(function (a, b) { return b.sold - a.sold; }).slice(0, 12), 'data-ed="collection" data-id="electronics"'); },
       collections: function () {
         return db.collections.filter(function (c) { return c.homeRow; }).map(function (c) {
           var list = SCG.collectionProducts(c).slice(0, 12);
-          return list.length ? rail(c.name, '#col/' + c.id, list) : '';
+          return list.length ? rail(c.name, '#col/' + c.id, list, 'data-ed="collection" data-id="' + c.id + '"') : '';
         }).join('');
       },
       china: function (sec) { return rail(sec.title || 'China Direct', '#col/china-direct', db.products.filter(function (p) { return p.origin === 'china'; }).sort(function (a, b) { return SCG.discount(b) - SCG.discount(a); }).slice(0, 12)); },
@@ -281,8 +281,8 @@
       startJFY('all');
     }
   }
-  function rail(title, link, list) {
-    return '<section class="sec"><div class="sec-head"><h2>' + esc(title) + '</h2><a class="more" href="' + link + '">Shop more</a></div><div class="panel"><div class="rail">' + list.map(function (p) { return card(p); }).join('') + '</div></div></section>';
+  function rail(title, link, list, ed) {
+    return '<section class="sec"' + (ed ? ' ' + ed : '') + '><div class="sec-head"><h2>' + esc(title) + '</h2><a class="more" href="' + link + '">Shop more</a></div><div class="panel"><div class="rail">' + list.map(function (p) { return card(p); }).join('') + '</div></div></section>';
   }
   function startJFY(tab) {
     jfy.tab = tab; jfy.shown = 0;
@@ -320,7 +320,7 @@
     setTitle(kind === 'search' ? 'Search' : title);
 
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>' + esc(title) + '</span></div>' +
-      (kind !== 'search' ? '<div class="cat-hero reveal" style="--c:' + color + '"><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' && flashOn() ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + '<div class="art">' + SCG.productSVG(art, '#ffffff', 'solid', color) + '</div></div>' : '') +
+      (kind !== 'search' ? '<div class="cat-hero reveal" ' + ({ c: 'data-ed="category" data-id="' + esc(val) + '"', col: 'data-ed="collection" data-id="' + esc(val) + '"', flash: 'data-ed="flash"', from: 'data-ed="origins"', shop: '' }[kind] || '') + ' style="--c:' + color + '"><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' && flashOn() ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + '<div class="art">' + SCG.productSVG(art, '#ffffff', 'solid', color) + '</div></div>' : '') +
       '<div class="listing"><aside class="panel filters" id="filters">' +
         '<div class="grp"><h4>Category</h4>' + db.categories.map(function (c) { return '<label><input type="checkbox" name="fc" value="' + c.id + '"' + (st.cats.indexOf(c.id) > -1 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') + '</div>' +
         '<div class="grp"><h4>Price (Rs.)</h4><div class="price-row"><input id="fmin" type="number" min="0" placeholder="Min" aria-label="Minimum price"><span aria-hidden="true">–</span><input id="fmax" type="number" min="0" placeholder="Max" aria-label="Maximum price"></div></div>' +
@@ -389,7 +389,7 @@
     var s = db.settings;
 
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<a href="#c/' + p.category + '">' + esc(cat ? cat.name : '') + '</a>›<span>' + esc(p.name) + '</span></div>' +
-      '<div class="pdp"><div><div class="panel pdp-main">' +
+      '<div class="pdp"><div><div class="panel pdp-main" data-ed="product" data-id="' + p.id + '">' +
         '<div class="gallery"><div class="big" id="big" style="--c:' + p.color + '">' + visual(p) + '</div>' +
           '<div class="thumbs" id="thumbs">' + (imgs.length > 1 ? imgs.map(function (src, i) { return '<button class="' + (i ? '' : 'on') + '" data-img="' + i + '" aria-label="Photo ' + (i + 1) + '"><img src="' + src + '" alt=""></button>'; }).join('') : imgs.length ? '' : vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('')) + '</div></div>' +
         '<div><h1>' + esc(p.name) + '</h1>' +
@@ -606,7 +606,7 @@
     var steps = (db.settings.chinaSteps || []).map(function (x) { return [esc(x.title), esc(x.text)]; });
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>How importing works</span></div>' +
       '<div class="cd-hero">' + stageHTML('stage2') + '</div>' +
-      '<section class="sec"><div class="sec-head"><h2>From the factory to your door in 5 steps</h2></div><div class="steps">' + steps.map(function (s, i) { return '<div class="panel step reveal" style="animation-delay:' + i * .08 + 's"><div class="n">' + (i + 1) + '</div><h4>' + s[0] + '</h4><p>' + s[1] + '</p></div>'; }).join('') + '</div></section>' +
+      '<section class="sec" data-ed="pages"><div class="sec-head"><h2>From the factory to your door in 5 steps</h2></div><div class="steps">' + steps.map(function (s, i) { return '<div class="panel step reveal" style="animation-delay:' + i * .08 + 's"><div class="n">' + (i + 1) + '</div><h4>' + s[0] + '</h4><p>' + s[1] + '</p></div>'; }).join('') + '</div></section>' +
       '<section class="sec"><div class="sec-head"><h2>Where we import from</h2></div><div class="countries">' + activeOrigins().map(function (o) { return '<a class="country" href="#from/' + o.id + '">' + codeBadge(o.code) + '<b>' + esc(o.name) + '</b><small>' + esc(o.days) + ' days to Sri Lanka</small></a>'; }).join('') + '</div></section>' +
       faq() + rail('Shop Global Imports', '#col/global-imports', db.products.filter(function (p) { return p.origin && p.origin !== 'local'; }).slice(0, 12)) + '</div>';
     $('.cd-hero .stage').style.minHeight = '480px';
@@ -614,7 +614,7 @@
   }
   function faq() {
     var q = (db.settings.faq || []).map(function (x) { return [esc(x.q), esc(x.a)]; }); if (!q.length) return '';
-    return '<section class="sec"><div class="sec-head"><h2>Questions &amp; answers</h2></div><div class="panel faq">' + q.map(function (x) { return '<details><summary>' + x[0] + '</summary><p>' + x[1] + '</p></details>'; }).join('') + '</div></section>';
+    return '<section class="sec" data-ed="pages"><div class="sec-head"><h2>Questions &amp; answers</h2></div><div class="panel faq">' + q.map(function (x) { return '<details><summary>' + x[0] + '</summary><p>' + x[1] + '</p></details>'; }).join('') + '</div></section>';
   }
   function renderHelp() {
     setTitle('Help');
@@ -707,6 +707,63 @@
   }
   function googleG() { return '<svg viewBox="0 0 48 48" style="width:18px;height:18px;stroke:none"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 38.9 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>'; }
 
+  /* ---------------- admin visual editor (only inside the admin preview) ---------------- */
+  var PREVIEW = /[?&]preview=1/.test(location.search) && window.parent !== window;
+  if (PREVIEW) (function () {
+    document.documentElement.classList.add('is-preview');
+    var NAMES = { product: 'Product', banner: 'Banner', category: 'Category', collection: 'Collection', hero: 'Globe headline', services: 'Service icons', flash: 'Flash sale', origins: 'Import countries', header: 'Header & menu', settings: 'Footer & contact', pages: 'Importing page', sections: 'Homepage sections' };
+    var PHOTO = { product: 1, banner: 1, category: 1, collection: 1 };
+    var box = document.createElement('div'); box.className = 'ed-box'; box.hidden = true;
+    var bar = document.createElement('div'); bar.className = 'ed-bar'; bar.hidden = true;
+    var file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
+    document.body.appendChild(box); document.body.appendChild(bar); document.body.appendChild(file);
+    var cur = null;
+    function info(el) { return { ed: el.dataset.ed, id: el.dataset.id || '', i: el.dataset.i === undefined ? -1 : +el.dataset.i }; }
+    function label(el) {
+      var d = info(el), n = NAMES[d.ed] || d.ed;
+      if (d.ed === 'product') { var p = SCG.productById(d.id); if (p) n += ': ' + p.name; }
+      if (d.ed === 'category') { var c = SCG.categoryById(d.id); if (c) n += ': ' + c.name; }
+      if (d.ed === 'collection') { var co = SCG.collectionById(d.id); if (co) n += ': ' + co.name; }
+      if (d.ed === 'banner' && db.hero[d.i]) n += ': ' + db.hero[d.i].title;
+      return n;
+    }
+    function place() {
+      if (!cur || !document.body.contains(cur)) { box.hidden = bar.hidden = true; return; }
+      var r = cur.getBoundingClientRect();
+      box.hidden = bar.hidden = false;
+      box.style.cssText = 'top:' + r.top + 'px;left:' + r.left + 'px;width:' + r.width + 'px;height:' + r.height + 'px';
+      bar.style.top = Math.max(4, r.top + 4) + 'px'; bar.style.left = Math.max(4, Math.min(r.left + 4, innerWidth - bar.offsetWidth - 4)) + 'px';
+    }
+    function select(el) {
+      cur = el;
+      bar.innerHTML = '<span>' + esc(label(el)) + '</span><button type="button" data-a="edit">✎ Edit</button>' + (PHOTO[el.dataset.ed] ? '<button type="button" data-a="photo">🖼 Change photo</button>' : '');
+      place();
+    }
+    document.addEventListener('mouseover', function (e) {
+      if (e.target.closest('.ed-bar')) return;
+      var t = e.target.closest('[data-ed]'); if (t && t !== cur) select(t);
+    });
+    document.addEventListener('mouseleave', function () { box.hidden = bar.hidden = true; cur = null; });
+    window.addEventListener('scroll', place, { passive: true }); window.addEventListener('resize', place);
+    window.__edRefresh = function () { cur = null; box.hidden = bar.hidden = true; };
+    function send(msg) { parent.postMessage(msg, location.origin); }
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b || !cur) return;
+      e.preventDefault(); e.stopPropagation();
+      var d = info(cur);
+      if (b.dataset.a === 'edit') send({ type: 'scg-edit', ed: d.ed, id: d.id, i: d.i, page: location.hash });
+      if (b.dataset.a === 'photo') { file.dataset.ed = d.ed; file.dataset.id = d.id; file.dataset.i = d.i; file.value = ''; file.click(); }
+    });
+    file.addEventListener('change', function () {
+      var f = file.files[0]; if (!f) return;
+      toast('Processing photo…');
+      SCG.imageToDataURL(f, 800).then(function (url) { send({ type: 'scg-photo', ed: file.dataset.ed, id: file.dataset.id, i: +file.dataset.i, url: url }); })
+        .catch(function () { toast('That file could not be read as an image'); });
+    });
+    // tell the admin which page the preview is showing
+    window.addEventListener('hashchange', function () { send({ type: 'scg-page', page: location.hash }); });
+  })();
+
   /* ---------------- admin edit bar ---------------- */
   // The bar is only shown in edit mode: switched on from the admin panel ("Edit on Website"),
   // on a browser where the admin is signed in. Customers never see it.
@@ -715,6 +772,7 @@
   }
   function adminBar(k, v) {
     var bar = $('#adminBar');
+    if (PREVIEW) { if (bar) bar.remove(); return; }
     if (!adminOn()) { if (bar) bar.remove(); return; }
     if (!bar) { bar = document.createElement('div'); bar.id = 'adminBar'; bar.className = 'admin-bar'; document.body.appendChild(bar); }
     var links = [];
@@ -754,7 +812,10 @@
   }
 
   window.addEventListener('storage', function (e) {
-    if (e.key === SCG.keys.DB_KEY) location.reload();
+    if (e.key === SCG.keys.DB_KEY) {
+      if (!PREVIEW) return location.reload();
+      var y = scrollY; db = SCG.reload(); renderChrome(); route(); scrollTo(0, y); if (window.__edRefresh) __edRefresh();
+    }
     if (e.key === SCG.keys.CART_KEY || e.key === SCG.keys.WISH_KEY) updateCounts();
   });
 

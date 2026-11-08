@@ -20,6 +20,8 @@ A marketplace-style fashion store for **Source Connect Global**: products source
 - Order tracking, wishlist, a "How China Direct works" page with FAQ, and a mobile bottom navigation bar
 
 ## Admin panel (Seller Center)
+**Visual Editor (easiest way to edit):** the admin shows your real website in a live preview (computer or phone view). Point at anything (a product, banner, category, the globe headline, menu or footer) and click **✎ Edit** to open its editor, or **🖼 Change photo** to pick a new picture. Saved changes appear in the preview instantly. The same live preview sits beside the Homepage, Banners, Header, Flash Sale, Categories, Collections, Import Countries and Importing Page screens, and editors open beside it so the website stays visible.
+
 Every part of the website can be changed from `/admin/`:
 
 | Admin screen | Controls on the website |

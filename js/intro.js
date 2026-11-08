@@ -12,6 +12,7 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
   function shouldShow(w) {
+    if (/[?&]preview=1/.test(location.search)) return false;
     if (/[?&]intro=1/.test(location.search)) return true;
     if (!w || w.on === false || w.mode === 'off') return false;
     try {

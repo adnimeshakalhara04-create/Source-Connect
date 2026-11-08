@@ -34,6 +34,7 @@
       <div class="side-brand"><img src="../assets/logo-sm.jpg?v=1829ee97" alt=""><div><b>SC Global</b><small>SELLER CENTER</small></div></div>
       <nav id="sideNav">
         <small class="side-label">Overview</small>
+        <a href="#editor" data-v="editor" class="nav-hi"><svg viewBox="0 0 24 24"><path d="M3 5h18v12H3zM8 21h8M12 17v4"/><path d="M8 10l2 2 4-4"/></svg>Visual Editor <span class="pill easy">EASY</span></a>
         <a href="#dashboard" data-v="dashboard"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/></svg>Dashboard</a>
         <a href="#orders" data-v="orders"><svg viewBox="0 0 24 24"><path d="M5 8h14l-1.2 12H6.2zM9 8V6a3 3 0 016 0v2"/></svg>Orders <span class="pill" id="orderPill"></span></a>
         <a href="#customers" data-v="customers"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-4 4-6 7-6s6 2 7 6M16 4a3.5 3.5 0 010 7M18 14c2 .6 3.5 2.6 4 6"/></svg>Customers</a>
@@ -65,6 +66,24 @@
       </header>
       <div class="content" id="view"></div>
     </div>
+
+    <!-- Live website preview: click anything inside it to edit -->
+    <aside class="pv" id="pv" aria-label="Live website preview" hidden>
+      <div class="pv-bar">
+        <b>Live preview</b>
+        <select id="pvPage" aria-label="Page shown in the preview"></select>
+        <div class="pv-dev" role="group" aria-label="Device">
+          <button type="button" data-dev="desktop" class="on" title="Computer"><svg viewBox="0 0 24 24"><path d="M3 5h18v11H3zM8 20h8M12 16v4"/></svg></button>
+          <button type="button" data-dev="mobile" title="Phone"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg></button>
+        </div>
+        <button type="button" class="icon-btn" id="pvReload" title="Reload preview"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-2.3-5.6M20 4v5h-5"/></svg></button>
+        <a class="icon-btn" id="pvOpen" target="_blank" rel="noopener" title="Open this page in a new tab"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg></a>
+        <button type="button" class="icon-btn" id="pvHide" title="Hide preview"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="pv-frame" id="pvFrame"><iframe id="pvIf" title="Website preview" loading="lazy"></iframe></div>
+      <p class="pv-tip">Point at anything in the preview, then click <b>✎ Edit</b> or <b>🖼 Change photo</b>. Saved changes show here instantly.</p>
+    </aside>
+    <button type="button" class="pv-fab" id="pvFab" hidden>👁 Show preview</button>
   </div>
 
   <!-- Generic modal -->
