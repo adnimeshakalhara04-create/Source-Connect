@@ -1,0 +1,10 @@
+[Unit]
+Description=Source Connect: daily product image backup (schedule)
+
+[Timer]
+OnCalendar=*-*-* 03:10:00 Asia/Colombo
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

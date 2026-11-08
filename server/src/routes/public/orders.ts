@@ -39,7 +39,7 @@ export default async function publicOrders(app: FastifyInstance) {
     return quoteForClient(await priceCart(db, b.items, { couponCode: b.coupon }));
   });
 
-  app.post('/orders', { preHandler: withCustomer(db), config: { rateLimit: { max: 10, timeWindow: '1 minute' } }, schema: { tags: ['checkout'], summary: 'Place an order (stock is reserved or taken in one transaction)' } }, async (req, reply) => {
+  app.post('/orders', { preHandler: withCustomer(db), config: { rateLimit: { max: cfg.ORDER_RATE_LIMIT_PER_MIN, timeWindow: '1 minute' } }, schema: { tags: ['checkout'], summary: 'Place an order (stock is reserved or taken in one transaction)' } }, async (req, reply) => {
     const input = parse(OrderInput, req.body);
     const key = req.headers['idempotency-key'];
     const idem = typeof key === 'string' && /^[A-Za-z0-9_-]{16,80}$/.test(key) ? key : null;

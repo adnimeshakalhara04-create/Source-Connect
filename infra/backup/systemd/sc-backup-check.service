@@ -1,0 +1,16 @@
+[Unit]
+Description=Source Connect: hourly backup and WAL archiving check
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=postgres
+EnvironmentFile=/etc/pgbackrest/secrets.env
+EnvironmentFile=-/etc/source-connect/backup.env
+ExecStart=/opt/source-connect/infra/backup/sc-backup-check.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# if the job itself crashes, still alert
+ExecStopPost=/bin/sh -c 'if [ "$$SERVICE_RESULT" != "success" ]; then /opt/source-connect/infra/backup/alert.sh "Source Connect: hourly backup and WAL archiving check did not finish" "systemd result: $$SERVICE_RESULT"; fi'

@@ -1,0 +1,15 @@
+[Unit]
+Description=Source Connect: daily product image backup
+After=postgresql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=sc-backup
+EnvironmentFile=-/etc/source-connect/backup.env
+ExecStart=/opt/source-connect/infra/backup/images-sync.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# if the job itself crashes, still alert
+ExecStopPost=/bin/sh -c 'if [ "$$SERVICE_RESULT" != "success" ]; then /opt/source-connect/infra/backup/alert.sh "Source Connect: daily product image backup did not finish" "systemd result: $$SERVICE_RESULT"; fi'

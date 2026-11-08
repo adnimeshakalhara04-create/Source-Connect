@@ -1,0 +1,10 @@
+[Unit]
+Description=Source Connect: hourly backup and WAL archiving check (schedule)
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

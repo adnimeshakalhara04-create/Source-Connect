@@ -1,0 +1,10 @@
+[Unit]
+Description=Source Connect: weekly restore test into a throwaway database (schedule)
+
+[Timer]
+OnCalendar=Wed *-*-* 03:40:00 Asia/Colombo
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

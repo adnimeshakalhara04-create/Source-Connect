@@ -1,0 +1,10 @@
+[Unit]
+Description=Source Connect: daily differential database backup (schedule)
+
+[Timer]
+OnCalendar=Mon..Sat *-*-* 02:10:00 Asia/Colombo
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,34 @@
+# /etc/pgbackrest/pgbackrest.conf — Source Connect production (copy, then fill the secrets file, never this file)
+# Off-site repository: PRIVATE Cloudflare R2 bucket, client-side encrypted. The VPS only has a write/list key for
+# this one bucket; the owner keeps a separate admin key (and the encryption passphrase) offline.
+[global]
+repo1-type=s3
+repo1-s3-endpoint=<ACCOUNT_ID>.r2.cloudflarestorage.com
+repo1-s3-bucket=source-connect-db-backups
+repo1-s3-region=auto
+repo1-s3-uri-style=path
+repo1-path=/pgbackrest
+# repo1-s3-key, repo1-s3-key-secret and repo1-cipher-pass come from /etc/pgbackrest/secrets.env
+#   (PGBACKREST_REPO1_S3_KEY, PGBACKREST_REPO1_S3_KEY_SECRET, PGBACKREST_REPO1_CIPHER_PASS), mode 0600, owner postgres.
+repo1-cipher-type=aes-256-cbc
+# keep 4 weekly full backups (about a month) and the differential/WAL history they need
+repo1-retention-full-type=count
+repo1-retention-full=4
+repo1-retention-diff=7
+compress-type=zst
+compress-level=3
+process-max=2
+start-fast=y
+# WAL is pushed asynchronously from a local spool so a slow network never stalls the database;
+# if the spool grows past 4 GB the oldest WAL is dropped (backups then FAIL CHECK and alert) instead of filling the disk.
+archive-async=y
+spool-path=/var/spool/pgbackrest
+archive-push-queue-max=4GiB
+log-level-console=info
+log-level-file=detail
+log-path=/var/log/pgbackrest
+
+[source-connect]
+pg1-path=/var/lib/postgresql/16/main
+pg1-port=5432
+pg1-socket-path=/var/run/postgresql

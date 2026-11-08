@@ -1,0 +1,10 @@
+[Unit]
+Description=Source Connect: weekly full database backup (schedule)
+
+[Timer]
+OnCalendar=Sun *-*-* 02:10:00 Asia/Colombo
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

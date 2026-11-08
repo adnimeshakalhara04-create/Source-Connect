@@ -41,6 +41,8 @@ const Env = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   TRUST_PROXY: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   BACKUP_MAX_AGE_HOURS: z.coerce.number().default(26),
+  // checkout requests per IP per minute (raise only for load tests / drills on a private test server)
+  ORDER_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).max(100000).default(10),
 });
 
 export type Config = z.infer<typeof Env> & { corsOrigins: string[]; apiDocs: boolean };
