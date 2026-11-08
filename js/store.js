@@ -397,8 +397,14 @@
   }
 
   var cache = null;
+  // API mode (js/config.js sets window.SCG_API): the server is the source of truth and js/api.js fills the cache.
+  // Nothing here reads or writes the catalogue in localStorage then.
+  var API_MODE = !!global.SCG_API;
+  function emptyDb() { var d = seed(); d.products = []; d.categories = []; d.collections = []; d.hero = []; d.placeholder = true; return d; }
+  function setCache(d) { cache = d; cleanColors(cache); return cache; }
   function load() {
     if (cache) return cache;
+    if (API_MODE) return (cache = emptyDb());
     var raw = safeGet(DB_KEY);
     if (raw) { try { cache = JSON.parse(raw); } catch (e) { cache = null; } }
     if (!cache || !cache.products) { cache = seed(); save(); return cache; }
@@ -415,9 +421,12 @@
     (d.collections || []).forEach(function (c) { fix(c, 'color'); });
     (d.hero || []).forEach(function (h) { fix(h, 'color'); });
   }
-  function save() { return safeSet(DB_KEY, JSON.stringify(cache)); }
-  function reset() { cache = seed(); save(); return cache; }
-  function reload() { cache = null; return load(); }
+  function save() {
+    if (API_MODE) return global.SCG && global.SCG.sync ? global.SCG.sync() : false;   // js/api.js sends the changes to the server
+    return safeSet(DB_KEY, JSON.stringify(cache));
+  }
+  function reset() { if (API_MODE) return cache; cache = seed(); save(); return cache; }
+  function reload() { if (API_MODE) return load(); cache = null; return load(); }
 
   function uid(prefix) { return (prefix || 'id') + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function slug(s) { return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || uid('x'); }
@@ -532,7 +541,7 @@
 
   global.SCG = {
     SHAPES: SHAPES, PATTERNS: PATTERNS,
-    load: load, save: save, reset: reset, reload: reload, seed: seed,
+    load: load, save: save, reset: reset, reload: reload, seed: seed, setCache: setCache, apiMode: API_MODE,
     uid: uid, slug: slug, money: money, discount: discount, escapeHTML: escapeHTML, imgSrc: imgSrc, safeColor: safeColor,
     productSVG: productSVG, garmentSVG: garmentSVG, productVisual: productVisual, shade: shade,
     categoryById: categoryById, collectionById: collectionById, productById: productById,

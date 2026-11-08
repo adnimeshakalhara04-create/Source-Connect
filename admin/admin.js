@@ -1276,5 +1276,365 @@
     $('#rstOrders').onclick = function () { if (confirm('Delete ALL orders? This cannot be undone.')) { SCG.saveOrders([]); toast('All orders deleted'); route(); } };
   }
 
-  if (loggedIn()) showApp();
+  /* =========================================================
+     SERVER (API) MODE — real staff login, permissions and database
+     Everything above keeps working unchanged; this block swaps the
+     browser-only parts (login, orders, customers, backups) for server ones.
+     ========================================================= */
+  if (SCG.API) (function () {
+    var me = null, saveMsg = '';
+    var can = function (p) { return !!(me && me.permissions && me.permissions.indexOf(p) > -1); };
+    var rs = function (n) { return money(n); };
+    var ST = { pending_payment: 'Waiting for card payment', awaiting_bank_transfer: 'Waiting for bank transfer', confirmed: 'Confirmed', processing: 'Packing', shipped: 'Shipped', arrived_lk: 'Arrived in Sri Lanka', delivered: 'Delivered', cancelled: 'Cancelled', expired: 'Expired (not paid)', refunded: 'Refunded' };
+    var PAY = { pending: 'Payment pending', paid: 'Paid', cod_pending: 'COD – not collected', cod_collected: 'COD – cash collected', failed: 'Failed', cancelled: 'Cancelled', chargeback: 'CHARGEBACK', refunded: 'Refunded', partially_refunded: 'Partly refunded', unpaid: 'Unpaid' };
+    var METHOD = { payhere: 'Card (PayHere)', cod: 'Cash on Delivery', bank_transfer: 'Bank transfer' };
+    var FLOW = ['confirmed', 'processing', 'shipped', 'arrived_lk', 'delivered'];
+    var when = function (t) { return t ? new Date(t).toLocaleString() : ''; };
+    var fail = function (err) { toast(err && err.message || 'Something went wrong'); };
+    function refreshPreview() { var f = $('#pvIf'); if (f && f.contentWindow) try { f.contentWindow.postMessage({ type: 'scg-refresh' }, location.origin); } catch (e) {} }
+
+    // ---------- login ----------
+    var hint = $('#defHint'); if (hint) hint.hidden = true;
+    loggedIn = function () { return !!me; };
+    showApp = function () {
+      $('#login').hidden = true; $('#shell').hidden = false;
+      db = SCG.load();
+      applyPermissions(); route();
+    };
+    function afterAuth(staff) {
+      if (!staff) return false;
+      me = staff; me.permissions = (SCG.load().me && SCG.load().me.permissions) || staff.permissions || [];
+      if (staff.mustChangePassword) { forcePasswordChange(); return true; }
+      try { localStorage.setItem('scg_admin_on', String(Date.now())); } catch (e) {}   // only shows the ADMIN bar on the website; not a login
+      showApp(); return true;
+    }
+    $('#loginForm').onsubmit = function (e) {
+      e.preventDefault();
+      var f = e.target, btn = f.querySelector('button'); btn.disabled = true; $('#loginErr').textContent = '';
+      SCG.adminLogin(f.elements.user.value.trim(), f.elements.pass.value).then(function (staff) { btn.disabled = false; f.elements.pass.value = ''; afterAuth(staff); },
+        function (err) { btn.disabled = false; $('#loginErr').textContent = err.message; });
+    };
+    $('#logout').onclick = function () {
+      SCG.adminLogout().then(function () { try { localStorage.removeItem('scg_admin_on'); localStorage.removeItem('scg_edit_mode'); } catch (e) {} location.hash = ''; location.reload(); });
+    };
+    function forcePasswordChange() {
+      $('#login').hidden = false;
+      $('#loginForm').innerHTML = '<h1>Set your own password</h1><p>Your account was created with a temporary password. Choose a new one (12+ characters).</p>' +
+        '<label>Temporary password<input name="cur" type="password" required autocomplete="current-password"></label><label>New password<input name="pw" type="password" required minlength="12" autocomplete="new-password"></label>' +
+        '<div class="login-err" id="loginErr"></div><button class="btn primary full">Save and continue</button>';
+      $('#loginForm').onsubmit = function (e) {
+        e.preventDefault(); var E = e.target.elements;
+        SCG.api('POST', '/admin/auth/password', { currentPassword: E.cur.value, newPassword: E.pw.value }).then(function () { location.reload(); }, function (err) { $('#loginErr').textContent = err.message; });
+      };
+    }
+    // hide menu items this person cannot use
+    var NEED = { dashboard: 'dashboard.view', orders: 'orders.read', customers: 'customers.read', products: 'catalog.read', flash: 'content.write', categories: 'catalog.write', origins: 'settings.write',
+      collections: 'catalog.read', homepage: 'content.write', banners: 'content.write', header: 'content.write', pages: 'content.write', settings: 'content.write', editor: 'catalog.read',
+      staff: 'staff.manage', audit: 'audit.read', backups: 'backups.read', coupons: 'settings.write' };
+    function applyPermissions() {
+      var nav = $('#sideNav');
+      if (!$('#sideNav [data-v=staff]')) {
+        nav.insertAdjacentHTML('beforeend', '<small class="side-label">Security &amp; data</small>' +
+          '<a href="#coupons" data-v="coupons"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Promo Codes</a>' +
+          '<a href="#staff" data-v="staff"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-4 4-6 7-6s6 2 7 6M17 11l2 2 4-4"/></svg>Staff &amp; Roles</a>' +
+          '<a href="#audit" data-v="audit"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/></svg>Audit Log</a>' +
+          '<a href="#backups" data-v="backups"><svg viewBox="0 0 24 24"><path d="M4 7c0-2 16-2 16 0v10c0 2-16 2-16 0zM4 7c0 2 16 2 16 0M4 12c0 2 16 2 16 0"/></svg>Backups <span class="pill" id="bkPill"></span></a>');
+      }
+      $$('#sideNav a[data-v]').forEach(function (a) { var p = NEED[a.dataset.v]; a.hidden = !!(p && !can(p)); });
+      var who = $('.side-brand small'); if (who && me) who.textContent = (me.displayName || me.username).toUpperCase();
+    }
+    var _route = route;
+    route = function () {
+      var key = location.hash.replace('#', '').split('/')[0] || 'dashboard';
+      if (me && NEED[key] && !can(NEED[key])) { var first = Object.keys(NEED).filter(function (k) { return can(NEED[k]) && VIEWS[k]; })[0]; if (first && first !== key) { location.hash = first; return; } }
+      _route();
+    };
+    window.removeEventListener('hashchange', _route); window.addEventListener('hashchange', route);
+
+    // ---------- saving ----------
+    commit = function (msg) { saveMsg = msg || 'Saved'; if (!SCG.save()) { toast('Not signed in. Reload the page.'); return false; } return true; };
+    SCG.onSync(function (state, info) {
+      if (state === 'saving') toast('Saving…');
+      else if (state === 'saved') { if (info) toast('✓ ' + saveMsg); refreshPreview(); }
+      else if (state === 'error') toast('Not saved: ' + (info && info.message || 'server error'));
+      else if (state === 'reverted') { db = SCG.load(); route(); refreshPreview(); }
+    });
+    window.addEventListener('beforeunload', function (e) { if (SCG.syncing()) { e.preventDefault(); e.returnValue = ''; } });
+
+    // ---------- product form: no hand-typed ratings/sales; stock per size ----------
+    var _productForm = productForm;
+    productForm = function (id, opts) {
+      _productForm(id, opts);
+      var f = $('#modal form'); if (!f) return;
+      ['rating', 'reviews', 'sold'].forEach(function (n) { var i = f.elements[n]; if (i) { i.required = false; i.closest('label').hidden = true; } });
+      var p = id ? SCG.productById(id) : null, det = p && (p.stockDetail || []).filter(function (v) { return v.active; });
+      var st = f.elements.stock;
+      if (!can('inventory.adjust') && st) { st.readOnly = true; st.title = 'You cannot change stock'; }
+      if (det && det.length > 1 && st) {
+        var lab = st.closest('label'); lab.hidden = true;
+        lab.insertAdjacentHTML('afterend', '<div class="full"><b style="font-size:13px">Stock per size</b> <small class="muted">(on the shelf; reserved = held for unpaid orders)</small><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:6px">' +
+          det.map(function (v) { return '<label style="font-size:12px">' + esc(v.size || 'One size') + (v.reserved ? ' <small class="muted">(' + v.reserved + ' reserved)</small>' : '') + '<input type="number" min="' + v.reserved + '" data-size="' + esc(v.size) + '" value="' + v.onHand + '"' + (can('inventory.adjust') ? '' : ' readonly') + '></label>'; }).join('') +
+          '</div><small class="muted">New sizes start at 0 — set their stock after saving.</small></div>');
+        f.addEventListener('submit', function () {
+          var m = {}, total = 0; $$('input[data-size]', f).forEach(function (i) { m[i.dataset.size] = Math.max(0, Math.floor(+i.value || 0)); total += m[i.dataset.size]; });
+          st.value = total; SCG.pendingStock = SCG.pendingStock || {}; SCG.pendingStock[p.id] = m;
+        }, true);
+      }
+    };
+    // the API sync reads pending per-size stock from here
+    var _sync = SCG.sync;
+    SCG.sync = function () {
+      var pend = SCG.pendingStock; SCG.pendingStock = null;
+      if (pend) Object.keys(pend).forEach(function (pid) { var pr = SCG.productById(pid); if (pr) pr.stockBySize = pend[pid]; });
+      return _sync();
+    };
+
+    // ---------- dashboard ----------
+    VIEWS.dashboard.render = function (v) {
+      setActions(can('catalog.write') ? '<a class="btn primary" href="#products/new">+ Add Product</a>' : '');
+      v.innerHTML = '<p class="muted">Loading…</p>';
+      SCG.api('GET', '/admin/dashboard').then(function (d) {
+        var dmax = Math.max.apply(null, d.last7days.map(function (x) { return x.total; }).concat([1]));
+        var alerts = [];
+        if (d.needsReview) alerts.push('<a href="#orders/review">⚠ ' + d.needsReview + ' order(s) need review (late payment, chargeback…)</a>');
+        if (d.payments.bank) alerts.push('<a href="#orders/awaiting_bank_transfer">' + d.payments.bank + ' bank transfer(s) to check</a>');
+        if (d.payments.cod_uncollected) alerts.push(d.payments.cod_uncollected + ' delivered COD order(s) with cash not yet recorded');
+        if (d.backups && !d.backups.ok) alerts.push('<a href="#backups">⚠ Backups: ' + esc(d.backups.problems.join(' ')) + '</a>');
+        if (!d.payhere.configured) alerts.push('Card payments (PayHere) are not set up on the server yet');
+        else if (d.payhere.mode === 'sandbox') alerts.push('PayHere is in SANDBOX (test) mode — no real money is taken');
+        var bk = $('#bkPill'); if (bk) { bk.textContent = d.backups && !d.backups.ok ? '!' : ''; bk.className = 'pill' + (d.backups && !d.backups.ok ? ' red' : ''); }
+        v.innerHTML = launchChecklistApi(d) + (alerts.length ? '<div class="panel checklist">' + alerts.map(function (a) { return '<div class="ck"><span class="ck-i">!</span><span>' + a + '</span></div>'; }).join('') + '</div>' : '') +
+          '<div class="stats">' + stat('Money received', rs(d.received), '#0f766e') + stat('Orders value', rs(d.booked), '#f59e0b') + stat('Orders', d.orders, '#0b2a6f') +
+          stat('Need review', d.needsReview, '#d7141a') + stat('Low stock sizes', d.lowStock.length, '#d7141a') + '</div>' +
+          '<div class="cols"><div class="panel"><h3>Sales, last 7 days</h3><div class="chart">' + d.last7days.map(function (x) {
+            return '<div class="col"><div class="bar" style="height:' + Math.max(1, x.total / dmax * 100) + '%" title="' + rs(x.total) + '"></div><b>' + (x.total ? (x.total / 1000).toFixed(1) + 'k' : '0') + '</b><small>' + x.day.slice(5) + '</small></div>';
+          }).join('') + '</div></div>' +
+          '<div class="panel"><h3>Orders by status</h3><div class="status-pills">' + Object.keys(ST).map(function (k) { return '<a href="#orders/' + k + '"><b>' + (d.byStatus[k] || 0) + '</b>' + esc(ST[k]) + '</a>'; }).join('') + '</div></div></div>' +
+          '<div class="panel"><h3>Low stock <small>at or below the reorder level</small></h3>' + (d.lowStock.length ? '<div class="filters">' + d.lowStock.map(function (x) {
+            return '<a class="tag warn" href="#products/edit:' + esc(x.slug) + '">' + esc(x.name) + (x.size ? ' · ' + esc(x.size) : '') + ' · ' + x.available + ' left</a>'; }).join('') + '</div>' : '<p class="muted">All good.</p>') + '</div>';
+      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+    };
+    function launchChecklistApi(d) {
+      var s = db.settings, demo = db.products.filter(SCG.isDemoProduct).length, noPhoto = db.products.filter(function (p) { return !SCG.productImages(p).length; }).length;
+      var items = [
+        [s.phone && s.phone.replace(/\D/g, '') !== '94770000000', 'Enter your real phone number', '#settings'],
+        [s.whatsapp && s.whatsapp !== '94770000000', 'Enter your real WhatsApp number', '#settings'],
+        [!/0000000000/.test(s.bankDetails || '') || !s.payBank, 'Enter real bank details (or turn bank transfer off)', '#settings'],
+        [!(s.globeStats || []).some(function (x) { return x.value === '1,248'; }), 'Replace the sample numbers under the globe', '#homepage'],
+        [!demo, demo + ' demo products are still listed', '#products/'],
+        [!noPhoto, noPhoto + ' products have no real photo yet', '#products/'],
+        [!d.backups || d.backups.ok, 'Backups are running and checked', '#backups'],
+        [d.payhere.configured && d.payhere.mode === 'live', 'Card payments: PayHere live account approved and switched on (owner approval needed)', null, 'Owner approval']
+      ];
+      var done = items.filter(function (x) { return x[0]; }).length;
+      if (done === items.length) return '';
+      return '<div class="panel checklist"><div class="head"><h3>Before you go live <small>' + done + ' of ' + items.length + ' done</small></h3></div>' + items.map(function (x) {
+        return '<div class="ck' + (x[0] ? ' ok' : '') + '"><span class="ck-i">' + (x[0] ? '✓' : '!') + '</span><span>' + esc(x[1]) + '</span>' + (x[0] ? '' : x[2] ? '<a class="btn sm" href="' + x[2] + '">Fix</a>' : '<span class="tag">' + esc(x[3]) + '</span>') + '</div>';
+      }).join('') + '</div>';
+    }
+
+    // ---------- orders ----------
+    var of = { status: '', q: '' };
+    VIEWS.orders.render = function (v, arg) {
+      if (arg === 'review') { of.status = 'review'; } else if (arg && ST[arg]) of.status = arg; else if (arg && /^SC-/.test(arg)) { orderModal(arg); }
+      v.innerHTML = '<div class="filters" id="otabs">' + [['', 'All']].concat([['review', '⚠ Needs review']]).concat(Object.keys(ST).map(function (k) { return [k, ST[k]]; })).map(function (t) {
+        return '<button class="chip' + (of.status === t[0] ? ' on' : '') + '" data-st="' + t[0] + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>' +
+        '<div class="panel" style="padding:0"><div style="padding:12px"><input id="oq" type="search" aria-label="Search orders" placeholder="Search order number, name, phone or email" value="' + esc(of.q) + '"></div><div id="olist"><p class="muted" style="padding:12px">Loading…</p></div></div>';
+      function load() {
+        var qs = '?limit=100' + (of.status === 'review' ? '&review=1' : of.status ? '&status=' + of.status : '') + (of.q ? '&q=' + encodeURIComponent(of.q) : '');
+        SCG.api('GET', '/admin/orders' + qs).then(function (r) {
+          $('#olist').innerHTML = r.items.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Payment</th><th>Status</th><th>Placed</th></tr></thead><tbody>' + r.items.map(function (o) {
+            return '<tr data-n="' + esc(o.number) + '" style="cursor:pointer"><td><b>' + esc(o.number) + '</b>' + (o.needsReview ? ' <span class="tag warn">review</span>' : '') + '</td><td>' + esc(o.customer.name) + (o.customer.phone ? '<br><small class="muted">' + esc(o.customer.phone) + '</small>' : '') + '</td><td>' + rs(o.total) + '<br><small class="muted">' + o.items + ' item(s)</small></td>' +
+              '<td>' + esc(METHOD[o.paymentMethod]) + '<br><small class="' + (o.paymentStatus === 'paid' || o.paymentStatus === 'cod_collected' ? '' : 'muted') + '">' + esc(PAY[o.paymentStatus] || o.paymentStatus) + '</small></td><td>' + esc(ST[o.status] || o.status) + '</td><td><small>' + when(o.placedAt) + '</small></td></tr>';
+          }).join('') + '</tbody></table></div>' + (r.total > r.items.length ? '<p class="muted" style="padding:10px">Showing ' + r.items.length + ' of ' + r.total + '. Search to narrow down.</p>' : '') : '<p class="empty" style="padding:16px">No orders here.</p>';
+        }, function (err) { $('#olist').innerHTML = '<p class="muted" style="padding:12px">' + esc(err.message) + '</p>'; });
+      }
+      load();
+      $('#otabs').onclick = function (e) { var b = e.target.closest('[data-st]'); if (!b) return; of.status = b.dataset.st; $$('#otabs .chip').forEach(function (x) { x.classList.toggle('on', x === b); }); load(); };
+      var t; $('#oq').oninput = function (e) { clearTimeout(t); t = setTimeout(function () { of.q = e.target.value.trim(); load(); }, 300); };
+      $('#olist').onclick = function (e) { var tr = e.target.closest('tr[data-n]'); if (tr) orderModal(tr.dataset.n, load); };
+    };
+    function orderModal(number, onChange) {
+      openModal('Order ' + number, '<p class="muted">Loading…</p>');
+      SCG.api('GET', '/admin/orders/' + encodeURIComponent(number)).then(function (o) {
+        var next = FLOW[FLOW.indexOf(o.status) + 1], prev = FLOW[FLOW.indexOf(o.status) - 1];
+        var c = o.customer || {};
+        var acts = [];
+        if (can('orders.update') && next) acts.push('<button class="btn primary" data-act="status" data-to="' + next + '">Mark as: ' + esc(ST[next]) + '</button>');
+        if (can('orders.update') && prev && FLOW.indexOf(o.status) > -1) acts.push('<button class="btn" data-act="status" data-to="' + prev + '">Back to: ' + esc(ST[prev]) + '</button>');
+        if (can('payments.verify') && o.paymentMethod === 'bank_transfer' && o.paymentStatus !== 'paid' && (o.status === 'awaiting_bank_transfer' || o.status === 'expired')) acts.push('<button class="btn primary" data-act="bank">Confirm bank transfer received</button>');
+        if (can('payments.verify') && o.paymentMethod === 'cod' && o.paymentStatus === 'cod_pending' && o.status !== 'cancelled') acts.push('<button class="btn" data-act="cod">Cash collected</button>');
+        if (can('orders.update') && FLOW.indexOf(o.status) > -1) acts.push('<button class="btn" data-act="ship">Add / update shipment</button>');
+        if (o.needsReview && can('payments.verify')) acts.push('<button class="btn" data-act="resolve">Mark review as resolved</button>');
+        if (!/cancelled|expired|refunded/.test(o.status)) acts.push('<button class="btn danger" data-act="cancel">' + (o.paymentStatus === 'paid' || o.paymentStatus === 'cod_collected' ? 'Refund / cancel' : 'Cancel order') + '</button>');
+        $('#modalBody').innerHTML =
+          (o.needsReview ? '<div class="co-err">⚠ Needs review: ' + esc(o.reviewReason) + '</div>' : '') +
+          '<div class="grid2"><div><p><b>' + esc(ST[o.status] || o.status) + '</b> · ' + esc(METHOD[o.paymentMethod]) + ' · <b>' + esc(PAY[o.paymentStatus] || o.paymentStatus) + '</b></p>' +
+            (c.phone ? '<p>' + esc(c.name) + '<br><a href="tel:' + esc(c.phone) + '">' + esc(c.phone) + '</a> · <a target="_blank" rel="noopener" href="https://wa.me/' + esc(String(c.phone).replace(/\D/g, '').replace(/^0/, '94')) + '">WhatsApp</a>' + (c.email ? '<br>' + esc(c.email) : '') + '<br>' + esc(c.address) + ', ' + esc(c.city) + ', ' + esc(c.district) + (c.note ? '<br><i>Note: ' + esc(c.note) + '</i>' : '') + '</p>' : '<p class="muted">Customer details hidden (no permission).</p>') +
+          '</div><div>' + o.items.map(function (it) { return '<div class="sum-row"><span>' + esc(it.name) + ' <small class="muted">' + esc(it.variant) + ' ×' + it.qty + ' · ' + esc(it.sku) + '</small></span><span>' + rs(it.lineTotal) + '</span></div>'; }).join('') +
+            '<div class="sum-row"><span>Delivery</span><span>' + rs(o.shipping) + '</span></div>' + (o.discount ? '<div class="sum-row"><span>Discount</span><span>−' + rs(o.discount) + '</span></div>' : '') + '<div class="sum-row total"><span>Total</span><span>' + rs(o.total) + '</span></div></div></div>' +
+          '<div class="filters" style="margin:12px 0">' + acts.join('') + '</div>' +
+          '<h4>Timeline</h4>' + o.timeline.map(function (h) { return '<div class="sum-row"><span>' + esc(ST[h.to_status] || h.to_status) + ' <small class="muted">' + esc(h.actor) + (h.note ? ' — ' + esc(h.note) : '') + '</small></span><small>' + when(h.created_at) + '</small></div>'; }).join('') +
+          (o.payments.length ? '<h4>Payments</h4>' + o.payments.map(function (p) { return '<div class="sum-row"><span>' + esc(METHOD[p.provider]) + ' · ' + esc(p.status) + (p.provider_payment_id ? ' · PayHere ' + esc(p.provider_payment_id) : '') + (p.card_mask ? ' · ' + esc(p.method || '') + ' ' + esc(p.card_mask) : '') + (p.reference ? ' · ref ' + esc(p.reference) : '') + (p.verified_by ? ' · checked by ' + esc(p.verified_by) : '') + '</span><small>' + rs(p.expected) + '</small></div>'; }).join('') : '') +
+          (o.paymentEvents.length ? '<h4>PayHere notifications</h4>' + o.paymentEvents.map(function (e) { return '<div class="sum-row"><span>status ' + e.status_code + ' · ' + esc(e.result) + (e.signature_valid ? '' : ' · <b style="color:var(--red)">bad signature</b>') + '</span><small>' + when(e.received_at) + '</small></div>'; }).join('') : '') +
+          (o.shipments.length ? '<h4>Shipments</h4>' + o.shipments.map(function (s) { return '<div class="sum-row"><span>' + esc(s.carrier) + ' · ' + esc(s.tracking_number) + ' · ' + esc(s.status) + '</span></div>'; }).join('') : '') +
+          (o.refunds.length ? '<h4>Refunds</h4>' + o.refunds.map(function (r) { return '<div class="sum-row"><span>' + esc(r.reason) + ' · by ' + esc(r.username || '') + (r.restock ? ' · restocked' : '') + '</span><span>' + rs(r.amount) + '</span></div>'; }).join('') : '');
+        var done = function (msg) { return function () { toast(msg); closeModal(); if (onChange) onChange(); else route(); SCG.adminState().then(function () { db = SCG.load(); refreshPreview(); }); }; };
+        var post = function (path, body, msg) { return SCG.api('POST', '/admin/orders/' + encodeURIComponent(o.number) + path, body || {}).then(done(msg), fail); };
+        $('#modalBody').onclick = function (e) {
+          var b = e.target.closest('[data-act]'); if (!b) return;
+          var a = b.dataset.act;
+          if (a === 'status') post('/status', { status: b.dataset.to, note: '' }, 'Status: ' + ST[b.dataset.to]);
+          if (a === 'cod') { if (confirm('Record that the courier handed over ' + rs(o.total) + ' cash?')) post('/cod-collected', {}, 'Cash recorded'); }
+          if (a === 'bank') { var ref = prompt('Check your BANK ACCOUNT (not a customer screenshot).\nEnter the bank reference for ' + rs(o.total) + ':'); if (ref) post('/verify-bank-transfer', { reference: ref, confirmChecked: true }, 'Bank transfer confirmed'); }
+          if (a === 'resolve') { var n = prompt('What did you do to resolve it?'); if (n) post('/resolve-review', { note: n }, 'Review resolved'); }
+          if (a === 'ship') {
+            var carrier = prompt('Courier / carrier (e.g. Domex, Pronto, DHL):'); if (!carrier) return;
+            var trk = prompt('Tracking number:') || ''; var st = prompt('Shipment status: preparing, shipped_abroad, arrived_lk, out_for_delivery, delivered', 'shipped_abroad'); if (!st) return;
+            post('/shipments', { carrier: carrier, trackingNumber: trk, status: st.trim() }, 'Shipment saved');
+          }
+          if (a === 'cancel') {
+            var reason = prompt('Reason for cancelling:'); if (!reason) return;
+            var paid = o.paymentStatus === 'paid' || o.paymentStatus === 'cod_collected', body = { reason: reason };
+            if (paid) {
+              if (!can('refunds.create')) { toast('This order is paid. Ask finance or the owner to record the refund.'); return; }
+              var amt = prompt('Refund amount (you must actually pay this back to the customer):', String(o.total)); if (!amt) return;
+              body.refund = { amount: +amt, restock: confirm('Put the items back into stock?') };
+            }
+            post('/cancel', body, paid ? 'Refund recorded' : 'Order cancelled');
+          }
+        };
+      }, function (err) { $('#modalBody').innerHTML = '<p>' + esc(err.message) + '</p>'; });
+    }
+    var _updatePill = updatePill;
+    updatePill = function () {
+      var el = $('#orderPill'); if (!el || !can('orders.read')) return;
+      SCG.api('GET', '/admin/orders?status=confirmed&limit=1').then(function (r) { el.textContent = r.total || ''; }, function () {});
+    };
+
+    // ---------- customers ----------
+    VIEWS.customers.render = function (v) {
+      v.innerHTML = '<div class="panel" style="padding:0"><div style="padding:12px"><input id="cq" type="search" aria-label="Search customers" placeholder="Search name, phone or email"></div><div id="clist"><p class="muted" style="padding:12px">Loading…</p></div></div>';
+      function load(q) {
+        SCG.api('GET', '/admin/customers' + (q ? '?q=' + encodeURIComponent(q) : '')).then(function (list) {
+          $('#clist').innerHTML = list.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>Phone</th><th>Account</th><th>Orders</th><th>Paid</th><th>Last order</th></tr></thead><tbody>' + list.map(function (c) {
+            return '<tr><td><b>' + esc(c.name) + '</b>' + (c.email ? '<br><small class="muted">' + esc(c.email) + '</small>' : '') + '</td><td>' + esc(c.phone) + '</td><td>' + (c.account ? (c.verified ? 'Verified' : 'Not verified') : 'Guest') + '</td><td>' + c.orders + '</td><td>' + rs(c.spent) + '</td><td><small>' + when(c.last_order) + '</small></td></tr>';
+          }).join('') + '</tbody></table></div>' : '<p class="empty" style="padding:16px">No customers yet.</p>';
+        }, function (err) { $('#clist').innerHTML = '<p class="muted" style="padding:12px">' + esc(err.message) + '</p>'; });
+      }
+      load(''); var t; $('#cq').oninput = function (e) { clearTimeout(t); t = setTimeout(function () { load(e.target.value.trim()); }, 300); };
+    };
+
+    // ---------- settings: server password + data panel ----------
+    var _settings = VIEWS.settings.render;
+    VIEWS.settings.render = function (v) {
+      _settings(v);
+      var d = $('#dform .full[style*="flex-wrap"]');
+      if (d) {
+        d.insertAdjacentHTML('beforeend', sw('payOnline', !!db.settings.payOnline, 'Card payment (PayHere) at checkout'));
+        $('#dform').addEventListener('submit', function (e) { var c = e.target.elements.payOnline; if (c) db.settings.payOnline = c.checked; }, true);
+      }
+      var a = $('#aform');
+      if (a) {
+        a.outerHTML = '<form class="panel" id="aform"><h3>My password</h3><p class="muted" style="margin-top:0">Signed in as <b>' + esc(me ? me.username : '') + '</b>. Staff accounts are managed in <a href="#staff" style="color:var(--red)">Staff &amp; Roles</a>.</p><div class="form">' +
+          '<label>Current password<input name="cur" type="password" required autocomplete="current-password"></label><label>New password (12+ characters)<input name="pw" type="password" required minlength="12" autocomplete="new-password"></label>' +
+          '<div class="form-foot"><button class="btn dark">Change password</button></div></div></form>';
+        $('#aform').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements; SCG.api('POST', '/admin/auth/password', { currentPassword: E.cur.value, newPassword: E.pw.value }).then(function () { toast('Password changed. Other devices were signed out.'); e.target.reset(); }, fail); };
+      }
+      var exp = $('#exp'); var bp = exp && exp.closest('.panel');
+      if (bp) {
+        bp.innerHTML = '<h3>Data &amp; backups</h3><p class="muted" style="margin-top:0">Everything is saved in the online database and backed up automatically. See <a href="#backups" style="color:var(--red)">Backups</a> for the latest status.</p>' +
+          '<div class="filters"><button class="btn" id="exp2">⬇ Download catalogue (JSON)</button>' + (can('catalog.write') ? '<button class="btn danger" id="rmDemo2">Hide all demo products</button>' : '') + '</div>';
+        $('#exp2').onclick = function () { var blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), categories: db.categories, collections: db.collections, hero: db.hero, products: db.products }, null, 1)], { type: 'application/json' }); var u = URL.createObjectURL(blob), l = document.createElement('a'); l.href = u; l.download = 'source-connect-catalogue.json'; l.click(); setTimeout(function () { URL.revokeObjectURL(u); }, 1000); };
+        var rm = $('#rmDemo2'); if (rm) rm.onclick = function () {
+          var n = db.products.filter(SCG.isDemoProduct).length; if (!n) { toast('No demo products left'); return; }
+          if (!confirm('Hide the ' + n + ' demo products from the website? They are archived, not deleted.')) return;
+          db.products = db.products.filter(function (p) { return !SCG.isDemoProduct(p); }); commit(n + ' demo products hidden'); route();
+        };
+      }
+    };
+
+    // ---------- staff & roles ----------
+    VIEWS.staff = { title: 'Staff & Roles', sub: 'Who can sign in and what each person may do', render: function (v) {
+      setActions('<button class="btn primary" id="addStaff">+ Add staff</button>');
+      v.innerHTML = '<p class="muted">Loading…</p>';
+      SCG.api('GET', '/admin/staff').then(function (r) {
+        var shops = (db.shops || []).map(function (s) { return s.id; });
+        v.innerHTML = '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Roles</th><th>Departments</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>' + r.staff.map(function (u) {
+          return '<tr><td><b>' + esc(u.display_name) + '</b><br><small class="muted">' + esc(u.username) + '</small></td><td>' + u.roles.map(esc).join(', ') + '</td><td>' + (u.shops.length ? u.shops.map(esc).join(', ') : 'All') + '</td><td>' + esc(u.status) + (u.locked_until && new Date(u.locked_until) > new Date() ? ' · locked' : '') + (u.must_change_password ? ' · temp password' : '') + '</td><td><small>' + when(u.last_login_at) + '</small></td>' +
+            '<td><button class="btn sm" data-edit="' + u.id + '">Edit</button></td></tr>';
+        }).join('') + '</tbody></table></div></div><div class="panel"><h3>Roles</h3>' + r.roles.map(function (ro) { return '<p><b>' + esc(ro.name) + '</b> <small class="muted">(' + esc(ro.code) + ')</small> — ' + esc(ro.description) + '<br><small class="muted">' + ro.permissions.map(esc).join(', ') + '</small></p>'; }).join('') + '</div>';
+        var roleBoxes = function (sel) { return r.roles.map(function (ro) { return '<label class="chk"><input type="checkbox" name="role" value="' + esc(ro.code) + '"' + (sel.indexOf(ro.code) > -1 ? ' checked' : '') + '> ' + esc(ro.name) + '</label>'; }).join(''); };
+        var shopBoxes = function (sel) { return shops.map(function (s) { return '<label class="chk"><input type="checkbox" name="shop" value="' + esc(s) + '"' + (sel.indexOf(s) > -1 ? ' checked' : '') + '> ' + esc(s) + '</label>'; }).join(''); };
+        var vals = function (f, n) { return $$('input[name=' + n + ']:checked', f).map(function (x) { return x.value; }); };
+        $('#addStaff').onclick = function () {
+          openModal('Add staff', '<form class="form" id="stf"><label>Username<input name="username" required pattern="[A-Za-z0-9._-]{3,40}"></label><label>Full name<input name="displayName" required></label><label class="full">Email (optional)<input name="email" type="email"></label>' +
+            '<label class="full">Temporary password (12+ characters; they must change it at first sign-in)<input name="pw" required minlength="12"></label><div class="full"><b>Roles</b><br>' + roleBoxes([]) + '</div><div class="full"><b>Departments</b> <small class="muted">(only for “Department Staff”)</small><br>' + shopBoxes([]) + '</div>' +
+            '<div class="form-foot"><button class="btn primary">Create</button></div></form>');
+          $('#stf').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements;
+            SCG.api('POST', '/admin/staff', { username: E.username.value.trim(), displayName: E.displayName.value.trim(), email: E.email.value.trim(), roles: vals(e.target, 'role'), shops: vals(e.target, 'shop'), temporaryPassword: E.pw.value })
+              .then(function () { toast('Staff account created'); closeModal(); route(); }, fail); };
+        };
+        v.onclick = function (e) {
+          var b = e.target.closest('[data-edit]'); if (!b) return;
+          var u = r.staff.filter(function (x) { return x.id === b.dataset.edit; })[0];
+          openModal('Edit ' + u.username, '<form class="form" id="stf"><label class="full">Full name<input name="displayName" required value="' + esc(u.display_name) + '"></label><div class="full"><b>Roles</b><br>' + roleBoxes(u.roles) + '</div><div class="full"><b>Departments</b><br>' + shopBoxes(u.shops) + '</div>' +
+            '<label>Status<select name="status"><option value="active"' + (u.status === 'active' ? ' selected' : '') + '>Active</option><option value="disabled"' + (u.status === 'disabled' ? ' selected' : '') + '>Disabled (cannot sign in)</option></select></label>' +
+            '<label>Reset password (optional, 12+)<input name="pw" minlength="12" placeholder="Leave blank to keep"></label><label class="chk full"><input type="checkbox" name="unlock"> Unlock after too many wrong passwords</label>' +
+            '<div class="form-foot"><button class="btn primary">Save</button></div></form>');
+          $('#stf').onsubmit = function (ev) { ev.preventDefault(); var E = ev.target.elements, body = { displayName: E.displayName.value.trim(), roles: vals(ev.target, 'role'), shops: vals(ev.target, 'shop'), status: E.status.value, unlock: E.unlock.checked };
+            if (E.pw.value) body.resetPassword = E.pw.value;
+            SCG.api('PUT', '/admin/staff/' + u.id, body).then(function () { toast('Saved'); closeModal(); route(); }, fail); };
+        };
+      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+    } };
+
+    // ---------- audit log ----------
+    VIEWS.audit = { title: 'Audit Log', sub: 'Every sign-in, change and payment event, newest first', render: function (v) {
+      v.innerHTML = '<p class="muted">Loading…</p>';
+      SCG.api('GET', '/admin/audit?limit=200').then(function (rows) {
+        v.innerHTML = '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Item</th><th>IP</th></tr></thead><tbody>' + rows.map(function (r) {
+          return '<tr><td><small>' + when(r.created_at) + '</small></td><td>' + esc(r.actor_label || r.actor_type) + '</td><td>' + esc(r.action) + '</td><td><small>' + esc(r.entity_type || '') + ' ' + esc(r.entity_id || '') + '</small></td><td><small>' + esc(r.ip || '') + '</small></td></tr>';
+        }).join('') + '</tbody></table></div></div>';
+      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+    } };
+
+    // ---------- backups (read-only) ----------
+    VIEWS.backups = { title: 'Backups', sub: 'Automatic database backups (read-only status)', render: function (v) {
+      v.innerHTML = '<p class="muted">Loading…</p>';
+      SCG.api('GET', '/admin/backups').then(function (b) {
+        v.innerHTML = '<div class="panel checklist"><div class="ck' + (b.ok ? ' ok' : '') + '"><span class="ck-i">' + (b.ok ? '✓' : '!') + '</span><span>' + (b.ok ? 'Backups look healthy. Last successful backup: ' + when(b.lastSuccessfulBackupAt) : esc(b.problems.join(' '))) + '</span></div></div>' +
+          '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>Job</th><th>Result</th><th>Started</th><th>Finished</th><th>Details</th></tr></thead><tbody>' + (b.recent.length ? b.recent.map(function (r) {
+            return '<tr><td>' + esc(r.kind) + '</td><td>' + (r.status === 'ok' ? '✓ ok' : r.status === 'failed' ? '<b style="color:var(--red)">failed</b>' : esc(r.status)) + '</td><td><small>' + when(r.started_at) + '</small></td><td><small>' + when(r.finished_at) + '</small></td><td><small>' + esc(JSON.stringify(r.detail || {})).slice(0, 160) + '</small></td></tr>';
+          }).join('') : '<tr><td colspan="5" class="muted">No backup has reported in yet.</td></tr>') + '</tbody></table></div></div>' +
+          '<p class="muted" style="font-size:13px">Restores are done by the system administrator following the restore runbook (never from this page), so a stolen admin password cannot overwrite the shop’s data.</p>';
+      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+    } };
+
+    // ---------- promo codes ----------
+    VIEWS.coupons = { title: 'Promo Codes', sub: 'Discount codes customers type at checkout', render: function (v) {
+      setActions('<button class="btn primary" id="addCp">+ New code</button>');
+      v.innerHTML = '<p class="muted">Loading…</p>';
+      SCG.api('GET', '/admin/coupons').then(function (list) {
+        v.innerHTML = '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>Code</th><th>Discount</th><th>Min. order</th><th>Used</th><th>Valid</th><th>Active</th></tr></thead><tbody>' + (list.length ? list.map(function (c) {
+          return '<tr><td><b>' + esc(c.code) + '</b></td><td>' + (c.kind === 'percent' ? c.value + '%' : rs(c.value)) + '</td><td>' + rs(c.min_subtotal) + '</td><td>' + c.used + (c.max_redemptions ? ' / ' + c.max_redemptions : '') + '</td><td><small>' + (c.starts_at ? when(c.starts_at) : 'now') + ' → ' + (c.ends_at ? when(c.ends_at) : 'no end') + '</small></td>' +
+            '<td><label class="switch"><input type="checkbox" data-cp="' + c.id + '"' + (c.active ? ' checked' : '') + '><i></i></label></td></tr>'; }).join('') : '<tr><td colspan="6" class="muted">No promo codes yet.</td></tr>') + '</tbody></table></div></div>';
+        v.onchange = function (e) { var c = e.target.closest('[data-cp]'); if (c) SCG.api('PUT', '/admin/coupons/' + c.dataset.cp, { active: c.checked }).then(function () { toast('Saved'); }, fail); };
+        $('#addCp').onclick = function () {
+          openModal('New promo code', '<form class="form" id="cpf"><label>Code<input name="code" required pattern="[A-Za-z0-9_-]{3,30}" placeholder="e.g. NEWYEAR10"></label><label>Type<select name="kind"><option value="percent">% off</option><option value="fixed">Fixed amount off</option></select></label>' +
+            '<label>Value<input name="value" type="number" min="1" required></label><label>Minimum order (Rs.)<input name="min" type="number" min="0" value="0"></label><label>Max uses (optional)<input name="max" type="number" min="1"></label><label>Ends (optional)<input name="ends" type="datetime-local"></label>' +
+            '<div class="form-foot"><button class="btn primary">Create</button></div></form>');
+          $('#cpf').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements, body = { code: E.code.value.trim(), kind: E.kind.value, value: +E.value.value, minSubtotal: +E.min.value || 0 };
+            if (E.max.value) body.maxRedemptions = +E.max.value; if (E.ends.value) body.endsAt = new Date(E.ends.value).toISOString();
+            SCG.api('POST', '/admin/coupons', body).then(function () { toast('Promo code created'); closeModal(); route(); }, fail); };
+        };
+      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+    } };
+
+    // ---------- start: is there a valid server session? ----------
+    $('#login').hidden = true;
+    SCG.adminBoot().then(function (staff) { if (!afterAuth(staff)) { $('#login').hidden = false; } }, function () { $('#login').hidden = false; });
+  })();
+
+  if (!SCG.API && loggedIn()) showApp();
 })();

@@ -1,0 +1,33 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch(); const out = []; const ctx = await b.newContext({ viewport: { width: 1280, height: 850 } });
+  const a = await ctx.newPage(); a.on('pageerror', e => out.push('admin JS error ' + e.message)); a.on('dialog', d => d.accept());
+  await a.goto('http://localhost:8765/admin/'); await a.evaluate(() => { localStorage.clear(); }); await a.reload();
+  await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button'); await a.waitForTimeout(300);
+  await a.evaluate(() => location.hash = 'products'); await a.waitForTimeout(400);
+  const id = await a.$eval('#ptb tr', tr => tr.dataset.id);
+  const before = await a.evaluate(id => SCG.productById(id).price, id);
+  await a.fill('#ptb tr:first-child [data-f=price]', '-5'); await a.press('#ptb tr:first-child [data-f=price]', 'Tab'); await a.waitForTimeout(200);
+  out.push('inline -5 price: ' + (await a.evaluate(id => SCG.reload().products.find(p => p.id === id).price, id) === before ? 'rejected OK' : 'SAVED (bad)'));
+  await a.fill('#ptb tr:first-child [data-f=stock]', '7'); await a.press('#ptb tr:first-child [data-f=stock]', 'Tab'); await a.waitForTimeout(200);
+  out.push('inline stock 7: ' + (await a.evaluate(id => SCG.reload().products.find(p => p.id === id).stock, id) === 7 ? 'saved OK' : 'NOT saved'));
+  await a.click('#ptb tr:first-child [data-edit]'); await a.waitForTimeout(300);
+  await a.fill('#modal input[name=name]', '   '); await a.click('#modal button:has-text("Save Changes")'); await a.waitForTimeout(300);
+  out.push('blank name: ' + (await a.evaluate(id => SCG.reload().products.find(p => p.id === id).name.trim() ? 'rejected OK' : 'SAVED (bad)', id)) + ' | modal open: ' + await a.evaluate(() => document.getElementById('modal').classList.contains('open')));
+  await a.fill('#modal input[name=name]', 'Renamed Tee'); await a.click('#modal button:has-text("Save Changes")'); await a.waitForTimeout(300);
+  out.push('toast after save: ' + await a.textContent('#toast') + ' | invalid: ' + await a.$$eval('#modal :invalid', els => els.map(e => e.name + '=' + e.value).join(';')));
+  out.push('valid save: ' + (await a.evaluate(id => SCG.reload().products.find(p => p.id === id).name, id)));
+  // site checkout
+  const s = await ctx.newPage(); s.on('pageerror', e => out.push('site JS error ' + e.message));
+  await s.goto('http://localhost:8765/'); await s.evaluate(() => sessionStorage.setItem('scg_intro_seen','1')); await s.evaluate(() => localStorage.setItem('scg_intro_seen','1')); await s.reload(); await s.waitForTimeout(300); await s.evaluate(() => { document.querySelector('.intro') && document.querySelector('.intro').remove(); SCG.saveCart([{ id: SCG.load().products[3].id, size: 'M', qty: 1 }]); location.hash = 'checkout'; }); await s.waitForTimeout(500);
+  await s.fill('#co [name=name]', '   '); await s.fill('#co [name=phone]', '         '); await s.fill('#co [name=address]', 'x'); await s.fill('#co [name=city]', 'y');
+  out.push('phone of spaces valid? ' + await s.$eval('#co [name=phone]', el => el.checkValidity()));
+  await s.fill('#co [name=phone]', '077 123 4567'); out.push('real phone valid? ' + await s.$eval('#co [name=phone]', el => el.checkValidity()));
+  await s.check('#co [name=pay]').catch(() => {});
+  const n0 = await s.evaluate(() => SCG.getOrders().length);
+  await s.click('button:has-text("Place Order")'); await s.waitForTimeout(400);
+  out.push('blank-name order: ' + ((await s.evaluate(() => SCG.getOrders().length)) === n0 ? 'blocked OK' : 'PLACED (bad)') + ' msg=' + await s.evaluate(() => (document.getElementById('coErr') || {}).textContent));
+  await s.fill('#co [name=name]', '  Nimal Perera  '); await s.click('button:has-text("Place Order")'); await s.waitForTimeout(500);
+  out.push('valid order name: "' + await s.evaluate(() => (SCG.getOrders()[0] || {}).customer.name) + '" hash=' + await s.evaluate(() => location.hash));
+  console.log(out.join('\n')); await b.close();
+})();

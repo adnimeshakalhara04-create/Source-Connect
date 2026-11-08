@@ -1,7 +1,7 @@
 /* =========================================================
    Source Connect Global — Marketplace storefront app
    ========================================================= */
-(function () {
+SCG.whenReady(function () {   // waits for the server's catalogue in API mode (immediately in demo mode)
   'use strict';
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -447,10 +447,17 @@
   /** Adds to the cart without ever going over the stock. Returns how many were added. */
   function addToCart(id, size, qty, color) {
     var p = SCG.productById(id); if (!p) return 0;
-    if (size === undefined || size === null) size = (p.sizes || [])[Math.min(1, (p.sizes || []).length - 1)] || '';
+    var vars = p.variants || [];   // per-size stock from the server (API mode)
+    if (size === undefined || size === null) {
+      var inStock = vars.filter(function (v) { return v.stock > 0 && v.size; });
+      size = inStock.length ? inStock[Math.min(1, inStock.length - 1)].size : ((p.sizes || [])[Math.min(1, (p.sizes || []).length - 1)] || '');
+    }
     color = color || p.color; qty = Math.max(1, qty || 1);
-    var cart = SCG.getCart(), left = Math.max(0, (p.stock || 0) - inCart(id, cart));
-    if (!left) { toast(p.stock > 0 ? 'You already have all ' + p.stock + ' in stock in your cart' : 'Sorry, ' + p.name + ' is out of stock'); return 0; }
+    var vs = vars.filter(function (v) { return v.size === (size || ''); })[0];
+    var cap = vs ? vs.stock : (p.stock || 0);
+    var cart = SCG.getCart(), have = cart.reduce(function (n, l) { return n + (l.id === id && (!vs || (l.size || '') === (size || '')) ? l.qty : 0); }, 0);
+    var left = Math.max(0, cap - have);
+    if (!left) { toast(cap > 0 ? 'You already have all ' + cap + ' in stock in your cart' : 'Sorry, ' + p.name + (vs && size ? ' (size ' + size + ')' : '') + ' is out of stock'); return 0; }
     var add = Math.min(qty, left);
     var line = cart.filter(function (l) { return l.id === id && l.size === size && l.color === color; })[0];
     if (line) line.qty += add; else cart.push({ id: id, size: size, color: color, qty: add, sel: true });
@@ -508,6 +515,7 @@
   }
 
   function renderCheckout() {
+    if (SCG.API) return renderCheckoutApi();
     setTitle('Checkout');
     var lines = cartLines().filter(function (x) { return x.l.sel !== false; });
     if (!lines.length) { location.hash = 'cart'; return; }
@@ -574,6 +582,216 @@
     };
   }
 
+  /* =========================================================
+     Server (API) mode pages: real accounts, orders and payments
+     Same look as the demo pages; the server decides prices, stock and payment state.
+     ========================================================= */
+  var DISTRICTS = ['Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya', 'Galle', 'Matara', 'Hambantota', 'Jaffna', 'Kilinochchi', 'Mannar', 'Vavuniya', 'Mullaitivu', 'Batticaloa', 'Ampara', 'Trincomalee', 'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla', 'Moneragala', 'Ratnapura', 'Kegalle'];
+  var ST_LABEL = { pending_payment: 'Waiting for payment', awaiting_bank_transfer: 'Waiting for your bank transfer', confirmed: 'Confirmed', processing: 'Packing', shipped: 'Shipped', arrived_lk: 'Arrived in Sri Lanka', delivered: 'Delivered', cancelled: 'Cancelled', expired: 'Payment time ran out', refunded: 'Refunded' };
+  var PAY_LABEL = { pending: 'Payment pending', paid: 'Paid', cod_pending: 'Pay on delivery', cod_collected: 'Paid (cash on delivery)', failed: 'Payment failed', cancelled: 'Payment cancelled', chargeback: 'Payment disputed', refunded: 'Refunded', partially_refunded: 'Partly refunded', unpaid: 'Not paid' };
+  var ST_IDX = { pending_payment: 0, awaiting_bank_transfer: 0, confirmed: 1, processing: 1, shipped: 2, arrived_lk: 3, delivered: 4 };
+  var PAY_VALUE = { 'Cash on Delivery': 'cod', 'Bank Transfer': 'bank_transfer', 'Card': 'payhere' };
+  function apiItems(lines) { return lines.map(function (x) { return { id: x.p.id, size: x.l.size || '', qty: x.l.qty }; }); }
+  function newKey() { var a = new Uint8Array(16); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach(function (_, i) { a[i] = Math.random() * 256; }); return 'co-' + Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+
+  function orderStatusHTML(o) {
+    var closed = { cancelled: 1, expired: 1, refunded: 1 }[o.status];
+    var idx = ST_IDX[o.status] === undefined ? -1 : ST_IDX[o.status];
+    return (closed ? '<p style="color:var(--red)"><b>' + esc(ST_LABEL[o.status] || o.status) + '.</b></p>' :
+        '<div class="track-steps">' + STEPS.map(function (s, i) { return '<div class="' + (i <= idx ? 'done' : '') + '">' + s + '</div>'; }).join('') + '</div>') +
+      '<p style="font-size:13px;color:var(--muted)"><b>' + esc(ST_LABEL[o.status] || o.status) + '</b> · ' + esc(PAY_LABEL[o.paymentStatus] || o.paymentStatus) + ' · ' +
+        o.items.reduce(function (n, it) { return n + it.qty; }, 0) + ' item(s) · ' + money(o.total) + ' · placed ' + new Date(o.placedAt).toLocaleDateString() + '</p>' +
+      (o.bankInstructions ? '<p class="free-note need"><b>Bank transfer details:</b><br>' + esc(o.bankInstructions) + '<br>Use <b>' + esc(o.number) + '</b> as the reference. We confirm the order when the money reaches our account.</p>' : '') +
+      (o.shipments && o.shipments.length ? '<p style="font-size:13px">' + o.shipments.map(function (s) { return esc(s.carrier) + (s.trackingNumber ? ' · tracking <b>' + esc(s.trackingNumber) + '</b>' : ''); }).join('<br>') + '</p>' : '');
+  }
+
+  function renderCheckoutApi() {
+    setTitle('Checkout');
+    var lines = cartLines().filter(function (x) { return x.l.sel !== false; });
+    if (!lines.length) { location.hash = 'cart'; return; }
+    var s = db.settings, me = SCG.customer, saved = SCG.getProfile(), key = newKey(), coupon = '', quote = null;
+    var pre = me ? { name: me.name, phone: me.phone, email: me.email, address: me.address && me.address.line1, city: me.address && me.address.city, district: me.address && me.address.district } : saved;
+    app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<a href="#cart">Cart</a>›<span>Checkout</span></div><div class="cart-wrap">' +
+      '<form class="panel form" id="co">' +
+      (me ? '<div class="acct-note full">' + avatar(me) + '<span>Signed in as <b>' + esc(me.name) + '</b><br><small>This order will appear in My Account.</small></span><a href="#account" class="link-sm">My account</a></div>'
+        : '<div class="acct-note full new">' + I.user + '<span><b>Checking out as a guest.</b> You get a private tracking link after ordering. <a href="#account">Sign in or create an account</a> to keep all your orders in one place.</span></div>') +
+      '<h3>Delivery information</h3>' +
+      '<label>Full name<input name="name" required autocomplete="name" maxlength="80" placeholder="e.g. Nimal Perera"></label>' +
+      '<label>Phone number<input name="phone" required pattern="[+]?[0-9][0-9 ]{8,14}" title="Phone number, e.g. 077 123 4567" autocomplete="tel" placeholder="07X XXX XXXX"></label>' +
+      '<label class="full">Email <span id="emailHint">(optional, for order updates)</span><input name="email" type="email" autocomplete="email" maxlength="200" placeholder="you@example.com"></label>' +
+      '<label class="full">Address<input name="address" required autocomplete="street-address" maxlength="200" placeholder="House no, street, area"></label>' +
+      '<label>City<input name="city" required maxlength="60" placeholder="e.g. Nugegoda"></label>' +
+      '<label>District<select name="district">' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select></label>' +
+      '<label class="full">Note for delivery (optional)<textarea name="note" rows="2" maxlength="500"></textarea></label>' +
+      '<h3 style="margin-top:6px">Payment method</h3><div class="pay-opts full">' +
+      (s.payOnline ? '<label class="pay-opt"><input type="radio" name="pay" value="Card" required>' + I.shield + '<span><b>Card / online payment</b><br><small>Visa, Mastercard and more through PayHere</small></span></label>' : '') +
+      (s.payCOD ? '<label class="pay-opt"><input type="radio" name="pay" value="Cash on Delivery" required>' + I.cash + '<span><b>Cash on Delivery</b><br><small>Pay when your order arrives</small></span></label>' : '') +
+      (s.payBank ? '<label class="pay-opt"><input type="radio" name="pay" value="Bank Transfer" required>' + I.shield + '<span><b>Bank Transfer</b><br><small>Bank details are shown after you place the order</small></span></label>' : '') + '</div>' +
+      '<button class="btn lg full" id="placeBtn" style="grid-column:1/-1" disabled>Checking prices…</button></form>' +
+      '<aside class="panel summary"><h3>Your order</h3><div id="sumLines"></div>' +
+      '<div class="sum-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px"><span>Subtotal</span><span id="sumSub">…</span></div>' +
+      '<div class="sum-row" id="sumDiscRow" hidden><span>Promo code</span><span id="sumDisc"></span></div>' +
+      '<div class="sum-row"><span>Delivery</span><span id="sumShip">…</span></div>' +
+      '<div class="sum-row total"><span>Total</span><span id="sumTotal">…</span></div>' +
+      '<form id="cpf" style="display:flex;gap:6px;margin-top:10px"><input name="code" placeholder="Promo code" aria-label="Promo code" maxlength="30" style="flex:1;min-width:0"><button class="btn line" style="padding:8px 12px">Apply</button></form><p id="cpMsg" class="muted" style="font-size:12.5px;margin:6px 0 0"></p>' +
+      '</aside></div></div>';
+    var F = $('#co'), E = F.elements;
+    if (pre) ['name', 'phone', 'email', 'address', 'city', 'district'].forEach(function (k) { if (pre[k] && E[k]) E[k].value = pre[k]; });
+    var firstPay = $('#co input[name=pay]'); if (firstPay) firstPay.checked = true;
+    function coError(msg) { var el = $('#coErr'); if (!el) { el = document.createElement('div'); el.id = 'coErr'; el.className = 'co-err full'; el.setAttribute('role', 'alert'); F.insertBefore(el, F.firstChild); } el.textContent = msg; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    function payChoice() { var r = $('#co input[name=pay]:checked'); return r ? PAY_VALUE[r.value] : null; }
+    function syncEmail() { var card = payChoice() === 'payhere'; E.email.required = card; $('#emailHint').textContent = card ? '(needed for the card receipt)' : '(optional, for order updates)'; }
+    F.addEventListener('change', function (e) { if (e.target.name === 'pay') syncEmail(); }); syncEmail();
+    function showQuote(q) {
+      quote = q;
+      $('#sumLines').innerHTML = q.lines.map(function (l) { return '<div class="sum-row" style="gap:10px"><span style="color:var(--text)">' + esc(l.name) + ' <small style="color:var(--muted)">×' + l.qty + (l.size ? ' · ' + esc(l.size) : '') + '</small></span><span>' + money(l.lineTotal) + '</span></div>'; }).join('');
+      $('#sumSub').innerHTML = money(q.subtotal); $('#sumShip').innerHTML = q.shipping ? money(q.shipping) : 'FREE'; $('#sumTotal').innerHTML = money(q.total);
+      $('#sumDiscRow').hidden = !q.discount; $('#sumDisc').innerHTML = q.discount ? '−' + money(q.discount) : '';
+      $('#cpMsg').textContent = q.couponError || (q.coupon ? 'Code ' + q.coupon + ' applied.' : '');
+      var b = $('#placeBtn'); b.disabled = !q.lines.length; b.innerHTML = 'Place Order · ' + money(q.total);
+      if (q.issues && q.issues.length) coError('Some items changed: ' + q.issues.map(function (i) { var p = SCG.productById(i.id); return (p ? p.name : i.id) + (i.size ? ' (' + i.size + ')' : '') + (i.problem === 'reduced' ? ' — only ' + i.available + ' left' : ' — sold out'); }).join('; ') + '. The total below is for what is available. Go back to your cart to change it.');
+    }
+    function requote() { return SCG.quote(apiItems(lines), coupon).then(showQuote, function (err) { coError(err.message); }); }
+    requote();
+    $('#cpf').onsubmit = function (e) { e.preventDefault(); coupon = e.target.elements.code.value.trim(); requote(); };
+    F.onsubmit = function (e) {
+      e.preventDefault();
+      if (!quote) return;
+      if (quote.issues && quote.issues.length) { coError('Please update your cart first: some items are no longer available in the quantity you chose.'); return; }
+      var blank = ['name', 'phone', 'address', 'city'].filter(function (k) { return !String(E[k].value || '').trim(); })[0];
+      if (blank) { coError('Please fill in your ' + blank + '.'); E[blank].value = ''; E[blank].focus(); return; }
+      var pay = payChoice(); if (!pay) { coError('Please choose how you want to pay.'); return; }
+      var body = { items: apiItems(lines), payment: pay, coupon: coupon || null, expectedTotal: quote.total,
+        customer: { name: E.name.value.trim(), phone: E.phone.value.trim(), email: E.email.value.trim(), address: E.address.value.trim(), city: E.city.value.trim(), district: E.district.value, note: E.note.value.trim() } };
+      var btn = $('#placeBtn'); btn.disabled = true; btn.textContent = 'Placing your order…';
+      SCG.api('POST', '/orders', body, { idempotencyKey: key }).then(function (o) {
+        SCG.rememberOrder(o.orderNumber, o.trackingToken);
+        SCG.saveProfile({ name: body.customer.name, phone: body.customer.phone, email: body.customer.email, address: body.customer.address, city: body.customer.city, district: body.customer.district, createdAt: new Date().toISOString(), source: 'checkout on this device' });
+        updateAccount();
+        SCG.saveCart(SCG.getCart().filter(function (l) { return l.sel === false; })); updateCounts();
+        SCG.refresh().then(function () { db = SCG.load(); });   // stock numbers on product pages
+        if (o.payhere) return goToPayHere(o);
+        app.innerHTML = '<div class="wrap"><div class="panel success" style="margin-top:16px"><div class="tick">' + I.check + '</div><h2 style="margin:0 0 6px">Thank you! Your order is placed.</h2>' +
+          '<p>Order number <b>' + esc(o.orderNumber) + '</b> · Total <b>' + money(o.total) + '</b></p>' +
+          (pay === 'cod' ? '<p style="color:var(--muted)">We will call ' + esc(body.customer.phone) + ' to confirm. Please keep ' + money(o.total) + ' ready when it arrives.</p>' : '') +
+          (o.bankInstructions ? '<p class="free-note need" style="max-width:520px;margin:12px auto"><b>Bank transfer details:</b><br>' + esc(o.bankInstructions) + '<br>Use <b>' + esc(o.orderNumber) + '</b> as the reference. We hold your items for 48 hours and confirm when the money arrives.</p>' : '') +
+          '<p class="muted" style="font-size:13px">This browser remembers your private tracking link. ' + (body.customer.email ? '' : 'Save your order number to track it from another device.') + '</p>' +
+          '<div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap"><a class="btn navy" href="#order/' + esc(o.orderNumber) + '">Track order</a><a class="btn line" href="#">Continue shopping</a></div></div></div>';
+        scrollTo(0, 0);
+      }, function (err) {
+        btn.disabled = false; btn.innerHTML = 'Place Order · ' + money(quote.total);
+        if (err.code === 'duplicate_order' && err.data && err.data.details) { location.hash = 'order/' + err.data.details.orderNumber; return; }
+        if (err.code === 'stock_changed' || err.code === 'price_changed') { SCG.refresh().then(function () { db = SCG.load(); requote(); }); }
+        key = newKey();
+        coError(err.message);
+      });
+    };
+  }
+  function goToPayHere(o) {
+    app.innerHTML = '<div class="wrap"><div class="panel success" style="margin-top:16px"><h2>Taking you to PayHere to pay securely…</h2><p class="muted">Order <b>' + esc(o.orderNumber) + '</b> · ' + money(o.total) + '. Your items are held for you while you pay.</p></div></div>';
+    var f = document.createElement('form'); f.method = 'POST'; f.action = o.payhere.action;
+    Object.keys(o.payhere.fields).forEach(function (k) { var i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = o.payhere.fields[k]; f.appendChild(i); });
+    document.body.appendChild(f); f.submit();
+  }
+
+  // #order/<number>: the PayHere return page and the "Track order" link. Shows what the SERVER says — never trusts the redirect.
+  function renderOrderApi(number) {
+    setTitle('Your order');
+    var mine = SCG.myOrders().filter(function (x) { return x.number === number; })[0];
+    app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>Order ' + esc(number) + '</span></div><div class="panel" style="max-width:720px;margin:0 auto;padding:22px" id="ordBox"><p class="muted">Loading your order…</p></div></div>';
+    var tries = 0;
+    function load() {
+      var p = SCG.customer ? SCG.api('GET', '/account/orders/' + encodeURIComponent(number)).catch(function () { return mine ? SCG.trackOrder(number, mine.token) : Promise.reject(new Error('not found')); })
+        : mine ? SCG.trackOrder(number, mine.token) : Promise.reject(new Error('not found'));
+      p.then(function (o) {
+        var waiting = o.paymentMethod === 'payhere' && o.paymentStatus === 'pending' && o.status === 'pending_payment';
+        $('#ordBox').innerHTML = '<h2 style="margin-top:0">Order ' + esc(o.number) + '</h2>' +
+          (waiting ? '<p class="free-note need"><b>Waiting for PayHere to confirm your payment.</b> This page updates by itself. If you closed the payment page without paying, your items are released after 30 minutes.</p>' : '') +
+          (o.paymentStatus === 'paid' && o.paymentMethod === 'payhere' ? '<p class="free-note"><b>Payment received.</b> Thank you!</p>' : '') +
+          orderStatusHTML(o) +
+          '<div style="margin-top:12px">' + o.items.map(function (it) { return '<div class="sum-row"><span><a href="#p/' + esc(it.id) + '">' + esc(it.name) + '</a> <small class="muted">×' + it.qty + (it.variant ? ' · ' + esc(it.variant) : '') + '</small></span><span>' + money(it.lineTotal) + '</span></div>'; }).join('') +
+          '<div class="sum-row"><span>Delivery</span><span>' + (o.shipping ? money(o.shipping) : 'FREE') + '</span></div>' + (o.discount ? '<div class="sum-row"><span>Promo code</span><span>−' + money(o.discount) + '</span></div>' : '') +
+          '<div class="sum-row total"><span>Total</span><span>' + money(o.total) + '</span></div></div>' +
+          (o.customer && o.customer.address ? '<p class="muted" style="font-size:13px">Delivering to ' + esc(o.customer.name) + ', ' + esc(o.customer.address) + ', ' + esc(o.customer.city) + ', ' + esc(o.customer.district) + '</p>' : '');
+        if (waiting && tries++ < 40) setTimeout(function () { if (location.hash === '#order/' + number) load(); }, 4000);
+      }, function () {
+        $('#ordBox').innerHTML = '<h2 style="margin-top:0">Order ' + esc(number) + '</h2><p>This order is not saved on this device. Track it with your phone number instead:</p><p><a class="btn navy" href="#track/' + esc(number) + '">Track with phone number</a></p>';
+      });
+    }
+    load();
+  }
+
+  function renderTrackApi(pre) {
+    setTitle('Track order');
+    app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>Track my order</span></div>' +
+      '<form class="panel form" id="tf" style="max-width:640px;margin:0 auto"><h3>Track your order</h3><label>Order number<input name="id" required value="' + esc(pre || '') + '" placeholder="e.g. SC-261108-ABC123" maxlength="20"></label>' +
+      '<label>Phone number used for the order<input name="phone" required placeholder="07X XXX XXXX" maxlength="20"></label><button class="btn navy full" style="grid-column:1/-1">Track</button><div class="full" id="tr"></div></form>' +
+      (SCG.myOrders().length ? '<div class="panel" style="max-width:640px;margin:14px auto;padding:16px"><h3 style="margin-top:0">Orders placed on this device</h3>' + SCG.myOrders().map(function (o) { return '<div class="sum-row"><a href="#order/' + esc(o.number) + '">' + esc(o.number) + '</a><span class="muted">' + new Date(o.at).toLocaleDateString() + '</span></div>'; }).join('') + '</div>' : '') + '</div>';
+    $('#tf').onsubmit = function (e) {
+      e.preventDefault(); var f = e.target, n = f.id.value.trim().toUpperCase();
+      $('#tr').innerHTML = '<p class="muted">Checking…</p>';
+      SCG.trackOrder(n, null, f.phone.value).then(function (o) { $('#tr').innerHTML = orderStatusHTML(o); }, function (err) {
+        $('#tr').innerHTML = '<p style="color:var(--red)">' + esc(err.status === 404 ? 'We could not find an order with that number and phone. Check both, or call us on ' + db.settings.phone + '.' : err.message) + '</p>';
+      });
+    };
+  }
+
+  function renderAccountApi() {
+    setTitle('My account');
+    var me = SCG.customer;
+    if (!me) {
+      app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>My account</span></div><div class="acct-grid">' +
+        '<form class="panel form" id="loginF"><h3>Sign in</h3><label class="full">Email<input name="email" type="email" required autocomplete="email"></label>' +
+          '<label class="full">Password<input name="password" type="password" required autocomplete="current-password"></label>' +
+          '<button class="btn navy full" style="grid-column:1/-1">Sign in</button><p class="full" style="margin:0"><button type="button" class="link-sm" id="forgot">Forgot password?</button></p><p class="full co-msg" id="loginMsg" style="margin:0;color:var(--red)"></p>' +
+          '<button class="btn google full" type="button" disabled title="Coming soon" style="grid-column:1/-1">' + googleG() + 'Sign in with Google <small>coming soon</small></button></form>' +
+        '<form class="panel form" id="regF"><h3>Create an account</h3><p class="full" style="margin:0;color:var(--muted);font-size:13px">Optional: you can always check out as a guest. An account keeps all your orders together.</p>' +
+          '<label class="full">Full name<input name="name" required maxlength="80" autocomplete="name"></label><label>Email<input name="email" type="email" required autocomplete="email"></label>' +
+          '<label>Phone (optional)<input name="phone" maxlength="20" autocomplete="tel"></label><label class="full">Password (12+ characters)<input name="password" type="password" required minlength="12" autocomplete="new-password"></label>' +
+          '<button class="btn full" style="grid-column:1/-1">Create account</button><p class="full" id="regMsg" style="margin:0;color:var(--red)"></p></form></div>' +
+        (SCG.myOrders().length ? '<div class="panel" style="padding:16px;margin-top:14px"><h3 style="margin-top:0">Orders placed on this device</h3>' + SCG.myOrders().map(function (o) { return '<div class="sum-row"><a href="#order/' + esc(o.number) + '">' + esc(o.number) + '</a><span class="muted">' + new Date(o.at).toLocaleDateString() + '</span></div>'; }).join('') + '</div>' : '') + '</div>';
+      var done = function (c) { updateAccount(); toast('Welcome, ' + c.name.split(' ')[0] + '!'); renderAccountApi(); };
+      $('#loginF').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements; SCG.customerAuth('login', { email: E.email.value.trim(), password: E.password.value }).then(done, function (err) { $('#loginMsg').textContent = err.message; }); };
+      $('#regF').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements; SCG.customerAuth('register', { name: E.name.value.trim(), email: E.email.value.trim(), phone: E.phone.value.trim(), password: E.password.value }).then(done, function (err) { $('#regMsg').textContent = err.message; }); };
+      $('#forgot').onclick = function () { var em = $('#loginF').elements.email.value.trim(); if (!em) { $('#loginMsg').textContent = 'Type your email above first.'; return; } SCG.api('POST', '/customers/password-reset/request', { email: em }).then(function () { $('#loginMsg').style.color = 'var(--green, #0a7d3c)'; $('#loginMsg').textContent = 'If that email has an account, we sent a reset link.'; }, function (err) { $('#loginMsg').textContent = err.message; }); };
+      return;
+    }
+    app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>My account</span></div><div class="panel acct-head">' + avatar(me) + '<div><h2>Hello, ' + esc(me.name.split(' ')[0]) + '</h2><small>' + esc(me.email || '') + (me.verified ? ' · email confirmed' : ' · please confirm your email (check your inbox)') + '</small></div></div>' +
+      '<div class="acct-grid"><div class="panel" id="myOrders"><p class="muted" style="padding:16px">Loading your orders…</p></div><div>' +
+      '<form class="panel form" id="profForm"><h3>My details</h3><label class="full">Full name<input name="name" required maxlength="80" value="' + esc(me.name) + '"></label>' +
+        '<label>Phone<input name="phone" maxlength="20" value="' + esc(me.phone || '') + '"></label>' +
+        '<label class="full">Address<input name="line1" maxlength="200" value="' + esc(me.address ? me.address.line1 : '') + '"></label><label>City<input name="city" maxlength="60" value="' + esc(me.address ? me.address.city : '') + '"></label>' +
+        '<label>District<select name="district">' + DISTRICTS.map(function (d) { return '<option' + (me.address && d === me.address.district ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></label>' +
+        '<button class="btn navy full" style="grid-column:1/-1">Save details</button></form>' +
+      '<div class="panel acct-side"><a class="btn line full" href="#wishlist">My wishlist</a><button class="btn line full" id="signOut">Sign out</button></div></div></div></div>';
+    SCG.api('GET', '/account/orders').then(function (list) {
+      $('#myOrders').innerHTML = '<div class="sec-head" style="padding:14px 16px 0"><h2 style="font-size:17px">My orders</h2></div>' + (list.length ? list.map(function (o) {
+        var idx = ST_IDX[o.status] === undefined ? -1 : ST_IDX[o.status], bad = { cancelled: 1, expired: 1, refunded: 1 }[o.status];
+        return '<div class="acct-order"><div class="ao-top"><b>' + esc(o.number) + '</b><span class="ao-status ' + (bad ? 'x' : o.status === 'delivered' ? 'ok' : '') + '">' + esc(ST_LABEL[o.status] || o.status) + '</span><span class="muted">' + new Date(o.placedAt).toLocaleDateString() + ' · ' + money(o.total) + '</span></div>' +
+          (!bad ? '<div class="ao-bar">' + [0, 1, 2, 3, 4].map(function (i) { return '<i class="' + (i <= idx ? 'on' : '') + '"></i>'; }).join('') + '</div>' : '') +
+          '<div class="ao-actions"><a class="link-sm" href="#order/' + esc(o.number) + '">Details</a></div></div>';
+      }).join('') : '<p class="empty">No orders yet.</p>');
+    }, function (err) { $('#myOrders').innerHTML = '<p class="empty">' + esc(err.message) + '</p>'; });
+    $('#profForm').onsubmit = function (e) {
+      e.preventDefault(); var E = e.target.elements;
+      var body = { name: E.name.value.trim(), phone: E.phone.value.trim() };
+      if (E.line1.value.trim()) body.address = { line1: E.line1.value.trim(), city: E.city.value.trim(), district: E.district.value };
+      SCG.api('PUT', '/customers/me', body).then(function () { return SCG.loadCustomer(); }).then(function () { updateAccount(); toast('Your details are saved'); }, function (err) { toast(err.message); });
+    };
+    $('#signOut').onclick = function () { SCG.customerLogout().then(function () { updateAccount(); toast('Signed out'); renderAccountApi(); }); };
+  }
+  function renderTokenPage(kind, token) {
+    setTitle(kind === 'verify' ? 'Confirm email' : 'New password');
+    if (kind === 'verify') {
+      app.innerHTML = '<div class="wrap"><div class="panel" style="max-width:520px;margin:30px auto;padding:22px" id="tokBox"><p class="muted">Confirming…</p></div></div>';
+      SCG.api('POST', '/customers/verify-email', { token: token }).then(function () { $('#tokBox').innerHTML = '<h2>Email confirmed ✓</h2><p><a class="btn navy" href="#account">Go to my account</a></p>'; SCG.loadCustomer(); },
+        function (err) { $('#tokBox').innerHTML = '<h2>Link not valid</h2><p>' + esc(err.message) + '</p>'; });
+      return;
+    }
+    app.innerHTML = '<div class="wrap"><form class="panel form" id="rpF" style="max-width:520px;margin:30px auto"><h3>Choose a new password</h3><label class="full">New password (12+ characters)<input name="password" type="password" required minlength="12" autocomplete="new-password"></label><button class="btn navy full" style="grid-column:1/-1">Save password</button><p class="full" id="rpMsg" style="margin:0"></p></form></div>';
+    $('#rpF').onsubmit = function (e) { e.preventDefault(); SCG.api('POST', '/customers/password-reset/confirm', { token: token, password: e.target.elements.password.value }).then(function () { $('#rpMsg').innerHTML = 'Password saved. <a href="#account">Sign in</a>'; }, function (err) { $('#rpMsg').textContent = err.message; }); };
+  }
+
   /* ---------------- other pages ---------------- */
   function renderWishlist() {
     setTitle('Wishlist');
@@ -584,6 +802,7 @@
   }
   var STEPS = ['Order placed', 'Confirmed', 'Shipped', 'Arrived in Sri Lanka', 'Delivered'];
   function renderTrack(pre) {
+    if (SCG.API) return renderTrackApi(pre);
     setTitle('Track order');
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>Track my order</span></div>' +
       '<form class="panel form" id="tf" style="max-width:640px;margin:0 auto"><h3>Track your order</h3><label>Order number<input name="id" required value="' + esc(pre || '') + '" placeholder="e.g. SCG1234567"></label><label>Phone number<input name="phone" placeholder="Phone used for the order"></label><button class="btn full" style="grid-column:1/-1">Track</button><div id="tr" class="full"></div></form></div>';
@@ -644,12 +863,13 @@
   /* ---------------- customer account ---------------- */
   function avatar(p) { var n = String(p.name || '?').trim().split(/\s+/); return '<span class="avatar">' + esc((n[0][0] || '?') + (n[1] ? n[1][0] : '')).toUpperCase() + '</span>'; }
   function updateAccount() {
-    var p = SCG.getProfile(), el = $('#accName');
+    var p = SCG.API ? SCG.customer : SCG.getProfile(), el = $('#accName');
     if (el) el.textContent = p ? p.name.split(' ')[0] : 'Account';
     var b = $('#accBtn'); if (b) b.classList.toggle('signed', !!p);
   }
   var TRACK_IDX = { Pending: 0, Confirmed: 1, Shipped: 2, 'Arrived in Sri Lanka': 3, Delivered: 4 };
   function renderAccount() {
+    if (SCG.API) return renderAccountApi();
     setTitle('My account');
     var p = SCG.getProfile();
     if (!p) {
@@ -712,6 +932,12 @@
 
   /* ---------------- admin visual editor (only inside the admin preview) ---------------- */
   var PREVIEW = /[?&]preview=1/.test(location.search) && window.parent !== window;
+  // API mode: the admin tells the preview to fetch the saved data again after each save.
+  if (PREVIEW && SCG.API) window.addEventListener('message', function (e) {
+    if (e.origin !== location.origin || !e.data || e.data.type !== 'scg-refresh') return;
+    var y = scrollY;
+    SCG.refresh().then(function () { db = SCG.load(); renderChrome(); route(); scrollTo(0, y); if (window.__edRefresh) __edRefresh(); });
+  });
   if (PREVIEW) (function () {
     document.documentElement.classList.add('is-preview');
     var NAMES = { product: 'Product', banner: 'Banner', category: 'Category', collection: 'Collection', hero: 'Globe headline', services: 'Service icons', flash: 'Flash sale', origins: 'Import countries', header: 'Header & menu', settings: 'Footer & contact', pages: 'Importing page', sections: 'Homepage sections' };
@@ -806,6 +1032,8 @@
     else if (k === 'wishlist') renderWishlist();
     else if (k === 'account') renderAccount();
     else if (k === 'track') renderTrack(v);
+    else if (k === 'order' && SCG.API) renderOrderApi(String(v || '').toUpperCase());
+    else if ((k === 'verify' || k === 'reset') && SCG.API) renderTokenPage(k, v);
     else if (k === 'categories') renderCategories();
     else if (k === 'china-direct') renderChinaDirect();
     else if (k === 'help') renderHelp();
@@ -834,4 +1062,4 @@
       onDone: function (played) { if (played && !location.hash.replace('#', '')) route(); }
     });
   }
-})();
+});
