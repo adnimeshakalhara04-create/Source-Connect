@@ -23,8 +23,10 @@ describe('server-side pricing', () => {
     expect(tampered.statusCode).toBe(400);   // unknown field rejected outright
   });
   it('free delivery threshold and fee come from shipping_rates', async () => {
+    const rate = (await app.db.query(`SELECT fee_cents, free_over_cents FROM shipping_rates WHERE code = 'standard'`)).rows[0];
     const small = json(await new Agent(app).post('/api/v1/cart/quote', { items: [{ id: 'accessories-1', size: '', qty: 1 }] }));
-    expect(small.shipping).toBe(350);
+    expect(small.shipping).toBe(small.subtotal * 100 >= rate.free_over_cents ? 0 : rate.fee_cents / 100);
+    expect(small.freeShippingOver).toBe(rate.free_over_cents / 100);
     const big = json(await new Agent(app).post('/api/v1/cart/quote', { items: [{ id: 'mens-1', size: 'M', qty: 9 }] }));
     if (big.subtotal >= 10000) expect(big.shipping).toBe(0);
   });

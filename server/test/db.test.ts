@@ -33,7 +33,7 @@ describe('migrations', () => {
     expect(await seed(url())).toBe('skipped');
   });
   it('seeded catalogue: 144 products, every product has variants and inventory, no invented ratings', async () => {
-    const r = await db.query(`SELECT (SELECT count(*) FROM products)::int p, (SELECT count(*) FROM products WHERE NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = products.id))::int nov,
+    const r = await db.query(`SELECT (SELECT count(*) FROM products WHERE slug ~ '^[a-z]+-[0-9]+$' AND created_by IS NULL)::int p, (SELECT count(*) FROM products WHERE NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = products.id))::int nov,
       (SELECT count(*) FROM product_variants v WHERE NOT EXISTS (SELECT 1 FROM inventory i WHERE i.variant_id = v.id))::int noinv,
       (SELECT count(*) FROM products p WHERE rating > 0 OR reviews_count > 0 OR (sold_count > 0 AND NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.product_id = p.id)))::int fake`);
     expect(r.rows[0]).toEqual({ p: 144, nov: 0, noinv: 0, fake: 0 });
