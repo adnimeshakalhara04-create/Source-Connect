@@ -11,7 +11,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="preload" as="image" href="assets/intro-emblem.webp?v=1">
   <script>
     /* Decide before the page paints whether the welcome intro plays (see js/intro.js). */
     (function () {
@@ -21,7 +20,10 @@
         var d = JSON.parse(localStorage.getItem('scg_db_v2') || 'null');
         var w = (d && d.settings && d.settings.welcome) || { on: true, mode: 'session' };
         var seen = w.mode === 'first' ? localStorage.getItem('scg_intro_seen') : sessionStorage.getItem('scg_intro_seen');
-        if (force || (w.on !== false && w.mode !== 'off' && (w.mode === 'visit' || !seen))) document.documentElement.classList.add('intro-on');
+        if (force || (w.on !== false && w.mode !== 'off' && (w.mode === 'visit' || !seen))) {
+          document.documentElement.classList.add('intro-on');
+          var l = document.createElement('link'); l.rel = 'preload'; l.as = 'image'; l.href = 'assets/intro-emblem.webp?v=1'; document.head.appendChild(l);
+        }
       } catch (e) {}
     })();
   </script>

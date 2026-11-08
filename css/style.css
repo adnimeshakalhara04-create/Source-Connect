@@ -685,3 +685,13 @@ html.is-preview .admin-bar { display: none; }
 .cat-hero[data-cover]::before { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 85%, #050b1c) 0%, color-mix(in srgb, var(--c) 40%, transparent) 55%, transparent 100%), var(--cover) center / cover no-repeat; }
 .cat-hero .art.photo { width: 120px; height: 120px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 4px rgba(255,255,255,.25); opacity: 1; }
 .cat-hero .art.photo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* tablet header: keep Account, Wishlist and Cart on screen */
+.search { min-width: 0; }
+@media (max-width: 960px) {
+  .header-inner { gap: 12px; }
+  .search select { display: none; }
+  .hbtn { padding: 6px 7px; }
+  .hbtn em { display: none; }
+}
+.btn.google { white-space: normal; flex-wrap: wrap; text-align: center; }

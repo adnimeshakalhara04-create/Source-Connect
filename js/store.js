@@ -75,7 +75,9 @@
   /** SVG string of a stylised product. */
   function productSVG(shape, color, pattern, accent) {
     var s = SHAPES[shape] || SHAPES.tshirt;
-    color = color || '#0b2a6f';
+    var HEX = /^#[0-9a-f]{3,8}$/i;
+    color = HEX.test(color) ? color : '#0b2a6f';
+    if (accent && !HEX.test(accent)) accent = '';
     var id = 's' + (++uidN).toString(36) + Math.random().toString(36).slice(2, 5);
     var light = shade(color, 50), dark = shade(color, -55);
     var ink = lum(color) > .6 ? '#1f2937' : '#ffffff';
@@ -401,7 +403,17 @@
     if (raw) { try { cache = JSON.parse(raw); } catch (e) { cache = null; } }
     if (!cache || !cache.products) { cache = seed(); save(); return cache; }
     if (migrate(cache)) save();
+    cleanColors(cache);
     return cache;
+  }
+  // colours are written into styles and pictures, so only allow real colour codes
+  function cleanColors(d) {
+    var ok = /^#[0-9a-f]{3,8}$/i;
+    function fix(o, k) { if (o && typeof o[k] === 'string' && o[k] && !ok.test(o[k])) o[k] = '#0b2a6f'; }
+    (d.products || []).forEach(function (p) { fix(p, 'color'); fix(p, 'accent'); });
+    (d.categories || []).forEach(function (c) { fix(c, 'color'); fix(c, 'icon'); });
+    (d.collections || []).forEach(function (c) { fix(c, 'color'); });
+    (d.hero || []).forEach(function (h) { fix(h, 'color'); });
   }
   function save() { return safeSet(DB_KEY, JSON.stringify(cache)); }
   function reset() { cache = seed(); save(); return cache; }
@@ -409,7 +421,10 @@
 
   function uid(prefix) { return (prefix || 'id') + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function slug(s) { return String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || uid('x'); }
-  function money(n) { return (load().settings.currency || 'Rs.') + ' ' + Number(n || 0).toLocaleString('en-US'); }
+  // a picture address that is safe inside src="...": uploaded photos, web links or site files only
+  function imgSrc(u) { u = String(u || ''); return (/^(data:image\/|https?:\/\/|blob:)/i.test(u) || !/^[a-z][\w+.-]*:/i.test(u)) ? escapeHTML(u) : ''; }
+  function safeColor(c, d) { return /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : (d || '#0b2a6f'); }
+  function money(n) { return escapeHTML(load().settings.currency || 'Rs.') + ' ' + Number(n || 0).toLocaleString('en-US'); }
   function discount(p) { return p.comparePrice > p.price ? Math.round((1 - p.price / p.comparePrice) * 100) : 0; }
 
   function categoryById(id) { return load().categories.filter(function (c) { return c.id === id; })[0]; }
@@ -444,7 +459,7 @@
   }
 
   function productVisual(p, color) {
-    if (p.image) return '<img src="' + p.image + '" alt="' + escapeHTML(p.name) + '" loading="lazy">';
+    if (p.image) return '<img src="' + imgSrc(p.image) + '" alt="' + escapeHTML(p.name) + '" loading="lazy">';
     var cat = categoryById(p.category);
     return productSVG(p.shape || (cat ? cat.shape : 'tshirt'), color || p.color, p.pattern, p.accent);
   }
@@ -518,7 +533,7 @@
   global.SCG = {
     SHAPES: SHAPES, PATTERNS: PATTERNS,
     load: load, save: save, reset: reset, reload: reload, seed: seed,
-    uid: uid, slug: slug, money: money, discount: discount, escapeHTML: escapeHTML,
+    uid: uid, slug: slug, money: money, discount: discount, escapeHTML: escapeHTML, imgSrc: imgSrc, safeColor: safeColor,
     productSVG: productSVG, garmentSVG: garmentSVG, productVisual: productVisual, shade: shade,
     categoryById: categoryById, collectionById: collectionById, productById: productById,
     origins: origins, originById: originById, originInfo: originInfo, productImages: productImages, collectionProducts: collectionProducts, storageUsed: storageUsed, DEFAULT_ORIGINS: DEFAULT_ORIGINS,

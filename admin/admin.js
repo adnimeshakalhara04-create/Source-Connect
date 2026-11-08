@@ -56,6 +56,17 @@
   var tt;
   function toast(m) { var t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(function () { t.classList.remove('show'); }, 2200); }
   function commit(msg) { if (SCG.save()) { toast(msg || 'Saved'); return true; } toast('Not saved: browser storage is full. Remove photos or use image links.'); return false; }
+  // every admin form: a required box that only has spaces counts as empty
+  document.addEventListener('submit', function (e) {
+    var bad = Array.prototype.filter.call(e.target.querySelectorAll('input[required], textarea[required]'), function (x) { return x.type !== 'number' && x.type !== 'file' && !x.value.trim(); })[0];
+    if (bad) { e.preventDefault(); e.stopImmediatePropagation(); bad.value = ''; bad.focus(); var lb = ((bad.closest('label') || {}).firstChild || {}).textContent; toast('Please fill in ' + (lb && lb.trim() ? lb.trim() : 'this box')); }
+  }, true);
+  // inline number fields: no negative numbers, and a price can't be empty or 0
+  function okNum(input, p, f) {
+    var v = +input.value, bad = input.value === '' || isNaN(v) || v < 0 || (f === 'price' && v <= 0);
+    if (bad) { input.value = p[f] || 0; toast(f === 'price' ? 'Price must be more than 0' : 'Please enter 0 or more'); return false; }
+    return true;
+  }
   function openModal(title, html) { $('#modalTitle').textContent = title; $('#modalBody').innerHTML = html; $('#modal').classList.add('open'); }
   function closeModal() { $('#modal').classList.remove('open'); }
   $('#modal').addEventListener('click', function (e) { if (e.target.closest('[data-close]')) closeModal(); });
@@ -85,7 +96,7 @@
     var file = $('input[type=file]', root), prev = $('.preview', root);
     file.onchange = function () {
       if (!file.files[0]) return;
-      SCG.imageToDataURL(file.files[0], 900).then(function (url) { prev.innerHTML = '<img src="' + url + '" alt="">'; onChange(url); })
+      SCG.imageToDataURL(file.files[0], 900).then(function (url) { prev.innerHTML = '<img src="' + SCG.imgSrc(url) + '" alt="">'; onChange(url); })
         .catch(function () { toast('Could not read that image'); });
     };
     var rm = $('[data-rm-img]', root);
@@ -235,9 +246,11 @@
     else { try { var w = pvIf.contentWindow; if (w.location.hash !== pv.page) w.location.hash = pv.page || '#'; } catch (e) { pvIf.src = SITE + '?preview=1' + pv.page; } }
     pvPages();
   }
+  function pvNarrow() { return innerWidth <= 1100; }
   function pvShow(page) {
     var shell = $('#shell'), has = page !== undefined && page !== null;
-    var visible = has && (!pv.hidden || shell.classList.contains('pv-full'));
+    // big screens: beside the editor unless hidden; smaller screens: a sheet you open with "Show preview"
+    var visible = !!(has && (shell.classList.contains('pv-full') || (pvNarrow() ? pv.sheet : !pv.hidden)));
     shell.classList.toggle('has-pv', visible);
     $('#pv').hidden = !visible; $('#pvFab').hidden = !(has && !visible);
     document.body.classList.toggle('pv-on', visible); document.body.classList.toggle('pv-wide', visible && shell.classList.contains('pv-full'));
@@ -245,8 +258,8 @@
   }
   $('#pvPage').onchange = function (e) { pvGo(e.target.value); };
   $('#pvReload').onclick = function () { pvIf.src = SITE + '?preview=1' + pv.page; };
-  $('#pvHide').onclick = function () { pv.hidden = true; try { localStorage.setItem('scg_pv_hidden', '1'); } catch (e) {} if ($('#shell').classList.contains('pv-full')) location.hash = 'dashboard'; else route(); };
-  $('#pvFab').onclick = function () { pv.hidden = false; try { localStorage.removeItem('scg_pv_hidden'); } catch (e) {} route(); };
+  $('#pvHide').onclick = function () { if (pvNarrow()) { pv.sheet = false; if ($('#shell').classList.contains('pv-full')) { location.hash = 'dashboard'; } else route(); return; } pv.hidden = true; try { localStorage.setItem('scg_pv_hidden', '1'); } catch (e) {} if ($('#shell').classList.contains('pv-full')) location.hash = 'dashboard'; else route(); };
+  $('#pvFab').onclick = function () { if (pvNarrow()) { pv.sheet = true; route(); return; } pv.hidden = false; try { localStorage.removeItem('scg_pv_hidden'); } catch (e) {} route(); };
   $$('.pv-dev button').forEach(function (b) { b.onclick = function () { pv.dev = b.dataset.dev; $$('.pv-dev button').forEach(function (x) { x.classList.toggle('on', x === b); }); $('#pvFrame').classList.toggle('mobile', pv.dev === 'mobile'); pvScale(); }; });
   window.addEventListener('resize', function () { if (!$('#pv').hidden) pvApplyWidth(); });
   if ('ResizeObserver' in window) new ResizeObserver(pvScale).observe($('#pvFrame'));
@@ -389,16 +402,16 @@
     var sel = {};
     setActions('<a class="btn primary" href="#products/new">+ Add Product</a>' + preview('#shop'));
     v.innerHTML =
-      '<div class="filters"><input id="pq" type="search" placeholder="Search name, brand or SKU…" value="' + esc(pf.q) + '">' +
-      '<select id="pc"><option value="all">All categories</option>' + db.categories.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + ' (' + countIn(c.id) + ')</option>'; }).join('') + '</select>' +
-      '<select id="pco"><option value="all">All collections</option>' + db.collections.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('') + '</select>' +
-      '<select id="px"><option value="all">Any status</option><option value="flash">In flash sale</option>' + SCG.origins().map(function (o) { return '<option value="o:' + o.id + '">From ' + esc(o.name) + '</option>'; }).join('') + '<option value="o:local">Colombo stock</option><option value="low">Low stock (≤5)</option><option value="out">Out of stock</option><option value="nophoto">No photo yet</option></select>' +
+      '<div class="filters"><input id="pq" type="search" aria-label="Search products" placeholder="Search name, brand or SKU…" value="' + esc(pf.q) + '">' +
+      '<select id="pc" aria-label="Filter by category"><option value="all">All categories</option>' + db.categories.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + ' (' + countIn(c.id) + ')</option>'; }).join('') + '</select>' +
+      '<select id="pco" aria-label="Filter by collection"><option value="all">All collections</option>' + db.collections.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('') + '</select>' +
+      '<select id="px" aria-label="Filter by status"><option value="all">Any status</option><option value="flash">In flash sale</option>' + SCG.origins().map(function (o) { return '<option value="o:' + o.id + '">From ' + esc(o.name) + '</option>'; }).join('') + '<option value="o:local">Colombo stock</option><option value="low">Low stock (≤5)</option><option value="out">Out of stock</option><option value="nophoto">No photo yet</option></select>' +
       '<span class="muted" id="pcount" style="align-self:center"></span></div>' +
       '<div class="bulkbar" id="bulk" hidden><b id="bn"></b>' +
         '<button class="btn sm" data-b="flash-on">⚡ Add to flash sale</button><button class="btn sm" data-b="flash-off">Remove from flash</button>' +
-        '<span style="display:inline-flex;gap:4px"><input id="bdisc" type="number" min="1" max="90" placeholder="% off" style="width:80px"><button class="btn sm" data-b="disc">Apply discount</button></span>' +
-        '<span style="display:inline-flex;gap:4px"><select id="borig">' + originOptions('china') + '</select><button class="btn sm" data-b="origin">Set ships from</button></span>' +
-        '<span style="display:inline-flex;gap:4px"><select id="bcoll">' + db.collections.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('') + '</select><button class="btn sm" data-b="coll">Add to collection</button></span>' +
+        '<span style="display:inline-flex;gap:4px"><input id="bdisc" type="number" aria-label="Discount percent" min="1" max="90" placeholder="% off" style="width:80px"><button class="btn sm" data-b="disc">Apply discount</button></span>' +
+        '<span style="display:inline-flex;gap:4px"><select id="borig" aria-label="Ships from">' + originOptions('china') + '</select><button class="btn sm" data-b="origin">Set ships from</button></span>' +
+        '<span style="display:inline-flex;gap:4px"><select id="bcoll" aria-label="Collection">' + db.collections.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('') + '</select><button class="btn sm" data-b="coll">Add to collection</button></span>' +
         '<button class="btn sm" data-b="del" style="border-color:#f87171">Delete</button><button class="btn sm" data-b="clear">Clear</button></div>' +
       '<div class="table-wrap"><table><thead><tr><th class="chk"><input type="checkbox" id="pall" aria-label="Select all"></th><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Ships from</th><th>Flash</th><th></th></tr></thead><tbody id="ptb"></tbody></table></div>';
     $('#pc').value = pf.cat; $('#pco').value = pf.coll; $('#px').value = pf.extra;
@@ -426,7 +439,7 @@
           '<td>' + esc(c ? c.name : '—') + '</td>' +
           '<td><input class="inline" type="number" min="0" data-f="price" value="' + p.price + '" aria-label="Price">' + (off ? '<br><small class="muted"><s>' + money(p.comparePrice) + '</s> -' + off + '%</small>' : '') + '</td>' +
           '<td><input class="inline" type="number" min="0" data-f="stock" value="' + p.stock + '" aria-label="Stock" style="width:64px' + (p.stock <= 5 ? ';border-color:#f59e0b' : '') + '"></td>' +
-          '<td><select data-f="origin" style="width:auto;padding:6px">' + originOptions(p.origin) + '</select></td>' +
+          '<td><select data-f="origin" aria-label="Ships from" style="width:auto;padding:6px">' + originOptions(p.origin) + '</select></td>' +
           '<td>' + sw('flash', p.flash) + '</td>' +
           '<td><div class="actions"><a class="btn sm" target="_blank" rel="noopener" href="' + SITE + '#p/' + p.id + '" title="View on site">↗</a><button class="btn sm" data-edit>Edit</button><button class="btn sm" data-dup>Copy</button><button class="btn sm danger" data-del>Delete</button></div></td></tr>';
       }).join('') || '<tr><td colspan="8" class="muted" style="text-align:center;padding:40px">No products found.</td></tr>';
@@ -446,7 +459,8 @@
       if (e.target.matches('[data-sel]')) { sel[p.id] = e.target.checked; tr.classList.toggle('sel', e.target.checked); bulkUI(); return; }
       if (e.target.name === 'flash') { p.flash = e.target.checked; if (p.flash && !p.comparePrice) { p.comparePrice = Math.round(p.price * 1.3 / 10) * 10; } commit(p.flash ? 'Added to flash sale' : 'Removed from flash sale'); return; }
       var f = e.target.dataset.f; if (!f) return;
-      p[f] = f === 'origin' ? e.target.value : Math.max(0, +e.target.value || 0);
+      if (f !== 'origin' && !okNum(e.target, p, f)) return;
+      p[f] = f === 'origin' ? e.target.value : Math.max(0, Math.round(+e.target.value || 0));
       commit('Updated ' + p.name);
     });
     $('#ptb').addEventListener('click', function (e) {
@@ -491,13 +505,13 @@
     };
     d.images = SCG.productImages(d).slice();
     function curShape() { var c = SCG.categoryById(d.category); return d.shape || (c ? c.shape : 'tshirt'); }
-    function prev() { return d.images[0] ? '<img src="' + d.images[0] + '" alt="">' : SCG.productSVG(curShape(), d.color, d.pattern, d.accent); }
+    function prev() { return d.images[0] ? '<img src="' + SCG.imgSrc(d.images[0]) + '" alt="">' : SCG.productSVG(curShape(), d.color, d.pattern, d.accent); }
     openModal(isNew ? 'Add Product' : 'Edit Product',
       '<form class="form" id="pform">' +
       '<label class="full">Product name<input name="name" required value="' + esc(d.name) + '" placeholder="e.g. Classic Crew Tee"></label>' +
       '<label>Category<select name="category">' + db.categories.map(function (c) { return '<option value="' + c.id + '"' + (c.id === d.category ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') + '</select></label>' +
       '<label>Brand<input name="brand" value="' + esc(d.brand || '') + '"></label>' +
-      '<label>Price (' + esc(db.settings.currency) + ')<input name="price" type="number" min="0" required value="' + d.price + '"></label>' +
+      '<label>Price (' + esc(db.settings.currency) + ')<input name="price" type="number" min="1" required value="' + d.price + '"></label>' +
       '<label>Original price (before discount)<input name="comparePrice" type="number" min="0" placeholder="Optional, shows -% off" value="' + (d.comparePrice || '') + '"></label>' +
       '<label>Stock quantity<input name="stock" type="number" min="0" required value="' + d.stock + '"></label>' +
       '<label>Ships from<select name="origin">' + originOptions(d.origin) + '</select></label>' +
@@ -512,7 +526,7 @@
       '<div class="full"><label style="margin-bottom:8px">Product photos <span class="hint">(up to 8; the first one is the main photo)</span></label>' +
         '<div class="gal" id="gal"></div>' +
         '<div class="gal-add"><label class="btn sm">⬆ Upload photos<input type="file" accept="image/*" multiple id="gfile" hidden></label>' +
-        '<input id="gurl" type="url" placeholder="…or paste an image link (https://…)"><button type="button" class="btn sm" id="gurlBtn">Add link</button></div>' +
+        '<input id="gurl" type="url" aria-label="Image link" placeholder="…or paste an image link (https://…)"><button type="button" class="btn sm" id="gurlBtn">Add link</button></div>' +
         '<div id="gmeter">' + storageMeter() + '</div></div>' +
       '<label>Illustration<select name="shape"><option value="">Same as category</option>' + Object.keys(SCG.SHAPES).map(function (s) { return '<option' + (s === d.shape ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
       '<label>Pattern<select name="pattern">' + SCG.PATTERNS.map(function (s) { return '<option' + (s === (d.pattern || 'solid') ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
@@ -562,6 +576,7 @@
     };
     f.onsubmit = function (e) {
       e.preventDefault();
+      if (!E.name.value.trim()) { toast('Please type a product name'); E.name.focus(); return; }
       var out = Object.assign(d, {
         name: E.name.value.trim(), category: E.category.value, badge: E.badge.value, brand: E.brand.value.trim(),
         price: +E.price.value || 0, comparePrice: +E.comparePrice.value || 0, stock: +E.stock.value || 0,
@@ -600,13 +615,13 @@
         '<label class="full">End date &amp; time<input type="datetime-local" name="flashUntil" value="' + esc(untilVal) + '"></label>' +
         '<div class="form-foot"><button class="btn primary">Save timing</button></div></div></form>' +
       '<div class="panel"><h3>Quick actions</h3><p class="muted" style="margin-top:0">' + list.length + ' products are in the flash sale.</p>' +
-        '<div class="filters"><input id="fpct" type="number" min="1" max="90" placeholder="% off" style="min-width:0;width:100px"><button class="btn" id="fapply">Apply % to all flash products</button></div>' +
+        '<div class="filters"><input id="fpct" type="number" aria-label="Discount percent for all flash products" min="1" max="90" placeholder="% off" style="min-width:0;width:100px"><button class="btn" id="fapply">Apply % to all flash products</button></div>' +
         '<div class="filters"><button class="btn" id="fadd">+ Add products to flash sale</button><button class="btn danger" id="fclear">Remove all from flash</button></div></div></div>' +
       '<div class="panel" style="padding:0;overflow:hidden"><div class="table-wrap" style="border:0"><table><thead><tr><th>Product</th><th>Flash price</th><th>Original price</th><th>Discount</th><th>Stock</th><th></th></tr></thead><tbody id="ftb">' +
       (list.length ? list.map(function (p) {
         return '<tr data-id="' + p.id + '"><td><div class="prod-cell">' + thumb(p) + '<b>' + esc(p.name) + '</b></div></td>' +
-          '<td><input class="inline" type="number" min="0" data-f="price" value="' + p.price + '"></td>' +
-          '<td><input class="inline" type="number" min="0" data-f="comparePrice" value="' + (p.comparePrice || '') + '"></td>' +
+          '<td><input class="inline" type="number" min="0" data-f="price" aria-label="Flash price" value="' + p.price + '"></td>' +
+          '<td><input class="inline" type="number" min="0" data-f="comparePrice" aria-label="Original price" value="' + (p.comparePrice || '') + '"></td>' +
           '<td><span class="tag red">-' + SCG.discount(p) + '%</span></td><td>' + p.stock + '</td>' +
           '<td><div class="actions"><button class="btn sm" data-edit>Edit</button><button class="btn sm danger" data-rm>Remove</button></div></td></tr>';
       }).join('') : '<tr><td colspan="6" class="muted" style="text-align:center;padding:40px">No flash deals yet. Click “Add products to flash sale”.</td></tr>') + '</tbody></table></div></div>';
@@ -620,7 +635,7 @@
     };
     $('#ftb').addEventListener('change', function (e) {
       var tr = e.target.closest('tr'), f = e.target.dataset.f; if (!tr || !f) return;
-      var p = SCG.productById(tr.dataset.id); p[f] = +e.target.value || 0; commit('Price updated'); route();
+      var p = SCG.productById(tr.dataset.id); if (!okNum(e.target, p, f)) return; p[f] = Math.max(0, Math.round(+e.target.value || 0)); commit('Price updated'); route();
     });
     $('#ftb').addEventListener('click', function (e) {
       var tr = e.target.closest('tr'), b = e.target.closest('button'); if (!tr || !b) return;
@@ -636,9 +651,9 @@
     $('#fclear').onclick = function () { if (!list.length || !confirm('Remove all ' + list.length + ' products from the flash sale?')) return; list.forEach(function (p) { p.flash = false; }); commit('Flash sale cleared'); route(); };
     $('#fadd').onclick = function () {
       var others = db.products.filter(function (p) { return !p.flash; });
-      openModal('Add to Flash Sale', '<input id="fs" placeholder="Search products…" style="margin-bottom:10px"><div class="checks" id="fl" style="max-height:340px;overflow:auto">' +
+      openModal('Add to Flash Sale', '<input id="fs" aria-label="Search products" placeholder="Search products…" style="margin-bottom:10px"><div class="checks" id="fl" style="max-height:340px;overflow:auto">' +
         others.map(function (p) { return '<label data-n="' + esc(p.name.toLowerCase()) + '"><input type="checkbox" value="' + p.id + '"> ' + esc(p.name) + ' <span class="muted">' + money(p.price) + '</span></label>'; }).join('') +
-        '</div><div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><input id="fpct2" type="number" min="0" max="90" placeholder="% off (optional)" style="width:160px"><button class="btn primary" id="fok">Add selected</button></div>');
+        '</div><div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap"><input id="fpct2" type="number" aria-label="Discount percent (optional)" min="0" max="90" placeholder="% off (optional)" style="width:160px"><button class="btn primary" id="fok">Add selected</button></div>');
       $('#fs').oninput = function (e) { var q = e.target.value.toLowerCase(); $$('#fl label').forEach(function (l) { l.hidden = l.dataset.n.indexOf(q) < 0; }); };
       $('#fok').onclick = function () {
         var pct = Math.min(90, +$('#fpct2').value || 0), chosen = $$('#fl input:checked').map(function (x) { return SCG.productById(x.value); });
@@ -656,7 +671,7 @@
     setActions('<button class="btn primary" id="addCat">+ Add Category</button>' + preview('#categories'));
     v.innerHTML = '<p class="muted" style="margin-top:0">Categories appear in the header menu, the homepage sidebar and grid, the search box and the filters. Use ↑ ↓ to change their order.</p><div class="cards">' + db.categories.map(function (c, i) {
       var n = countIn(c.id), color = c.icon || '#0b2a6f';
-      return '<div class="item-card"><div class="cover" style="background:radial-gradient(circle,' + SCG.shade(color, 170) + ',' + SCG.shade(color, 110) + ')">' + (c.image ? '<img src="' + c.image + '" alt="">' : SCG.productSVG(c.shape, color, 'solid', '#f3f4f6')) + '</div>' +
+      return '<div class="item-card"><div class="cover" style="background:radial-gradient(circle,' + SCG.shade(color, 170) + ',' + SCG.shade(color, 110) + ')">' + (c.image ? '<img src="' + SCG.imgSrc(c.image) + '" alt="">' : SCG.productSVG(c.shape, color, 'solid', '#f3f4f6')) + '</div>' +
         '<div class="body"><h4>' + esc(c.name) + '</h4><p>' + esc(c.tagline || '') + '</p><p style="margin-top:8px"><span class="tag ' + (n < MIN_PER_CATEGORY ? 'warn' : 'ok') + '">' + n + ' products</span></p></div>' +
         '<div class="foot"><button class="btn sm" data-up="' + i + '"' + (i ? '' : ' disabled') + '>↑</button><button class="btn sm" data-down="' + i + '"' + (i < db.categories.length - 1 ? '' : ' disabled') + '>↓</button><a class="btn sm" href="#products/cat:' + c.id + '">Items</a><button class="btn sm" data-edit="' + c.id + '">Edit</button><button class="btn sm danger" data-del="' + c.id + '">Delete</button></div></div>';
     }).join('') + '</div>';
@@ -677,13 +692,13 @@
   function catForm(id) {
     var c = id ? SCG.categoryById(id) : null;
     var d = c ? JSON.parse(JSON.stringify(c)) : { name: '', shape: 'tshirt', icon: '#0b2a6f', tagline: '', image: '' };
-    function prev() { return d.image ? '<img src="' + d.image + '" alt="">' : SCG.productSVG(d.shape, d.icon || '#0b2a6f', 'solid', '#f3f4f6'); }
+    function prev() { return d.image ? '<img src="' + SCG.imgSrc(d.image) + '" alt="">' : SCG.productSVG(d.shape, d.icon || '#0b2a6f', 'solid', '#f3f4f6'); }
     openModal(c ? 'Edit Category' : 'Add Category',
       '<form class="form" id="cform"><label>Name<input name="name" required value="' + esc(d.name) + '"></label>' +
       '<label>Tagline<input name="tagline" value="' + esc(d.tagline || '') + '"></label>' +
       '<label>Icon picture<select name="shape">' + Object.keys(SCG.SHAPES).map(function (s) { return '<option' + (d.shape === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
       '<label>Icon colour<input type="color" name="icon" value="' + esc(d.icon || '#0b2a6f') + '"></label>' +
-      '<div class="full uploader" id="cup"><div class="preview" id="cprev">' + prev() + '</div><div class="btns"><input type="file" accept="image/*"><button type="button" class="btn sm danger" data-rm-img>Remove photo</button><span class="hint">Upload a photo, or leave empty to use the picture and colour above. Shown in the menu and the category grid.</span></div></div>' +
+      '<div class="full uploader" id="cup"><div class="preview" id="cprev">' + prev() + '</div><div class="btns"><input type="file" accept="image/*" aria-label="Upload a picture"><button type="button" class="btn sm danger" data-rm-img>Remove photo</button><span class="hint">Upload a photo, or leave empty to use the picture and colour above. Shown in the menu and the category grid.</span></div></div>' +
       '<div class="form-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Save</button></div></form>');
     var f = $('#cform'), E = f.elements;
     bindUploader($('#cup'), prev, function (u) { d.image = u; });
@@ -706,7 +721,7 @@
     v.innerHTML = '<p class="muted" style="margin-top:0">Click a collection to open it. Inside you can add, create, edit, reorder and discount its products, and choose where it shows on the website.</p><div class="cards">' + db.collections.map(function (c) {
       var list = SCG.collectionProducts(c), inNav = (db.settings.navLinks || []).some(function (l) { return l.link === '#col/' + c.id; });
       return '<a class="item-card coll-open" href="#collections/' + c.id + '"><div class="cover" style="background:linear-gradient(150deg,' + SCG.shade(c.accent, 40) + ',' + SCG.shade(c.accent, -60) + ')">' +
-        (c.image ? '<img src="' + c.image + '" alt="">' : '<div class="mini-stack">' + list.slice(0, 3).map(function (p) { return '<span>' + SCG.productVisual(p) + '</span>'; }).join('') + '</div>') + '</div>' +
+        (c.image ? '<img src="' + SCG.imgSrc(c.image) + '" alt="">' : '<div class="mini-stack">' + list.slice(0, 3).map(function (p) { return '<span>' + SCG.productVisual(p) + '</span>'; }).join('') + '</div>') + '</div>' +
         '<div class="body"><h4>' + esc(c.name) + '</h4><p>' + esc(c.description || '') + '</p><p style="margin-top:8px"><span class="tag">' + list.length + ' products</span>' +
         (inNav ? ' <span class="tag ok">In menu</span>' : '') + (c.homeRow ? ' <span class="tag ok">On homepage</span>' : '') + '</p></div>' +
         '<div class="foot"><span class="btn sm primary">Open →</span></div></a>';
@@ -732,19 +747,19 @@
         '<label class="full">Name<input name="name" required value="' + esc(c.name) + '"></label>' +
         '<label class="full">Description<textarea name="description" rows="2">' + esc(c.description || '') + '</textarea></label>' +
         '<label>Colour<input type="color" name="accent" value="' + esc(c.accent || '#0b2a6f') + '"></label>' +
-        '<div class="uploader" id="cCover"><div class="preview" style="width:120px;height:80px">' + (c.image ? '<img src="' + c.image + '" alt="">' : '<span class="hint">No cover</span>') + '</div><div class="btns"><input type="file" accept="image/*"><button type="button" class="btn sm danger" data-rm-img>Remove cover</button></div></div>' +
+        '<div class="uploader" id="cCover"><div class="preview" style="width:120px;height:80px">' + (c.image ? '<img src="' + SCG.imgSrc(c.image) + '" alt="">' : '<span class="hint">No cover</span>') + '</div><div class="btns"><input type="file" accept="image/*" aria-label="Upload a picture"><button type="button" class="btn sm danger" data-rm-img>Remove cover</button></div></div>' +
         '<div class="full" style="display:flex;gap:18px;flex-wrap:wrap">' + sw('nav', inNav(), 'Show in header menu') + sw('home', !!c.homeRow, 'Show as a row on the homepage') + '</div>' +
         '<div class="form-foot"><button class="btn primary">Save details</button></div></div></form>' +
       '<div class="panel"><h3>Fill quickly <small>add every product that matches</small></h3><div class="form" style="grid-template-columns:1fr">' +
         '<label>Rule<select id="rule"><option value="cat">From a category…</option><option value="from">Ships from a country…</option><option value="under">Priced under…</option><option value="sale">On discount</option><option value="flash">In the flash sale</option><option value="new">Newest 20 products</option></select></label>' +
         '<label id="ruleValWrap">Choose<select id="ruleVal"></select></label>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="rulePreview">Preview</button><button type="button" class="btn primary" id="ruleAdd">Add matching products</button></div><p class="muted" id="ruleInfo" style="margin:0"></p></div></div></div>' +
-      '<div class="panel"><div class="head"><h3 id="mHead"></h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="mq" type="search" placeholder="Search in this collection…" style="width:220px">' +
+      '<div class="panel"><div class="head"><h3 id="mHead"></h3><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="mq" type="search" aria-label="Search in this collection" placeholder="Search in this collection…" style="width:220px">' +
         '<button class="btn" id="mAdd">+ Add existing products</button><button class="btn primary" id="mNew">+ Create new product here</button></div></div>' +
         '<div class="bulkbar" id="mBulk" hidden><b id="mbn"></b><button class="btn sm" data-b="sel-all">Select all</button>' +
-          '<span style="display:inline-flex;gap:4px"><input id="mdisc" type="number" min="1" max="90" placeholder="% off" style="width:80px"><button class="btn sm" data-b="disc">Apply discount</button></span>' +
+          '<span style="display:inline-flex;gap:4px"><input id="mdisc" type="number" aria-label="Discount percent" min="1" max="90" placeholder="% off" style="width:80px"><button class="btn sm" data-b="disc">Apply discount</button></span>' +
           '<button class="btn sm" data-b="flash-on">⚡ Flash on</button><button class="btn sm" data-b="flash-off">Flash off</button>' +
-          '<span style="display:inline-flex;gap:4px"><select id="morig">' + originOptions('china') + '</select><button class="btn sm" data-b="origin">Set ships from</button></span>' +
+          '<span style="display:inline-flex;gap:4px"><select id="morig" aria-label="Ships from">' + originOptions('china') + '</select><button class="btn sm" data-b="origin">Set ships from</button></span>' +
           '<button class="btn sm" data-b="remove" style="border-color:#f87171">Remove from collection</button><button class="btn sm" data-b="clear">Clear</button></div>' +
         '<p class="muted" style="margin:0 0 10px;font-size:12.5px">Drag tiles (or use ← →) to set the order customers see. Prices and stock save as you type.</p>' +
         '<div class="tiles" id="tiles"></div></div>';
@@ -813,7 +828,7 @@
           '<label class="tchk"><input type="checkbox" data-sel' + (sel[p.id] ? ' checked' : '') + ' aria-label="Select ' + esc(p.name) + '"></label>' +
           '<div class="tthumb" style="background:' + SCG.shade(p.color || '#0b2a6f', 170) + '">' + SCG.productVisual(p) + (off ? '<span class="toff">-' + off + '%</span>' : '') + (p.flash ? '<span class="tflash">⚡</span>' : '') + '</div>' +
           '<b class="tname">' + esc(p.name) + '</b><small class="muted">' + esc(o.local ? 'Colombo stock' : 'From ' + o.name) + '</small>' +
-          '<div class="tfields"><label>Price<input type="number" min="0" data-f="price" value="' + p.price + '"></label><label>Stock<input type="number" min="0" data-f="stock" value="' + p.stock + '"></label></div>' +
+          '<div class="tfields"><label>Price<input type="number" min="0" data-f="price" aria-label="Flash price" value="' + p.price + '"></label><label>Stock<input type="number" min="0" data-f="stock" value="' + p.stock + '"></label></div>' +
           '<div class="ttools"><button type="button" data-l title="Move earlier">←</button><button type="button" data-r title="Move later">→</button><button type="button" data-e title="Edit everything">✎ Edit</button><button type="button" data-x title="Remove from collection">✕</button></div></div>';
       }).join('') : '<div class="empty-ws"><h3>' + (ql ? 'No products match your search' : 'This collection is empty') + '</h3><p class="muted">Use “Add existing products”, “Create new product here” or a quick-fill rule.</p></div>';
       bulkUI();
@@ -830,7 +845,7 @@
     tiles.addEventListener('change', function (e) {
       var t = e.target.closest('.tile'); if (!t) return; var p = SCG.productById(t.dataset.id);
       if (e.target.hasAttribute('data-sel')) { sel[p.id] = e.target.checked; t.classList.toggle('sel', e.target.checked); bulkUI(); return; }
-      var f = e.target.dataset.f; if (f) { p[f] = Math.max(0, +e.target.value || 0); commit('Updated ' + p.name); }
+      var f = e.target.dataset.f; if (f) { if (!okNum(e.target, p, f)) return; p[f] = Math.max(0, Math.round(+e.target.value || 0)); commit('Updated ' + p.name); }
     });
     tiles.addEventListener('click', function (e) {
       var t = e.target.closest('.tile'), b = e.target.closest('button'); if (!t || !b) return;
@@ -871,8 +886,8 @@
     $('#mNew').onclick = function () { productForm(null, { collection: c.id, back: 'collections/' + c.id }); };
     $('#mAdd').onclick = function () {
       openModal('Add products to ' + c.name,
-        '<div class="filters"><input id="pk-q" type="search" placeholder="Search products…"><select id="pk-c"><option value="">All categories</option>' + db.categories.map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + '</option>'; }).join('') + '</select>' +
-        '<select id="pk-o"><option value="">Any country</option>' + originOptions('').replace(' selected', '') + '</select></div>' +
+        '<div class="filters"><input id="pk-q" type="search" aria-label="Search products" placeholder="Search products…"><select id="pk-c" aria-label="Filter by category"><option value="">All categories</option>' + db.categories.map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + '</option>'; }).join('') + '</select>' +
+        '<select id="pk-o" aria-label="Filter by country"><option value="">Any country</option>' + originOptions('').replace(' selected', '') + '</select></div>' +
         '<div class="picker" id="pk"></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px;flex-wrap:wrap"><span class="muted" id="pk-n">0 selected</span><button class="btn primary" id="pk-ok">Add selected</button></div>');
       var picked = {};
       function drawPick() {
@@ -971,14 +986,14 @@
       '<div class="panel"><h3>Countries you import from <small>switch a country off to hide it on the site and the globe</small></h3>' +
       '<div class="table-wrap" style="border:0"><table><thead><tr><th>Show</th><th>Code</th><th>Country</th><th>Label on products</th><th>Delivery (days)</th><th>Products</th><th>Globe cities</th></tr></thead><tbody id="otb">' +
       list.map(function (o, i) {
-        return '<tr data-i="' + i + '"><td>' + sw('on', o.on) + '</td><td><input data-k="code" value="' + esc(o.code) + '" style="width:60px" maxlength="3"></td>' +
-          '<td><input data-k="name" value="' + esc(o.name) + '" style="min-width:130px"></td><td><input data-k="label" value="' + esc(o.label) + '" style="min-width:140px"></td>' +
-          '<td><input data-k="days" value="' + esc(o.days) + '" style="width:90px"></td><td><a class="tag" href="#products" data-filter="' + o.id + '">' + count(o.id) + '</a></td>' +
+        return '<tr data-i="' + i + '"><td>' + sw('on', o.on) + '</td><td><input data-k="code" aria-label="Country code" value="' + esc(o.code) + '" style="width:60px" maxlength="3"></td>' +
+          '<td><input data-k="name" aria-label="Country name" value="' + esc(o.name) + '" style="min-width:130px"></td><td><input data-k="label" aria-label="Label on products" value="' + esc(o.label) + '" style="min-width:140px"></td>' +
+          '<td><input data-k="days" aria-label="Delivery days" value="' + esc(o.days) + '" style="width:90px"></td><td><a class="tag" href="#products" data-filter="' + o.id + '">' + count(o.id) + '</a></td>' +
           '<td><div class="checks">' + cities.filter(function (c) { return c.country === o.id; }).map(function (c) {
             return '<label><input type="checkbox" data-city value="' + esc(c.name) + '"' + ((s.globeCities || []).indexOf(c.name) > -1 ? ' checked' : '') + '> ' + esc(c.name) + ' <small class="muted">' + (c.mode === 'air' ? 'air' : 'sea') + '</small></label>';
           }).join('') + '</div></td></tr>';
       }).join('') +
-      '<tr><td></td><td><span class="tag ok">LK</span></td><td><b>Colombo stock</b></td><td class="muted">Ships from Colombo</td><td><input id="localDays" value="' + esc(s.localDays) + '" style="width:90px"></td><td><a class="tag" href="#products" data-filter="local">' + count('local') + '</a></td><td class="muted">Destination on the globe</td></tr>' +
+      '<tr><td></td><td><span class="tag ok">LK</span></td><td><b>Colombo stock</b></td><td class="muted">Ships from Colombo</td><td><input id="localDays" aria-label="Colombo stock delivery days" value="' + esc(s.localDays) + '" style="width:90px"></td><td><a class="tag" href="#products" data-filter="local">' + count('local') + '</a></td><td class="muted">Destination on the globe</td></tr>' +
       '</tbody></table></div></div>' +
       '<div class="panel"><div class="head"><h3>Globe preview <small>tick cities above, then Replay</small></h3><button class="btn sm" id="oPrev">Replay</button></div><div class="globe-prev" style="height:380px"><span class="cap">World → Sri Lanka</span><canvas></canvas></div></div>' +
       '<div class="save-bar"><button class="btn primary" id="oSave">Save import countries</button></div>';
@@ -1008,7 +1023,7 @@
   function banners(v) {
     setActions('<button class="btn primary" id="addHero">+ Add Banner</button>' + preview('', 'Preview homepage'));
     v.innerHTML = '<p class="muted" style="margin-top:0">Banners 1–2 sit beside the globe. Banners 3 and up show as wide banners below the categories (that section can be switched on or off in Homepage &amp; Globe). Use ↑ to reorder.</p><div class="cards">' + db.hero.map(function (h, i) {
-      return '<div class="item-card"><div class="cover" style="background:linear-gradient(120deg,' + h.color + ',' + SCG.shade(h.color, -70) + ')">' + (h.image ? '<img src="' + h.image + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div>' +
+      return '<div class="item-card"><div class="cover" style="background:linear-gradient(120deg,' + h.color + ',' + SCG.shade(h.color, -70) + ')">' + (h.image ? '<img src="' + SCG.imgSrc(h.image) + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div>' +
         '<div class="body"><small class="muted">' + (i < 2 ? 'BESIDE GLOBE' : 'WIDE BANNER') + ' · ' + esc(h.eyebrow) + '</small><h4>' + esc(h.title) + '</h4><p>' + esc(h.subtitle) + '</p><p><code class="muted">' + esc(h.link) + '</code></p></div>' +
         '<div class="foot"><button class="btn sm" data-up="' + i + '"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="btn sm" data-edit="' + i + '">Edit</button><button class="btn sm danger" data-del="' + i + '">Delete</button></div></div>';
     }).join('') + '</div>';
@@ -1025,7 +1040,7 @@
   }
   function bannerForm(i) {
     var h = i > -1 ? JSON.parse(JSON.stringify(db.hero[i])) : { id: SCG.uid('h'), eyebrow: 'New Season', title: 'Your headline', subtitle: '', cta: 'Shop Now', link: '#shop', color: '#0b2a6f', shape: 'tshirt', image: '' };
-    function prev() { return h.image ? '<img src="' + h.image + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color); }
+    function prev() { return h.image ? '<img src="' + SCG.imgSrc(h.image) + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color); }
     openModal(i > -1 ? 'Edit Banner' : 'Add Banner',
       '<form class="form" id="hform"><label>Small label<input name="eyebrow" value="' + esc(h.eyebrow) + '"></label>' +
       '<label>Button text<input name="cta" value="' + esc(h.cta) + '"></label>' +
@@ -1034,7 +1049,7 @@
       '<label>Opens<input name="link" list="hlinks" value="' + esc(h.link) + '"><datalist id="hlinks">' + linkOptions().map(function (l) { return '<option value="' + l + '">'; }).join('') + '</datalist></label>' +
       '<label>Background colour<input type="color" name="color" value="' + esc(h.color) + '"></label>' +
       '<label>Picture (if no image)<select name="shape">' + Object.keys(SCG.SHAPES).map(function (s) { return '<option' + (s === h.shape ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
-      '<div class="full"><label style="margin-bottom:8px">Image (optional; a product photo on a plain background works best)</label><div class="uploader" id="hup"><div class="preview" style="background:' + esc(h.color) + '">' + prev() + '</div><div class="btns"><input type="file" accept="image/*"><button type="button" class="btn sm danger" data-rm-img>Remove</button></div></div></div>' +
+      '<div class="full"><label style="margin-bottom:8px">Image (optional; a product photo on a plain background works best)</label><div class="uploader" id="hup"><div class="preview" style="background:' + esc(h.color) + '">' + prev() + '</div><div class="btns"><input type="file" accept="image/*" aria-label="Upload a picture"><button type="button" class="btn sm danger" data-rm-img>Remove</button></div></div></div>' +
       '<div class="form-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Save</button></div></form>');
     var f = $('#hform'), E = f.elements;
     bindUploader($('#hup'), prev, function (u) { h.image = u; });
@@ -1054,7 +1069,7 @@
     var s = db.settings;
     setActions(preview('', 'Preview'));
     v.innerHTML =
-      '<div class="panel"><h3>Announcement bar <small>the scrolling line at the very top; separate messages with ✦</small></h3><textarea id="ann" rows="2">' + esc(s.announcement) + '</textarea></div>' +
+      '<div class="panel"><h3>Announcement bar <small>the scrolling line at the very top; separate messages with ✦</small></h3><textarea id="ann" aria-label="Announcement text" rows="2">' + esc(s.announcement) + '</textarea></div>' +
       '<div class="panel"><h3>Menu links <small>shown next to “Categories” in the header</small></h3><div id="nav"></div></div>' +
       '<div class="panel"><h3>Payment methods in the footer</h3><div id="pay"></div></div>' +
       '<div class="panel"><h3>Footer contact details</h3><p class="muted" style="margin:0">Address, phone, email and WhatsApp are edited in <a href="#settings" style="color:var(--red)">Store Settings</a>.</p></div>' +
@@ -1096,7 +1111,7 @@
     if (arg && STATUSES.indexOf(arg) > -1) filt = arg;
     if (arg && arg.indexOf('q:') === 0) q = arg.slice(2);
     var openId = arg && arg.indexOf('id:') === 0 ? arg.slice(3) : '';
-    v.innerHTML = '<div class="chip-tabs" id="otabs"></div><div class="filters"><input id="oq" type="search" placeholder="Search order no, name or phone…" value="' + esc(q) + '"></div><div id="olist"></div>';
+    v.innerHTML = '<div class="chip-tabs" id="otabs"></div><div class="filters"><input id="oq" type="search" aria-label="Search orders" placeholder="Search order no, name or phone…" value="' + esc(q) + '"></div><div id="olist"></div>';
     function draw() {
       os = orders();
       $('#otabs').innerHTML = ['All'].concat(STATUSES).map(function (s) {
@@ -1168,7 +1183,7 @@
     });
     var list = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.spent - a.spent; });
     var focus = arg ? String(arg).replace(/\D/g, '').slice(-9) : '';
-    v.innerHTML = list.length ? '<div class="filters"><input id="cq" type="search" placeholder="Search name or phone…"><span class="muted" style="align-self:center">' + list.length + ' customers</span></div>' +
+    v.innerHTML = list.length ? '<div class="filters"><input id="cq" type="search" aria-label="Search customers" placeholder="Search name or phone…"><span class="muted" style="align-self:center">' + list.length + ' customers</span></div>' +
       '<div class="table-wrap"><table><thead><tr><th>Customer</th><th>Phone / email</th><th>Address</th><th>Orders</th><th>Total spent</th><th>Last order</th><th></th></tr></thead><tbody id="ctb">' +
       list.map(function (c) {
         var key = String(c.phone).replace(/\D/g, '').slice(-9);

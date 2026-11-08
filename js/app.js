@@ -46,7 +46,7 @@
   function activeOrigins() { return SCG.origins().filter(function (o) { return o.on; }); }
   function visual(p, color) { return SCG.productVisual(p, color); }
   function catIcon(c) {
-    if (c.image) return '<img src="' + c.image + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
+    if (c.image) return '<img src="' + SCG.imgSrc(c.image) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
     var sample = db.products.filter(function (p) { return p.category === c.id; })[0];
     return SCG.productSVG(c.shape, c.icon || (sample && sample.color) || '#0b2a6f', 'solid', '#f3f4f6');
   }
@@ -60,7 +60,7 @@
     var off = SCG.discount(p), wish = SCG.getWish().indexOf(p.id) > -1, imgs = SCG.productImages(p);
     var soldPct = Math.min(96, 30 + (p.sold % 60));
     return '<article class="card" data-ed="product" data-id="' + p.id + '" style="--c:' + p.color + '">' +
-      '<a class="media' + (imgs[1] ? ' has-alt' : '') + '" href="#p/' + p.id + '" aria-label="' + esc(p.name) + '">' + visual(p) + (imgs[1] ? '<img class="alt" src="' + imgs[1] + '" alt="" loading="lazy">' : '') +
+      '<a class="media' + (imgs[1] ? ' has-alt' : '') + '" href="#p/' + p.id + '" aria-label="' + esc(p.name) + '">' + visual(p) + (imgs[1] ? '<img class="alt" src="' + SCG.imgSrc(imgs[1]) + '" alt="" loading="lazy">' : '') +
       (off ? '<span class="tag-off">-' + off + '%</span>' : (p.badge === 'New' ? '<span class="tag-new">NEW</span>' : '')) + '</a>' +
       '<button class="heart' + (wish ? ' on' : '') + '" data-wish="' + p.id + '" aria-label="Add to wishlist">' + I.heart + '</button>' +
       '<div class="info"><a class="title" href="#p/' + p.id + '">' + esc(p.name) + '</a>' +
@@ -216,7 +216,7 @@
     var promos = db.hero.slice(0, 2), banners = db.hero.slice(2);
     var promoHTML = function (h, i) {
       return '<a class="promo" data-ed="banner" data-i="' + i + '" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><small>' + esc(h.eyebrow) + '</small><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle) + '</span><em>' + esc(h.cta || 'Shop now') + ' →</em>' +
-        '<div class="art">' + (h.image ? '<img src="' + h.image + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div></a>';
+        '<div class="art">' + (h.image ? '<img src="' + SCG.imgSrc(h.image) + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div></a>';
     };
     var parts = {
       services: function () {
@@ -240,7 +240,7 @@
           var items = db.products.filter(function (p) { return p.category === key || (p.collections || []).indexOf(key) > -1; }).slice(0, 2);
           if (!items.length) items = db.products.filter(function (p) { return p.shape === h.shape; }).slice(0, 2);
           return '<a class="banner" data-ed="banner" data-i="' + (j + 2) + '" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle || '') + '</span>' +
-            '<div class="stack">' + (h.image ? '<div><img src="' + h.image + '" alt="" style="border-radius:8px;height:100%;object-fit:cover"></div>' : items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
+            '<div class="stack">' + (h.image ? '<div><img src="' + SCG.imgSrc(h.image) + '" alt="" style="border-radius:8px;height:100%;object-fit:cover"></div>' : items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
         }).join('') + '</section>';
       },
       countries: function (sec) {
@@ -320,7 +320,7 @@
     setTitle(kind === 'search' ? 'Search' : title);
 
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>' + esc(title) + '</span></div>' +
-      (kind !== 'search' ? '<div class="cat-hero reveal" ' + ({ c: 'data-ed="category" data-id="' + esc(val) + '"', col: 'data-ed="collection" data-id="' + esc(val) + '"', flash: 'data-ed="flash"', from: 'data-ed="origins"', shop: '' }[kind] || '') + ' style="--c:' + color + (cover ? ';--cover:url(' + cover + ')' : '') + '"' + (cover ? ' data-cover' : '') + '><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' && flashOn() ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + (cover ? '' : '<div class="art' + (artImg ? ' photo' : '') + '">' + (artImg ? '<img src="' + artImg + '" alt="">' : SCG.productSVG(art, '#ffffff', 'solid', color)) + '</div>') + '</div>' : '') +
+      (kind !== 'search' ? '<div class="cat-hero reveal" ' + ({ c: 'data-ed="category" data-id="' + esc(val) + '"', col: 'data-ed="collection" data-id="' + esc(val) + '"', flash: 'data-ed="flash"', from: 'data-ed="origins"', shop: '' }[kind] || '') + ' style="--c:' + color + (cover ? ';--cover:url(' + SCG.imgSrc(String(cover).replace(/[()'"\\\s]/g, encodeURIComponent)) + ')' : '') + '"' + (cover ? ' data-cover' : '') + '><h1>' + esc(title) + '</h1><p>' + esc(sub) + '</p>' + (kind === 'flash' && flashOn() ? '<p style="margin-top:8px">' + cdHTML() + '</p>' : '') + (cover ? '' : '<div class="art' + (artImg ? ' photo' : '') + '">' + (artImg ? '<img src="' + SCG.imgSrc(artImg) + '" alt="">' : SCG.productSVG(art, '#ffffff', 'solid', color)) + '</div>') + '</div>' : '') +
       '<div class="listing"><aside class="panel filters" id="filters">' +
         '<div class="grp"><h4>Category</h4>' + db.categories.map(function (c) { return '<label><input type="checkbox" name="fc" value="' + c.id + '"' + (st.cats.indexOf(c.id) > -1 ? ' checked' : '') + '>' + esc(c.name) + '</label>'; }).join('') + '</div>' +
         '<div class="grp"><h4>Price (Rs.)</h4><div class="price-row"><input id="fmin" type="number" min="0" placeholder="Min" aria-label="Minimum price"><span aria-hidden="true">–</span><input id="fmax" type="number" min="0" placeholder="Max" aria-label="Maximum price"></div></div>' +
@@ -391,7 +391,7 @@
     app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<a href="#c/' + p.category + '">' + esc(cat ? cat.name : '') + '</a>›<span>' + esc(p.name) + '</span></div>' +
       '<div class="pdp"><div><div class="panel pdp-main" data-ed="product" data-id="' + p.id + '">' +
         '<div class="gallery"><div class="big" id="big" style="--c:' + p.color + '">' + visual(p) + '</div>' +
-          '<div class="thumbs" id="thumbs">' + (imgs.length > 1 ? imgs.map(function (src, i) { return '<button class="' + (i ? '' : 'on') + '" data-img="' + i + '" aria-label="Photo ' + (i + 1) + '"><img src="' + src + '" alt=""></button>'; }).join('') : imgs.length ? '' : vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('')) + '</div></div>' +
+          '<div class="thumbs" id="thumbs">' + (imgs.length > 1 ? imgs.map(function (src, i) { return '<button class="' + (i ? '' : 'on') + '" data-img="' + i + '" aria-label="Photo ' + (i + 1) + '"><img src="' + SCG.imgSrc(src) + '" alt=""></button>'; }).join('') : imgs.length ? '' : vars.map(function (c, i) { return '<button class="' + (i ? '' : 'on') + '" data-c="' + c + '" aria-label="Colour ' + (i + 1) + '">' + visual(p, c) + '</button>'; }).join('')) + '</div></div>' +
         '<div><h1>' + esc(p.name) + '</h1>' +
           '<div class="sub">' + (p.reviews ? stars(p.rating) + '<span>' + p.rating + ' · ' + p.reviews + ' ratings</span>' : '<span>No ratings yet</span>') + (p.sold ? '<span>' + fmtCount(p.sold) + ' sold</span>' : '') + (p.brand ? '<span>Brand: <a href="#search/' + encodeURIComponent(p.brand) + '">' + esc(p.brand) + '</a></span>' : '') + '</div>' +
           (isFlash(p) ? '<div class="flash-strip"><span>⚡ ' + esc(db.settings.flashTitle || 'Flash Sale') + '</span>' + cdHTML() + '</div>' : '') +
@@ -426,7 +426,7 @@
     }
     tab('d');
     $('#ptabs').onclick = function (e) { var b = e.target.closest('button'); if (b) tab(b.dataset.t); };
-    $('#thumbs').addEventListener('click', function (e) { var b = e.target.closest('[data-img]'); if (!b) return; $('#big').innerHTML = '<img src="' + imgs[+b.dataset.img] + '" alt="' + esc(p.name) + '">'; $$('#thumbs button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+    $('#thumbs').addEventListener('click', function (e) { var b = e.target.closest('[data-img]'); if (!b) return; $('#big').innerHTML = '<img src="' + SCG.imgSrc(imgs[+b.dataset.img]) + '" alt="' + esc(p.name) + '">'; $$('#thumbs button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     function pick(c) { st.color = c; $('#big').innerHTML = visual(p, c); ['#thumbs', '#sw'].forEach(function (s) { if ($(s)) $$('button', $(s)).forEach(function (b) { b.classList.toggle('on', b.dataset.c === c); }); }); }
     // colour buttons only (photo thumbnails have their own handler above)
     ['#thumbs', '#sw'].forEach(function (s) { if ($(s)) $(s).onclick = function (e) { var b = e.target.closest('button[data-c]'); if (b) pick(b.dataset.c); }; });
@@ -522,7 +522,7 @@
         : '<div class="acct-note full new">' + I.user + '<span><b>First order?</b> We create your Source Connect account from these details, so next time checkout is one click and you can see all your orders.</span></div>') +
       '<h3>Delivery information</h3>' +
       '<label>Full name<input name="name" required autocomplete="name" placeholder="e.g. Nimal Perera"></label>' +
-      '<label>Phone number<input name="phone" required pattern="[0-9+ ]{9,15}" autocomplete="tel" placeholder="07X XXX XXXX"></label>' +
+      '<label>Phone number<input name="phone" required pattern="[+]?[0-9][0-9 ]{8,14}" title="Phone number, e.g. 077 123 4567" autocomplete="tel" placeholder="07X XXX XXXX"></label>' +
       '<label class="full">Email (optional, for order updates)<input name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>' +
       '<label class="full">Address<input name="address" required autocomplete="street-address" placeholder="House no, street, area"></label>' +
       '<label>City<input name="city" required placeholder="e.g. Nugegoda"></label>' +
@@ -545,6 +545,9 @@
       var short = lines.filter(function (x) { var pr = SCG.productById(x.p.id); return !pr || inCart(x.p.id, lines.map(function (y) { return y.l; })) > pr.stock; });
       if (short.length) { coError('Not enough stock for: ' + short.map(function (x) { return x.p.name; }).join(', ') + '. Please update your cart.'); return; }
       var fd = new FormData(e.target), orders = SCG.getOrders();
+      var blank = ['name', 'phone', 'address', 'city'].filter(function (k) { var el = e.target.elements[k]; return el && el.required && !String(fd.get(k) || '').trim(); })[0];
+      if (blank) { coError('Please fill in your ' + blank + '.'); e.target.elements[blank].value = ''; e.target.elements[blank].focus(); return; }
+      ['name', 'phone', 'email', 'address', 'city', 'note'].forEach(function (k) { if (fd.has(k)) fd.set(k, String(fd.get(k) || '').trim()); });
       var order = {
         id: 'SCG' + Date.now().toString().slice(-7), date: new Date().toISOString(), status: 'Pending', payment: fd.get('pay') || 'Cash on Delivery',
         customer: { name: fd.get('name'), phone: fd.get('phone'), email: fd.get('email') || '', address: fd.get('address') + ', ' + fd.get('city') + ', ' + fd.get('district'), note: fd.get('note') },
@@ -683,7 +686,7 @@
         }).join('') : '<p class="empty">No orders yet.</p>') + '</div>' +
       '<div><form class="panel form" id="profForm"><h3>My details</h3>' +
         '<label class="full">Full name<input name="name" required value="' + esc(p.name) + '"></label>' +
-        '<label>Phone<input name="phone" required pattern="[0-9+ ]{9,15}" value="' + esc(p.phone) + '"></label>' +
+        '<label>Phone<input name="phone" required pattern="[+]?[0-9][0-9 ]{8,14}" title="Phone number, e.g. 077 123 4567" value="' + esc(p.phone) + '"></label>' +
         '<label>Email<input name="email" type="email" value="' + esc(p.email || '') + '"></label>' +
         '<label class="full">Address<input name="address" value="' + esc(p.address || '') + '"></label>' +
         '<label>City<input name="city" value="' + esc(p.city || '') + '"></label>' +
