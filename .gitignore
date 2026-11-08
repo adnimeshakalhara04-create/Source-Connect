@@ -7,3 +7,4 @@ server/uploads/
 e2e/out/
 .pgdata/
 *.log
+seed-catalogue/

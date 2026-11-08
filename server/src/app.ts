@@ -12,6 +12,7 @@ import type { Config } from './config.js';
 import { HttpError } from './lib/errors.js';
 import { pendingMigrations } from './db/migrate.js';
 import publicCatalog from './routes/public/catalog.js';
+import { invalidateStorefront } from './catalog.js';
 import adminAuth from './routes/admin/auth.js';
 import adminStaff from './routes/admin/staff.js';
 import publicOrders from './routes/public/orders.js';
@@ -62,7 +63,7 @@ export async function buildApp(cfg: Config, db: Pool, extra: Extra = {}): Promis
   });
   await app.register(cookie);
   await app.register(formbody, { bodyLimit: 20_000 });          // PayHere notify is x-www-form-urlencoded
-  await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute', allowList: cfg.NODE_ENV === 'test' ? () => false : undefined });
+  await app.register(rateLimit, { global: true, max: cfg.RATE_LIMIT_PER_MIN, timeWindow: '1 minute' });
 
   if (cfg.apiDocs) {
     await app.register(swagger, { openapi: { info: { title: 'Source Connect Global API', version: '1.0.0', description: 'Storefront, admin and PayHere endpoints. All admin writes need the x-csrf-token header.' } } });
@@ -106,6 +107,8 @@ export async function buildApp(cfg: Config, db: Pool, extra: Extra = {}): Promis
     await v1.register(async admin => {
       // never cache anything private
       admin.addHook('onSend', async (_req, reply) => { reply.header('cache-control', 'no-store'); });
+      // any successful change by staff makes the cached storefront stale
+      admin.addHook('onSend', async (req, reply) => { if (req.method !== 'GET' && reply.statusCode < 400) invalidateStorefront(); });
       await admin.register(adminAuth);
       await admin.register(adminStaff);
       await admin.register(adminCatalog);

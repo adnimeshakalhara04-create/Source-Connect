@@ -1,0 +1,6 @@
+[Unit]
+Description=Source Connect: server health check
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/source-connect/health.env
+ExecStart=/opt/source-connect/infra/monitoring/sc-health.sh

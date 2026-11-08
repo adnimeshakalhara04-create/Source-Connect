@@ -34,7 +34,7 @@ export async function orderView(db: Pool, id: string, full: boolean) {
 export default async function publicOrders(app: FastifyInstance) {
   const db = app.db, cfg = app.config;
 
-  app.post('/cart/quote', { preHandler: withCustomer(db), config: { rateLimit: { max: 60, timeWindow: '1 minute' } }, schema: { tags: ['checkout'], summary: 'Server prices, stock and totals for a cart' } }, async (req) => {
+  app.post('/cart/quote', { preHandler: withCustomer(db), config: { rateLimit: { max: cfg.QUOTE_RATE_LIMIT_PER_MIN, timeWindow: '1 minute' } }, schema: { tags: ['checkout'], summary: 'Server prices, stock and totals for a cart' } }, async (req) => {
     const b = parse(z.strictObject({ items: z.array(CartLine).max(50), coupon: z.string().max(30).optional().nullable() }), req.body);
     return quoteForClient(await priceCart(db, b.items, { couponCode: b.coupon }));
   });

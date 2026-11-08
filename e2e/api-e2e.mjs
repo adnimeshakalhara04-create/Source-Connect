@@ -25,6 +25,9 @@ async function ctx(opts = {}) {
   await c.route('https://sandbox.payhere.lk/**', async r => { c._payhere = r.request().postData(); await r.fulfill({ status: 200, contentType: 'text/html', body: '<h1>PayHere sandbox (stub)</h1>' }); });
   return c;
 }
+// pick a size that is in stock right now (runs can be repeated on the same database)
+const inStock = async (slug) => { const p = await (await fetch(API + '/api/v1/products/' + slug)).json(); const v = (p.variants || []).slice().sort((a, b) => b.stock - a.stock)[0]; return v ? v.size : ''; };
+const cartWith = async (pg, slug) => { const size = await inStock(slug); await pg.evaluate(([id, sz]) => { SCG.saveCart([{ id, size: sz, qty: 1, sel: true }]); location.hash = 'checkout'; }, [slug, size]); };
 const page = async (c, name) => { const p = await c.newPage(); p.on('pageerror', e => errors.push(name + ': ' + e.message)); p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(name + ' console: ' + m.text().slice(0, 160)); }); return p; };
 const q = s => SITE + '/' + s.replace(/^\//, '');
 const withApi = (path) => { const i = path.indexOf('#'); const p = i < 0 ? path : path.slice(0, i), h = i < 0 ? '' : path.slice(i); return q(p + (p.includes('?') ? '&' : '?') + 'api=' + encodeURIComponent(API) + h); };
@@ -79,7 +82,7 @@ check('uploaded photo is served', !!img && img.status === 200 && /image\//.test(
 
 // ---------- 3. guest Cash on Delivery order ----------
 await sp.goto(withApi('#p/mens-1')); await sp.waitForTimeout(800);
-await sp.evaluate(() => { SCG.saveCart([{ id: 'mens-1', size: 'M', qty: 1, sel: true }]); location.hash = 'checkout'; });
+await cartWith(sp, 'mens-1');
 await sp.waitForSelector('#placeBtn:not([disabled])', { timeout: 15000 });
 await sp.fill('#co [name=name]', 'Test Buyer'); await sp.fill('#co [name=phone]', '0771234567'); await sp.fill('#co [name=address]', '12 Temple Road'); await sp.fill('#co [name=city]', 'Kandy');
 await sp.selectOption('#co [name=district]', 'Kandy');
@@ -102,7 +105,7 @@ await ap.check('#dform input[name=payOnline]', { force: true }); await ap.click(
 await ap.waitForFunction(() => !SCG.syncing(), null, { timeout: 15000 }); await ap.waitForTimeout(300);
 check('owner switches on card payments in Store Settings', (await (await fetch(API + '/api/v1/site-content')).json()).payOnline === true);
 await sp.goto(withApi('')); await sp.waitForSelector('.card', { timeout: 15000 });
-await sp.evaluate(() => { SCG.saveCart([{ id: 'womens-5', size: 'M', qty: 1, sel: true }]); location.hash = 'checkout'; });
+await cartWith(sp, 'womens-5');
 await sp.waitForSelector('#placeBtn:not([disabled])', { timeout: 15000 });
 await sp.fill('#co [name=name]', 'Card Buyer'); await sp.fill('#co [name=phone]', '0771234568'); await sp.fill('#co [name=email]', 'card@example.com');
 await sp.fill('#co [name=address]', '5 Lake Road'); await sp.fill('#co [name=city]', 'Galle'); await sp.selectOption('#co [name=district]', 'Galle');
@@ -136,7 +139,7 @@ await mp.goto(withApi('')); await mp.waitForSelector('.card', { timeout: 15000 }
 const ow = await mp.evaluate(() => document.documentElement.scrollWidth - innerWidth);
 check('mobile home has no sideways scrolling', ow <= 1, 'overflow ' + ow + 'px');
 await mp.screenshot({ path: OUT + '/api-home-mobile.jpg', type: 'jpeg', quality: 70 });
-await mp.evaluate(() => { SCG.saveCart([{ id: 'mens-2', size: 'L', qty: 1, sel: true }]); location.hash = 'checkout'; }); await mp.waitForSelector('#placeBtn:not([disabled])', { timeout: 15000 });
+await cartWith(mp, 'mens-2'); await mp.waitForSelector('#placeBtn:not([disabled])', { timeout: 15000 });
 check('mobile checkout has no sideways scrolling', (await mp.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
 await mp.screenshot({ path: OUT + '/api-checkout-mobile.jpg', type: 'jpeg', quality: 70 });
 const mad = await ctx({ ...devices['iPhone 13'] }); const map = await page(mad, 'mobile-admin');

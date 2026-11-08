@@ -43,6 +43,9 @@ const Env = z.object({
   BACKUP_MAX_AGE_HOURS: z.coerce.number().default(26),
   // checkout requests per IP per minute (raise only for load tests / drills on a private test server)
   ORDER_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).max(100000).default(10),
+  RATE_LIMIT_PER_MIN: z.coerce.number().int().min(10).max(1000000).default(300),   // all API requests per IP per minute
+  QUOTE_RATE_LIMIT_PER_MIN: z.coerce.number().int().min(1).max(1000000).default(60),
+  STOREFRONT_CACHE_SECONDS: z.coerce.number().min(0).max(300).default(10),   // in-memory catalogue cache; cleared on every admin change
 });
 
 export type Config = z.infer<typeof Env> & { corsOrigins: string[]; apiDocs: boolean };

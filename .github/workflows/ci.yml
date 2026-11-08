@@ -1,0 +1,43 @@
+name: CI
+on:
+  push:
+    branches: ['**']
+    paths: ['server/**', 'js/**', 'admin/**', '.github/workflows/ci.yml']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  api-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Tests (migrations, auth, RBAC, checkout, stock concurrency, PayHere, admin)
+        run: npm test
+        env:
+          TEST_PG_ADMIN_URL: postgres://postgres:ci-only-password@127.0.0.1:5432/postgres
+      - name: Production image builds
+        run: mkdir -p seed-catalogue && cp ../js/store.js seed-catalogue/store.js && docker build -t source-connect-api:ci .
+  frontend-syntax:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: for f in js/*.js admin/*.js; do node --check "$f" || exit 1; done

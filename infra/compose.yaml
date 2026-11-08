@@ -1,0 +1,29 @@
+# Source Connect API on the VPS. PostgreSQL and Caddy run natively (apt) so pgBackRest can archive WAL directly.
+# The API image tag is the git commit (set by deploy.sh) so a rollback is just the previous tag.
+services:
+  api:
+    image: source-connect-api:${API_TAG:?set API_TAG}
+    init: true
+    restart: unless-stopped
+    network_mode: host            # reaches PostgreSQL on 127.0.0.1; listens on 127.0.0.1:8080 only (Caddy is the public door)
+    env_file: /etc/source-connect/api.env
+    environment:
+      HOST: 127.0.0.1
+      PORT: "8080"
+    volumes:
+      - /srv/source-connect/uploads:/srv/source-connect/uploads
+    mem_limit: 768m
+    cpus: 1.5
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }

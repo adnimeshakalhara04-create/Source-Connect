@@ -92,6 +92,17 @@ export async function shops(db: Q): Promise<any[]> {
   return r.rows.map(s => ({ id: s.slug, name: s.name, status: s.status }));
 }
 
+// Short in-memory cache of the serialised storefront snapshot. Any successful admin change clears it,
+// so staff see their edits at once; other API instances refresh within STOREFRONT_CACHE_SECONDS.
+let snapCache: { at: number; body: string } | null = null;
+export function invalidateStorefront() { snapCache = null; }
+export async function storefrontJson(db: Q, ttlSeconds: number): Promise<string> {
+  if (snapCache && Date.now() - snapCache.at < ttlSeconds * 1000) return snapCache.body;
+  const body = JSON.stringify(await storefrontSnapshot(db));
+  if (ttlSeconds > 0) snapCache = { at: Date.now(), body };
+  return body;
+}
+
 /** Everything the storefront needs to render, in the legacy `SCG` database shape. */
 export async function storefrontSnapshot(db: Q): Promise<any> {
   const [settings, categories, collections, hero, products, shopList] = await Promise.all([

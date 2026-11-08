@@ -9,8 +9,8 @@ const publicCache = 'public, max-age=30, stale-while-revalidate=120';
 export default async function publicCatalog(app: FastifyInstance) {
   const db = app.db;
   app.get('/storefront', { schema: { tags: ['public'], summary: 'Everything the storefront renders (legacy SCG shape)' } }, async (_req, reply) => {
-    reply.header('cache-control', publicCache);
-    return cat.storefrontSnapshot(db);
+    reply.header('cache-control', publicCache).type('application/json; charset=utf-8');
+    return cat.storefrontJson(db, app.config.STOREFRONT_CACHE_SECONDS);
   });
   app.get('/shops', { schema: { tags: ['public'] } }, async (_r, reply) => { reply.header('cache-control', publicCache); return cat.shops(db); });
   app.get('/categories', { schema: { tags: ['public'] } }, async (_r, reply) => { reply.header('cache-control', publicCache); return cat.legacyCategories(db); });

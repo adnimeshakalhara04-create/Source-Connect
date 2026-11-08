@@ -42,26 +42,40 @@ Every part of the website can be changed from `/admin/`:
 
 **Edit bar on the website:** while you are signed in to the admin panel, the website shows an ADMIN bar with “Edit this collection / product / homepage” shortcuts. Log out hides it.
 
-## Status: still in development (not ready for real orders yet)
-Fixed so far: stock limits (cart, checkout and sold-out products), checkout never shows success if the order was not saved, photo gallery, admin password stored as a salted hash instead of plain text, footer only lists accepted payments, no fake ratings on new products, smaller logo file, accessibility labels. The admin **Dashboard** shows a *Before you go live* checklist of everything still to change.
+## Status
+**Branch `claude/fullstack-backend`** adds a real backend: PostgreSQL database, secure staff login with roles, server-side prices and stock, PayHere (sandbox), Cash on Delivery and bank-transfer workflows, customer accounts, encrypted off-site backups with tested restores, and VPS deployment scripts. The design is unchanged.
+See **`docs/IMPLEMENTATION-REPORT.md`** (what is done, tested and still needs the owner) and **`docs/OWNER-GUIDE-SINHALA.md`** (owner guide in Sinhala).
 
-Still needs a backend (planned next):
-1. **Online database** (e.g. Supabase): products, orders and customers shared by every device, so orders from customers' phones reach the admin panel.
-2. **Server login** for the admin panel, and **Sign in with Google** for customers.
-3. **Card payments** through a Sri Lankan payment gateway (e.g. PayHere), which needs a merchant account.
-4. Product photos stored online instead of in the browser.
+The GitHub Pages site still runs the offline demo (no API configured), so it is **not** for real orders until the launch checklist in `docs/release-checklist.md` is signed off.
 
 ## Data storage
-Data is saved in the browser's **localStorage**. Admin changes show up on the website in the same browser only. For a live shop where customers on many devices see the same products and their orders reach you, connect a backend such as Supabase or Firebase. `js/store.js` is the only file that needs to change.
+- **With the API** (`js/config.js` → `PRODUCTION_API`): everything is in PostgreSQL through `server/` (see `docs/architecture.md`). The browser keeps only the cart, wishlist and UI preferences.
+- **Without the API** (demo): data stays in the visitor's browser (localStorage), as before.
 
 ## Run locally
 ```bash
-python3 -m http.server 8000
-# http://localhost:8000  and  http://localhost:8000/admin/
+# website only (offline demo)
+python3 -m http.server 8000            # http://localhost:8000  and  /admin/
+
+# with the real backend
+server/scripts/dev-db.sh start         # local PostgreSQL 16 on port 5433
+cd server && npm ci
+export DATABASE_URL=postgres://postgres@127.0.0.1:5433/sc_dev
+npm run migrate && npm run seed && npm run create-owner -- --username owner --name "Shop Owner"
+cp .env.example .env                    # adjust for development (see the file)
+npm run dev                             # API on http://127.0.0.1:8080, docs at /docs
+# open http://localhost:8000/?api=http://127.0.0.1:8080 and /admin/?api=http://127.0.0.1:8080
+npm test                                # 69 API tests on a fresh database
 ```
 
 ## Files
 ```
+server/             API (TypeScript/Fastify), migrations, tests, Dockerfile
+infra/              backups (pgBackRest), deploy (VPS, Caddy, compose), monitoring
+docs/               audit, architecture, ERD, runbooks, checklists, Sinhala owner guide, evidence
+e2e/                browser end-to-end, load test, baseline screenshots, demo-mode audits
+js/config.js        API address (empty = offline demo)
+js/api.js           connection between the original UI and the API
 index.html          storefront shell
 css/style.css       storefront styles
 js/store.js         data layer, 120 seed products, product illustrations
