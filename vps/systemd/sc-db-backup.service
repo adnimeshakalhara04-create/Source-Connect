@@ -1,0 +1,14 @@
+[Unit]
+Description=Source Connect: encrypted database backup (Supabase -> VPS -> R2)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/source-connect/vps/backup/sc-db-backup.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=45min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true

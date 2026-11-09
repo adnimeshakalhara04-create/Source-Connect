@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly Source Connect restore drill (Sunday 03:30 Sri Lanka time)
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00 Asia/Colombo
+Persistent=true
+
+[Install]
+WantedBy=timers.target

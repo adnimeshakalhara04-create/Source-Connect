@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly Source Connect photo backup
+
+[Timer]
+OnCalendar=*-*-* *:35:00
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

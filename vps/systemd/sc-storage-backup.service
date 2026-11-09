@@ -1,0 +1,14 @@
+[Unit]
+Description=Source Connect: product photo backup (Supabase Storage -> VPS -> R2, encrypted)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/source-connect/vps/backup/sc-storage-backup.sh
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=2h
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true

@@ -1,0 +1,13 @@
+[Unit]
+Description=Source Connect: weekly restore drill (newest backup from R2 into a throw-away database)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/source-connect/vps/backup/sc-restore-drill.sh
+Nice=10
+TimeoutStartSec=3h
+PrivateTmp=true
+ProtectHome=true
