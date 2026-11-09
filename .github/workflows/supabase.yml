@@ -1,0 +1,55 @@
+name: Supabase hybrid
+# Runs everything against a LOCAL Supabase stack inside the CI runner. No hosted project, no real keys:
+# the PayHere values below are test-only placeholders that the tests themselves expect.
+on:
+  push:
+    branches: ['**']
+    paths: ['supabase/**', 'vps/**', 'js/**', 'admin/**', 'index.html', 'e2e/supabase-e2e.mjs', '.github/workflows/supabase.yml']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  supabase:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.1
+      - name: Tools for the backup drill
+        run: sudo apt-get update -q && sudo apt-get install -yq age rclone postgresql-client
+      - name: Install test, worker and browser-test packages
+        run: |
+          (cd supabase/tests && npm ci)
+          (cd vps/worker && npm ci)
+          (cd e2e && npm ci && npx playwright install --with-deps chromium)
+          npm install --prefix /tmp/s3rver s3rver@3.7.1
+      - name: Start local Supabase
+        run: supabase start -x studio,imgproxy,vector,logflare,mailpit
+      - name: Serve Edge Functions with test-only settings
+        run: |
+          printf '%s\n' PAYHERE_MODE=sandbox PAYHERE_LIVE_APPROVED=false PAYHERE_MERCHANT_ID=1211149 \
+            PAYHERE_MERCHANT_SECRET=local-test-secret-not-real PUBLIC_SITE_URL=http://127.0.0.1:8000 \
+            SITE_ORIGINS=http://127.0.0.1:8000,http://localhost:8000 ORDER_RATE_LIMIT_PER_MIN=1000 > supabase/functions/.env
+          nohup supabase functions serve --env-file supabase/functions/.env > /tmp/functions.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs -o /dev/null -X OPTIONS http://127.0.0.1:54321/functions/v1/checkout && break; sleep 2; done
+      - name: Database, security, Edge Function and VPS worker tests
+        working-directory: supabase/tests
+        run: npx vitest run
+      - name: Browser end-to-end test (storefront + admin, MFA, checkout, PayHere sandbox flow)
+        run: |
+          nohup python3 -m http.server 8000 --bind 127.0.0.1 > /tmp/site.log 2>&1 &
+          sleep 2
+          node e2e/supabase-e2e.mjs
+      - name: Backup + restore drill (R2 replaced by a local HTTPS S3 server)
+        run: S3RVER=/tmp/s3rver/node_modules/.bin/s3rver bash vps/backup/drill/run-hybrid-drill.sh
+      - name: Drill log
+        if: always()
+        run: cat /var/tmp/sc-hybrid-drill/drill.log 2>/dev/null || true
+      - name: Edge Function log on failure
+        if: failure()
+        run: tail -100 /tmp/functions.log
