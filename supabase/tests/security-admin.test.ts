@@ -172,8 +172,7 @@ describe('VPS worker queue (as the sc_worker database role)', () => {
   let w: pg.Client;
   afterAll(async () => { await w?.end(); });
   it('claims with leases, retries with backoff, goes dead after max attempts, never runs a job twice at once', async () => {
-    await db().query(`ALTER ROLE sc_worker WITH LOGIN PASSWORD 'worker-test-only'`);
-    w = new pg.Client({ connectionString: cfg().db.replace('postgres:postgres@', 'sc_worker:worker-test-only@') }); await w.connect();
+    w = new pg.Client({ connectionString: cfg().db.replace('postgres:postgres@', 'sc_worker:local-worker-test-only@') }); await w.connect();
     // the worker role cannot read business tables
     await expect(w.query(`SELECT * FROM app.orders LIMIT 1`)).rejects.toThrow(/permission denied/);
     const id = (await q1(`SELECT app.enqueue_job('report.test', '{"x":1}', 'report.test:1') id`)).id;

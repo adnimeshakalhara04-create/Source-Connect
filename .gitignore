@@ -12,3 +12,4 @@ supabase/.temp/
 supabase/.branches/
 supabase/tests/node_modules/
 supabase/functions/.env
+vps/worker/node_modules/

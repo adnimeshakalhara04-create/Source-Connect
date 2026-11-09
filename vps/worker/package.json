@@ -1,0 +1,17 @@
+{
+  "name": "source-connect-vps-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Background jobs for Source Connect (runs on the VPS, never on the checkout path).",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node worker.mjs",
+    "once": "node worker.mjs --once"
+  },
+  "dependencies": {
+    "nodemailer": "^7.0.0",
+    "pg": "^8.13.0",
+    "sharp": "^0.34.0"
+  }
+}

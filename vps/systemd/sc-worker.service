@@ -1,0 +1,32 @@
+[Unit]
+Description=Source Connect background worker (photos, catalogue snapshots, emails)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=sc-worker
+Group=sc-worker
+WorkingDirectory=/opt/source-connect/vps/worker
+EnvironmentFile=/etc/source-connect/worker.env
+ExecStart=/usr/bin/node worker.mjs
+Restart=always
+RestartSec=5
+TimeoutStopSec=330
+# hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/source-connect
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=1G
+CPUQuota=150%
+
+[Install]
+WantedBy=multi-user.target

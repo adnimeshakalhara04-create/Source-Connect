@@ -29,6 +29,7 @@ export default async function setup({ provide }: any) {
   await db.query(`UPDATE app.security_settings SET require_staff_mfa = false`);
   // a sandbox merchant is "configured" for the tests, card payments switched on
   await db.query(`UPDATE app.ops_settings SET payhere_configured = true`);
+  await db.query(`ALTER ROLE sc_worker WITH LOGIN PASSWORD 'local-worker-test-only'`);   // local stack only: lets the VPS worker test log in as sc_worker
   await db.query(`UPDATE app.payment_settings SET enabled = true WHERE method = 'payhere'`);
   await db.end();
   provide('cfg', cfg);
