@@ -1305,6 +1305,7 @@
       if (!staff) return false;
       me = staff; me.permissions = (SCG.load().me && SCG.load().me.permissions) || staff.permissions || [];
       if (staff.mustChangePassword) { forcePasswordChange(); return true; }
+      if (staff.needsMfa) { showMfa(); return true; }
       try { localStorage.setItem('scg_admin_on', String(Date.now())); } catch (e) {}   // only shows the ADMIN bar on the website; not a login
       showApp(); return true;
     }
@@ -1324,7 +1325,36 @@
         '<div class="login-err" id="loginErr"></div><button class="btn primary full">Save and continue</button>';
       $('#loginForm').onsubmit = function (e) {
         e.preventDefault(); var E = e.target.elements;
-        SCG.api('POST', '/admin/auth/password', { currentPassword: E.cur.value, newPassword: E.pw.value }).then(function () { location.reload(); }, function (err) { $('#loginErr').textContent = err.message; });
+        SCG.api('POST', '/admin/auth/password', { currentPassword: E.cur.value, newPassword: E.pw.value })
+          .then(function () { return SCG.adminLogout(); })           // sign in again so the new password takes effect everywhere
+          .then(function () { location.reload(); }, function (err) { $('#loginErr').textContent = err.message; });
+      };
+    }
+    // Two-step sign-in (Supabase MFA, TOTP authenticator app). Required for staff; checked again by the database on every action.
+    function showMfa() {
+      var M = window.SCGSupabase && window.SCGSupabase.mfa;
+      if (!M) { $('#loginErr').textContent = 'Two-step sign-in is required but not available.'; return; }
+      $('#login').hidden = false;
+      var form = $('#loginForm');
+      form.innerHTML = '<h1>Two-step sign-in</h1><p class="muted" id="mfaHelp">Checking…</p><div id="mfaQr" style="text-align:center"></div>' +
+        '<label>6-digit code from your authenticator app<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" required></label>' +
+        '<div class="login-err" id="loginErr"></div><button class="btn primary full">Continue</button><button type="button" class="btn link full" id="mfaOut">Use another account</button>';
+      $('#mfaOut').onclick = function () { SCG.adminLogout().then(function () { location.reload(); }); };
+      var factorId = null;
+      M.status().then(function (s) {
+        if (s.factors.length) { factorId = s.factors[0].id; $('#mfaHelp').textContent = 'Open your authenticator app (Google Authenticator, Microsoft Authenticator, Authy…) and type the code for Source Connect.'; return; }
+        return M.enroll().then(function (f) {
+          factorId = f.id;
+          $('#mfaHelp').textContent = 'First time: scan this QR code with an authenticator app on your phone, then type the 6-digit code it shows.';
+          var qr = f.totp && f.totp.qr_code ? '<img alt="QR code for your authenticator app" style="width:180px;height:180px;background:#fff;padding:8px;border-radius:8px" src="' +
+            (f.totp.qr_code.indexOf('data:') === 0 ? f.totp.qr_code : 'data:image/svg+xml;utf8,' + encodeURIComponent(f.totp.qr_code)) + '">' : '';
+          $('#mfaQr').innerHTML = qr + '<p class="muted" style="font-size:12px;word-break:break-all">Or type this key: <b>' + esc(f.totp && f.totp.secret || '') + '</b></p>';
+        });
+      }).catch(function (e) { $('#loginErr').textContent = e.message; });
+      form.onsubmit = function (e) {
+        e.preventDefault();
+        if (!factorId) return;
+        M.verify(factorId, e.target.elements.code.value).then(function () { location.reload(); }, function () { $('#loginErr').textContent = 'That code did not work. Check the time on your phone and try again.'; });
       };
     }
     // hide menu items this person cannot use

@@ -14,11 +14,11 @@ SET search_path = app, extensions;
 CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA extensions;
 
 -- updated_at helper ---------------------------------------------------------
-CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN NEW.updated_at := now(); RETURN NEW; END $$;
 
 -- append-only helper (audit trails must not be edited) -----------------------
-CREATE FUNCTION forbid_change() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION forbid_change() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN RAISE EXCEPTION '% is append-only', TG_TABLE_NAME USING ERRCODE = 'insufficient_privilege'; END $$;
 
 -- ===========================================================================
@@ -183,9 +183,9 @@ CREATE TABLE product_images (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX product_images_product_idx ON product_images(product_id, sort_order);
-CREATE FUNCTION product_images_limit() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE FUNCTION product_images_limit() RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
 BEGIN
-  IF (SELECT count(*) FROM product_images WHERE product_id = NEW.product_id) >= 8 THEN
+  IF (SELECT count(*) FROM app.product_images WHERE product_id = NEW.product_id) >= 8 THEN
     RAISE EXCEPTION 'a product can have at most 8 images' USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;

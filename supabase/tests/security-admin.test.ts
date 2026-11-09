@@ -72,6 +72,12 @@ describe('catalogue editing', () => {
       expect((await rpc(ed, 'admin_save_product', { p_slug: null, p_data: product(bad) })).error, JSON.stringify(bad)).not.toBeNull();
     }
   });
+  it('saves up to 8 photos (uploaded or https links) in order', async () => {
+    const imgs = Array.from({ length: 8 }, (_, i) => `https://img.example.com/p/${i}.webp`);
+    const r = await rpc(await staff('editor1'), 'admin_save_product', { p_slug: null, p_data: product({ name: 'Photo Test', images: imgs }) });
+    expect(r.error).toBeNull();
+    expect(r.data.images).toEqual(imgs); expect(r.data.image).toBe(imgs[0]);
+  });
   it('rating, reviews and sold cannot be typed in', async () => {
     const r = await rpc(await staff('editor1'), 'admin_save_product', { p_slug: null, p_data: product({ name: 'No Fake Stars', rating: 5, reviews: 999, sold: 5000 }) });
     expect(r.data).toMatchObject({ rating: 0, reviews: 0, sold: 0 });

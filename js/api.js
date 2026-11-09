@@ -7,7 +7,8 @@
 (function (global) {
   'use strict';
   var SCG = global.SCG;
-  var BASE = String(global.SCG_API || '').replace(/\/+$/, '');
+  var SB = global.SCGSupabase || null;            // Supabase backend (js/supabase-backend.js), when configured
+  var BASE = SB ? SB.url : String(global.SCG_API || '').replace(/\/+$/, '');
   var IS_ADMIN = !!global.SCG_ADMIN;
   SCG.API = BASE;
 
@@ -20,6 +21,7 @@
   /* ---------------- HTTP ---------------- */
   var tokens = { staff: '', customer: '' };
   function api(method, path, body, opts) {
+    if (SB) return SB.call(method, path, body, opts);
     opts = opts || {};
     var h = { 'accept': 'application/json' };
     var isForm = typeof FormData !== 'undefined' && body instanceof FormData;
@@ -64,7 +66,7 @@
     return api('GET', '/customers/me').then(function (r) { SCG.customer = r.customer; return r.customer; }, function () { SCG.customer = null; return null; });
   };
   SCG.customerAuth = function (kind, body) {   // kind: 'login' | 'register'
-    return api('POST', '/customers/' + kind, body).then(function (r) { SCG.customer = r.customer; return r.customer; });
+    return api('POST', '/customers/' + kind, body).then(function (r) { SCG.customer = r.customer && r.customer.pendingConfirmation ? null : r.customer; return r.customer; });
   };
   SCG.customerLogout = function () { return api('POST', '/customers/logout', {}).catch(function () {}).then(function () { SCG.customer = null; tokens.customer = ''; }); };
 
@@ -98,7 +100,7 @@
   SCG.adminBoot = function () {
     return api('GET', '/admin/auth/session').then(function (s) {
       SCG.staff = s.staff;
-      if (s.staff.mustChangePassword) return s.staff;
+      if (s.staff.mustChangePassword || s.staff.needsMfa) return s.staff;
       return SCG.adminState().then(function () { return s.staff; });
     }, function () { return null; });
   };
@@ -211,6 +213,7 @@
   SCG.whenSynced = function () { return queue; };
 
   /* ---------------- start-up ---------------- */
+  if (SB && !IS_ADMIN) SB.takeAuthRedirect();   // email links (confirm / reset) carry a session in the address
   SCG.ready = IS_ADMIN ? Promise.resolve() : Promise.all([SCG.refresh(), SCG.loadCustomer()]);
   SCG.whenReady = function (fn) {
     SCG.ready.then(fn, function (err) {

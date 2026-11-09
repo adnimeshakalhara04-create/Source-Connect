@@ -37,7 +37,7 @@ BEGIN
   IF jsonb_typeof(p -> p_key) <> 'array' THEN PERFORM app.fail('bad_request', p_key || ' must be a list'); END IF;
   IF jsonb_array_length(p -> p_key) > p_max_items THEN PERFORM app.fail('bad_request', p_key || ': at most ' || p_max_items); END IF;
   FOR x IN SELECT * FROM jsonb_array_elements(p -> p_key) LOOP
-    IF jsonb_typeof(x) <> 'string' OR btrim(x #>> '{}') !~ p_re THEN PERFORM app.fail('bad_request', p_what); END IF;
+    IF jsonb_typeof(x) <> 'string' OR length(x #>> '{}') > 2000 OR btrim(x #>> '{}') !~ p_re THEN PERFORM app.fail('bad_request', p_what); END IF;
     a := a || btrim(x #>> '{}');
   END LOOP;
   RETURN a;
@@ -60,7 +60,7 @@ BEGIN
     'permissions', CASE WHEN v_require AND app.current_aal() <> 'aal2' THEN '[]'::jsonb ELSE coalesce((SELECT jsonb_agg(DISTINCT rp.permission ORDER BY rp.permission) FROM app.staff_roles sr JOIN app.role_permissions rp ON rp.role_id = sr.role_id WHERE sr.staff_id = u.id), '[]'::jsonb) END,
     'shops', CASE WHEN EXISTS (SELECT 1 FROM app.staff_roles sr JOIN app.roles r ON r.id = sr.role_id WHERE sr.staff_id = u.id AND NOT r.shop_scoped) THEN NULL
                   ELSE coalesce((SELECT jsonb_agg(s.slug) FROM app.staff_shop_access a JOIN app.shops s ON s.id = a.shop_id WHERE a.staff_id = u.id), '[]'::jsonb) END,
-    'mfaRequired', v_require, 'aal', app.current_aal());
+    'mfaRequired', v_require, 'aal', app.current_aal(), 'mustChangePassword', app.must_change_password());
 END $$;
 
 -- ===========================================================================
@@ -134,7 +134,7 @@ BEGIN
   v_sizes := app.v_text_array(p_data, 'sizes', 30, '^[A-Za-z0-9 ./+-]{0,20}$', 'sizes use letters, numbers, - . / +');
   v_sizes := ARRAY(SELECT x FROM unnest(v_sizes) x WHERE x <> '');
   v_cols := app.v_text_array(p_data, 'collections', 30, '^[a-z0-9]+(-[a-z0-9]+)*$', 'invalid collection');
-  v_imgs := app.v_text_array(p_data, 'images', 8, '^(https?://|/)\S{1,1990}$', 'photos must be uploaded images or https links (up to 8)');
+  v_imgs := app.v_text_array(p_data, 'images', 8, '^(https?://|/)\S+$', 'photos must be uploaded images or https links (up to 8)');
   v_featured := app.v_bool(p_data, 'featured', false); v_flash := app.v_bool(p_data, 'flash', false);
   v_status := app.v_text(p_data, 'status', 10, 0, 'active');
   IF v_status NOT IN ('draft', 'active', 'archived') THEN PERFORM app.fail('bad_request', 'invalid status'); END IF;
@@ -712,9 +712,10 @@ BEGIN
   v_like := CASE WHEN coalesce(p_q, '') = '' THEN NULL ELSE '%' || replace(replace(p_q, '%', ''), '_', '') || '%' END;
   SELECT coalesce(jsonb_agg(x ORDER BY x ->> 'last_order' DESC), '[]'::jsonb) INTO r FROM (
     SELECT jsonb_build_object('key', coalesce(c.id::text, 'phone:' || o.ship_phone), 'name', max(coalesce(c.name, o.ship_name)), 'phone', max(o.ship_phone),
-      'email', max(coalesce(c.email::text, o.ship_email::text)), 'account', bool_or(c.id IS NOT NULL), 'orders', count(o.id),
+      'email', max(coalesce(c.email::text, o.ship_email::text)), 'account', bool_or(c.id IS NOT NULL),
+      'verified', bool_or(au.email_confirmed_at IS NOT NULL), 'orders', count(o.id),
       'spent', app.rs(coalesce(sum(o.total_cents) FILTER (WHERE o.payment_status IN ('paid', 'cod_collected')), 0)::bigint), 'last_order', max(o.placed_at)) x
-      FROM app.orders o LEFT JOIN app.customers c ON c.id = o.customer_id
+      FROM app.orders o LEFT JOIN app.customers c ON c.id = o.customer_id LEFT JOIN auth.users au ON au.id = c.id
      WHERE v_like IS NULL OR o.ship_name ILIKE v_like OR o.ship_phone ILIKE v_like OR o.ship_email::text ILIKE v_like
      GROUP BY coalesce(c.id::text, 'phone:' || o.ship_phone) ORDER BY max(o.placed_at) DESC LIMIT p_limit OFFSET p_offset) q;
   PERFORM app.audit('customers.list', 'customers', NULL, NULL, jsonb_build_object('q', p_q));

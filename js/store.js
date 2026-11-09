@@ -399,7 +399,7 @@
   var cache = null;
   // API mode (js/config.js sets window.SCG_API): the server is the source of truth and js/api.js fills the cache.
   // Nothing here reads or writes the catalogue in localStorage then.
-  var API_MODE = !!global.SCG_API;
+  var API_MODE = !!(global.SCG_API || (global.SCG_SUPABASE && global.SCG_SUPABASE.url));   // self-hosted API or Supabase
   function emptyDb() { var d = seed(); d.products = []; d.categories = []; d.collections = []; d.hero = []; d.placeholder = true; return d; }
   function setCache(d) { cache = d; cleanColors(cache); return cache; }
   function load() {

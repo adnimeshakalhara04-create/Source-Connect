@@ -750,7 +750,10 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
           '<label>Phone (optional)<input name="phone" maxlength="20" autocomplete="tel"></label><label class="full">Password (12+ characters)<input name="password" type="password" required minlength="12" autocomplete="new-password"></label>' +
           '<button class="btn full" style="grid-column:1/-1">Create account</button><p class="full" id="regMsg" style="margin:0;color:var(--red)"></p></form></div>' +
         (SCG.myOrders().length ? '<div class="panel" style="padding:16px;margin-top:14px"><h3 style="margin-top:0">Orders placed on this device</h3>' + SCG.myOrders().map(function (o) { return '<div class="sum-row"><a href="#order/' + esc(o.number) + '">' + esc(o.number) + '</a><span class="muted">' + new Date(o.at).toLocaleDateString() + '</span></div>'; }).join('') + '</div>' : '') + '</div>';
-      var done = function (c) { updateAccount(); toast('Welcome, ' + c.name.split(' ')[0] + '!'); renderAccountApi(); };
+      var done = function (c) {
+        if (c && c.pendingConfirmation) { toast('We sent a confirmation link to ' + c.email + '. Open it to finish creating your account.'); renderAccountApi(); return; }
+        updateAccount(); toast('Welcome, ' + c.name.split(' ')[0] + '!'); renderAccountApi();
+      };
       $('#loginF').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements; SCG.customerAuth('login', { email: E.email.value.trim(), password: E.password.value }).then(done, function (err) { $('#loginMsg').textContent = err.message; }); };
       $('#regF').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements; SCG.customerAuth('register', { name: E.name.value.trim(), email: E.email.value.trim(), phone: E.phone.value.trim(), password: E.password.value }).then(done, function (err) { $('#regMsg').textContent = err.message; }); };
       $('#forgot').onclick = function () { var em = $('#loginF').elements.email.value.trim(); if (!em) { $('#loginMsg').textContent = 'Type your email above first.'; return; } SCG.api('POST', '/customers/password-reset/request', { email: em }).then(function () { $('#loginMsg').style.color = 'var(--green, #0a7d3c)'; $('#loginMsg').textContent = 'If that email has an account, we sent a reset link.'; }, function (err) { $('#loginMsg').textContent = err.message; }); };
