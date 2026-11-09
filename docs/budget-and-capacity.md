@@ -16,9 +16,9 @@
 
 \* autocannon reports p97.5, shown in the p95 column (slightly stricter).
 
-- **Correctness under load:** 4,893 orders were placed. There were 0 impossible stock rows, and the units removed from stock equalled the units sold exactly. Nothing was oversold.
+- **Correctness under load:** the database holds 4,893 orders. The load tool counted 4,882 successful replies inside its 20-second window; the other 11 orders were committed just after the window closed. Of the 4,893 orders, there were 0 impossible stock rows, and the units removed from stock equalled the units sold exactly. Nothing was oversold.
 - **API memory** after the test: 212 MB. Database size: 25 MB.
-- **A finding that was fixed:** before the change, the catalogue snapshot managed only **115 requests/s (p95 230 ms)**, because it was rebuilt for every visitor. A 10-second in-memory cache, cleared on every staff edit, raised it to 1,652/s. Cloudflare's 30-second cache on the same response will absorb most real traffic.
+- **A finding that was fixed:** before the change, the catalogue snapshot managed only **115 requests/s (p95 230 ms)** (console output of the first run; no raw file was kept for that run), because it was rebuilt for every visitor. A 10-second in-memory cache, cleared on every staff edit, raised it to 1,652/s. Cloudflare's 30-second cache on the same response will absorb most real traffic.
 - Raw results: `docs/evidence/load-test-2026-11-08.json`.
 
 **What this means.** A realistic Sri Lankan launch peak, for example a Facebook ad driving 200–500 people onto the site within a few minutes and a few orders per minute, is far below what was measured. The 2 vCPU / 4 GB plan is a reasonable start, **provided** the staging test on the real VPS shows similar numbers.
