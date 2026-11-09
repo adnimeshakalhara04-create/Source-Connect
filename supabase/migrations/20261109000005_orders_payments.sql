@@ -387,4 +387,4 @@ GRANT EXECUTE ON FUNCTION public.my_orders(), public.my_order(text) TO authentic
 GRANT EXECUTE ON FUNCTION app.hit_rate_limit(text, int, int) TO service_role;
 GRANT USAGE ON SCHEMA app TO service_role;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal() TO authenticated;
+GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal(), app.must_change_password() TO authenticated;

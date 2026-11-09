@@ -93,6 +93,12 @@ CREATE FUNCTION current_aal() RETURNS text LANGUAGE sql STABLE SET search_path =
   SELECT coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'aal', 'aal1')
 $$;
 
+-- true while a staff member still has the temporary password the owner gave them (set by the admin-staff Edge Function,
+-- stored in Supabase Auth app_metadata which users cannot change themselves)
+CREATE FUNCTION must_change_password() RETURNS boolean LANGUAGE sql STABLE SET search_path = '' AS $$
+  SELECT coalesce((nullif(current_setting('request.jwt.claims', true), '')::jsonb #>> '{app_metadata,must_change_password}')::boolean, false)
+$$;
+
 CREATE FUNCTION current_staff_id() RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT u.id FROM app.staff_users u WHERE u.id = auth.uid() AND u.status = 'active'
 $$;
@@ -105,6 +111,7 @@ CREATE FUNCTION has_perm(p_perm text) RETURNS boolean LANGUAGE sql STABLE SECURI
       JOIN app.role_permissions rp ON rp.role_id = sr.role_id
      WHERE u.id = auth.uid() AND u.status = 'active' AND rp.permission = p_perm)
   AND (app.current_aal() = 'aal2' OR NOT (SELECT require_staff_mfa FROM app.security_settings WHERE id = 1))
+  AND NOT app.must_change_password()
 $$;
 
 -- department scope: staff whose roles are ALL shop-scoped may only touch their assigned shops
@@ -118,6 +125,9 @@ BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Please sign in.' USING ERRCODE = '28000'; END IF;
   IF app.current_staff_id() IS NULL THEN RAISE EXCEPTION 'You do not have permission to do this.' USING ERRCODE = '42501'; END IF;
   IF NOT app.has_perm(p_perm) THEN
+    IF app.must_change_password() THEN
+      RAISE EXCEPTION 'Please set your own password first.' USING ERRCODE = '42501', HINT = 'password_change_required';
+    END IF;
     IF (SELECT require_staff_mfa FROM app.security_settings WHERE id = 1) AND app.current_aal() <> 'aal2' THEN
       RAISE EXCEPTION 'Sign in with your authenticator app (two-step verification) first.' USING ERRCODE = '42501', HINT = 'mfa_required';
     END IF;
@@ -216,7 +226,7 @@ CREATE POLICY "staff delete product images" ON storage.objects FOR DELETE TO aut
   USING (bucket_id = 'product-images' AND app.has_perm('catalog.write'));
 -- the policy functions must be callable by signed-in users (they only answer true/false about the caller)
 GRANT USAGE ON SCHEMA app TO authenticated;
-GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal() TO authenticated;
+GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal(), app.must_change_password() TO authenticated;
 
 -- every uploaded product photo is checked and optimised by a VPS worker
 CREATE FUNCTION on_product_image_uploaded() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$

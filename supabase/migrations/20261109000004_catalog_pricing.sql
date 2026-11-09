@@ -225,4 +225,4 @@ GRANT EXECUTE ON FUNCTION public.storefront_snapshot(), public.search_products(t
   TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.storefront_snapshot() TO sc_worker;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal() TO authenticated;
+GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal(), app.must_change_password() TO authenticated;

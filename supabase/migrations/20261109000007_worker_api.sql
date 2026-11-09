@@ -61,7 +61,14 @@ $$;
 -- keep the queue table small: finished jobs older than 30 days are removed (dead jobs are kept for inspection)
 SELECT cron.schedule('prune-finished-jobs', '23 3 * * *', $$DELETE FROM app.jobs WHERE status = 'done' AND finished_at < now() - interval '30 days'$$);
 
+-- rate limit counter for the Edge Functions (service role only)
+CREATE FUNCTION public.hit_rate_limit_public(p_key text, p_max int, p_window_seconds int) RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
+  SELECT app.hit_rate_limit(p_key, p_max, p_window_seconds)
+$$;
+REVOKE ALL ON FUNCTION public.hit_rate_limit_public(text, int, int) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.hit_rate_limit_public(text, int, int) TO service_role;
+
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal() TO authenticated;
+GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal(), app.must_change_password() TO authenticated;
 GRANT EXECUTE ON FUNCTION app.worker_claim_jobs(text, text[], int, int), app.worker_complete_job(bigint, text, jsonb), app.worker_fail_job(bigint, text, text),
   app.worker_enqueue(text, jsonb, text), app.worker_record_backup(text, text, timestamptz, jsonb), app.worker_order_for_email(text), app.worker_queue_stats() TO sc_worker;

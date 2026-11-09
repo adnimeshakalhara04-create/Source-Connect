@@ -21,7 +21,7 @@ describe('what each kind of caller can reach (deny by default)', () => {
   });
   it('every app.* function and table privilege is closed to browser roles (catalogue check)', async () => {
     const open = await db().query(`SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-      WHERE n.nspname = 'app' AND (has_function_privilege('anon', p.oid, 'EXECUTE') OR (has_function_privilege('authenticated', p.oid, 'EXECUTE') AND p.proname NOT IN ('has_perm', 'current_aal')))`);
+      WHERE n.nspname = 'app' AND (has_function_privilege('anon', p.oid, 'EXECUTE') OR (has_function_privilege('authenticated', p.oid, 'EXECUTE') AND p.proname NOT IN ('has_perm', 'current_aal', 'must_change_password')))`);
     expect(open.rows).toEqual([]);
     const tables = await db().query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'app' AND c.relkind = 'r' AND (has_table_privilege('anon', c.oid, 'SELECT') OR has_table_privilege('authenticated', c.oid, 'SELECT'))`);
     expect(tables.rows).toEqual([]);

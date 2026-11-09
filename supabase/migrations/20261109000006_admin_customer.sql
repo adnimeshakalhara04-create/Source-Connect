@@ -867,4 +867,4 @@ BEGIN
   END LOOP;
 END $$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal() TO authenticated;
+GRANT EXECUTE ON FUNCTION app.has_perm(text), app.current_aal(), app.must_change_password() TO authenticated;
