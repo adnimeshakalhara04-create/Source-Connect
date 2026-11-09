@@ -1,0 +1,125 @@
+===== 10:02:08 0. versions
+pg_dump (PostgreSQL) 17.11
+psql (PostgreSQL) 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+1.1.1
+rclone v1.60.1-DEV
+v22.23.4
+===== 10:02:09 1. local stand-in for Cloudflare R2 (s3rver, HTTPS with its own certificate)
+===== 10:02:12 2. encryption keys: a drill key (on the VPS) + the owner's offline key; backups are encrypted to BOTH public keys
+public keys in recipients.txt: 2 (private keys are never printed)
+===== 10:02:12 3. rclone remotes: r2 (backups bucket), r2crypt (encrypted photos), supabase (Storage S3 protocol)
+buckets on the R2 stand-in: sc-backups
+===== 10:02:12 4. real shop activity: 3 orders through the checkout Edge Function + a product photo upload
+order SC-261109-VXUD5M placed
+order SC-261109-7Q2N8Q placed
+order SC-261109-ZCQ9E8 placed
+photo uploaded: products/2026/11/34cfd122-7106-4417-8d8e-60101d0ddca8.png (178 bytes)
+===== 10:02:13 5. database backup (sc-db-backup.sh)
+10:02:13 1/6 row counts
+10:02:13 2/6 pg_dump
+10:02:13 3/6 scheduled jobs
+10:02:13 4/6 encrypt (age, public keys only)
+10:02:13 5/6 upload to R2 and keep 7 days locally
+10:02:14 6/6 record
+10:02:14 done: /var/tmp/sc-hybrid-drill/backups/db/sc-db-20261109T100213Z.tar.age (696778 bytes, offsite=true)
+local file: sc-db-20261109T100213Z.tar.age 696778 bytes
+   696778 sc-db-20261109T100213Z.tar.age
+       97 sc-db-20261109T100213Z.tar.age.sha256
+encrypted file contains none of the order numbers, the email or the address: ok
+manifest counts recorded before the dump; age header: age-encryption.org/v1
+===== 10:02:14 6. photo backup (sc-storage-backup.sh)
+10:02:14 Supabase Storage bucket product-images -> /var/tmp/sc-hybrid-drill/backups/storage/product-images
+10:02:14 VPS copy -> R2 (encrypted)
+10:02:15 done: 9 files, 17294 bytes, offsite=true
+objects on R2 under files/ (names are encrypted):
+hh316qe45jnu3c885risru736s/2fass7kh25cjb7rje17pqn8ltc/rgof4hjngm8c41voajqilec6h8/fvuuvgntvelr8a9dllph607js0/kmqberaipsv85qg1bood3592ho/1vjqm1a49gijjcndao1fcpue0jmpjg4l29sr4eanmice1amcaekdqum67ijrp1pjbsof5qc7ocpag
+hh316qe45jnu3c885risru736s/2fass7kh25cjb7rje17pqn8ltc/rgof4hjngm8c41voajqilec6h8/fvuuvgntvelr8a9dllph607js0/kmqberaipsv85qg1bood3592ho/2535s45f91hb1hlcvc2ccips8il99pur04obek1pqbku4kcdu8kk8p13pljlgoksnlmh3lic5udd6
+hh316qe45jnu3c885risru736s/2fass7kh25cjb7rje17pqn8ltc/rgof4hjngm8c41voajqilec6h8/fvuuvgntvelr8a9dllph607js0/kmqberaipsv85qg1bood3592ho/3ohtp11fkdk5ep95g1nflfkth8hjlg9olbtc6aa6lmhh3u019njnopdijjn2rlg3i30mvj8fmunns
+hh316qe45jnu3c885risru736s/2fass7kh25cjb7rje17pqn8ltc/rgof4hjngm8c41voajqilec6h8/fvuuvgntvelr8a9dllph607js0/kmqberaipsv85qg1bood3592ho/cgk3qjvpf8r9bf4s2s3gqh1gh9klgi04ub499v6a818uu05aktrm8slhpimpeo4vu68ik5412cu7m
+hh316qe45jnu3c885risru736s/2fass7kh25cjb7rje17pqn8ltc/rgof4hjngm8c41voajqilec6h8/fvuuvgntvelr8a9dllph607js0/kmqberaipsv85qg1bood3592ho/csh1q9bpei67urh9osve0eb8nfpvbmp2dge66hcvekbcmpuhp1ggnqsj759ravtkrpld5dks61rsm
+no readable file names on R2: ok
+===== 10:02:15 7. restore drill from R2 (sc-restore-drill.sh)
+10:02:15 1/6 choose and check the backup
+10:02:15    sc-db-20261109T100213Z.tar.age sha256 ok
+10:02:15 2/6 decrypt
+10:02:15 3/6 scratch database (public.ecr.aws/supabase/postgres:17.11.0.006)
+10:02:20 4/6 restore
+10:02:22 5/6 verify
+10:02:22 6/6 evidence
+10:02:22 PASSED: sc-db-20261109T100213Z.tar.age restored and verified in 7s (restore 2s). Evidence: /var/tmp/sc-hybrid-drill/backups/drills/drill-20261109T100222Z.json
+{
+ "backup": "sc-db-20261109T100213Z.tar.age",
+ "verify_sql": "passed",
+ "restore_seconds": 2,
+ "total_seconds": 7,
+ "restored_counts": {
+  "orders": 55,
+  "order_items": 55,
+  "payments": 55,
+  "payment_events": 23,
+  "order_status_history": 70,
+  "audit_logs": 92,
+  "products": 149,
+  "variants": 538,
+  "customers": 13,
+  "staff": 7,
+  "auth_users": 13,
+  "storage_objects": 9,
+  "newest_order": "2026-11-09T10:02:13.056753+00:00",
+  "security_fingerprint": "6ccb66154f1b14aacb02ce1c3a272a7d"
+ }
+}
+===== 10:02:22 8. the orders placed in step 4 are inside the restored backup
+the OWNER'S OFFLINE KEY also decrypts the backup: ok
+order SC-261109-VXUD5M found in backup
+order SC-261109-7Q2N8Q found in backup
+order SC-261109-ZCQ9E8 found in backup
+===== 10:02:23 9. photo restore: R2 -> folder, bytes identical to the original
+restored photo sha256 5486dd0e265c576c333e3b56c1804fdc6644f42e261037d8f0393fa1ae791b22 matches the original: ok
+===== 10:02:23 10. safety checks: tampered backup, wrong key, deleted photo
+-- restore of a tampered file (not recorded in the database, so the owner's page stays truthful):
+10:02:23 1/6 choose and check the backup
+10:02:23 FAILED: checksum mismatch for /var/tmp/sc-hybrid-drill/tampered.tar.age
+10:02:23 ALERT: Source Connect: restore drill FAILED — checksum mismatch for /var/tmp/sc-hybrid-drill/tampered.tar.age
+refused as expected
+FAILED: checksum mismatch for /var/tmp/sc-hybrid-drill/tampered.tar.age
+-- decrypt with a key that is not a recipient:
+age: error: no identity matched any of the recipients
+age: report unexpected or unhelpful errors at https://filippo.io/age/report
+refused as expected
+-- photo deleted on the website is still in the backups:
+10:02:23 Supabase Storage bucket product-images -> /var/tmp/sc-hybrid-drill/backups/storage/product-images
+10:02:24 VPS copy -> R2 (encrypted)
+10:02:24 done: 9 files, 17294 bytes, offsite=true
+deleted photo still on R2: ok
+===== 10:02:24 11. what the owner sees on the admin Backups page
+{
+    "ok": true,
+    "problems": [
+    ],
+    "lastSuccessfulBackupAt": "2026-11-09T10:02:14.231899+00:00"
+}
+full ok 09:48:14
+full ok 09:55:34
+image_sync failed 09:55:34
+full ok 09:56:16
+image_sync ok 09:56:17
+restore_test failed 09:56:18
+full ok 09:56:40
+image_sync ok 09:56:41
+restore_test failed 09:56:48
+full ok 09:57:59
+image_sync ok 09:58:00
+restore_test failed 09:58:07
+full ok 09:59:30
+image_sync ok 09:59:31
+restore_test ok 09:59:38
+full ok 10:00:10
+image_sync ok 10:00:11
+restore_test ok 10:00:18
+image_sync ok 10:00:20
+full ok 10:02:14
+image_sync ok 10:02:15
+restore_test ok 10:02:22
+image_sync ok 10:02:24
+===== 10:02:24 DRILL COMPLETE — all steps passed
