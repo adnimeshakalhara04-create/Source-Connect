@@ -86,3 +86,13 @@ Commits on the branch, in order: Phase 0 audit → backend (DB + API + auth + ch
 - PayHere's real sandbox page was not contacted (no credentials). The notify handling follows the documented formula and is tested with locally signed notifications.
 - Load numbers come from a faster machine with 2 cores pinned. Repeat them on the VPS.
 - "Sign in with Google" is still shown as *coming soon*. It is not faked.
+
+---
+
+## Addendum 2026-11-09 — Supabase + VPS hybrid (branch `claude/supabase-vps7-hybrid`)
+
+The owner chose Supabase Pro as the primary platform, with the VPS kept for workers and independent backups. That design is implemented on its own branch; everything above stays valid for `claude/fullstack-backend`. Summary, evidence and limits: [`docs/hybrid/README.md`](hybrid/README.md).
+
+- Operations: [`docs/hybrid/vps-runbook.md`](hybrid/vps-runbook.md).
+- Owner steps: [`docs/hybrid/go-live-checklist.md`](hybrid/go-live-checklist.md).
+- Sinhala: [`docs/hybrid/OWNER-GUIDE-HYBRID-SINHALA.md`](hybrid/OWNER-GUIDE-HYBRID-SINHALA.md).
