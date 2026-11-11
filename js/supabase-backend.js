@@ -193,6 +193,9 @@
     if (m(/^\/admin\/customers$/, path)) return rpc('admin_customers', { p_q: qs.q || null, p_limit: +(qs.limit || 100), p_offset: +(qs.offset || 0) }, 'staff');
     if (m(/^\/admin\/audit$/, path)) return rpc('admin_audit', { p_before: qs.before ? +qs.before : null, p_action: qs.action || null, p_limit: +(qs.limit || 100) }, 'staff');
     if (path === '/admin/backups') return rpc('admin_backups', {}, 'staff');
+    if (m(/^\/admin\/reports\/sales$/, path)) return rpc('admin_sales_report', { p_from: qs.from, p_to: qs.to }, 'staff');
+    if (path === '/admin/product-costs') return rpc('admin_product_costs', {}, 'staff');
+    if ((x = m(/^\/admin\/product-costs\/([^/]+)$/, path))) return rpc('admin_set_product_cost', { p_slug: decodeURIComponent(x[1]), p_cost: body.cost == null || body.cost === '' ? null : Number(body.cost), p_apply_to_past: body.applyToPast === true }, 'staff');
     if (path === '/admin/coupons' && method === 'GET') return rpc('admin_coupons', {}, 'staff');
     if (path === '/admin/coupons' && method === 'POST') return rpc('admin_create_coupon', { p_data: body }, 'staff');
     if ((x = m(/^\/admin\/coupons\/([^/]+)$/, path))) return rpc('admin_set_coupon_active', { p_id: x[1], p_active: !!body.active }, 'staff');

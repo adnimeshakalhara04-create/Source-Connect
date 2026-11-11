@@ -35,7 +35,8 @@ if (!ownerId) {
   sql(`INSERT INTO app.staff_roles (staff_id, role_id) SELECT '${ownerId}', id FROM app.roles WHERE code = 'owner'`);
 }
 sql(`DELETE FROM auth.mfa_factors WHERE user_id = '${ownerId}'`);   // enrol a fresh authenticator every run
-sql(`DELETE FROM app.rate_limits`);   // the API tests and this browser share one local gateway IP, so start with clean limiter counters
+sql(`DELETE FROM app.rate_limits`);
+sql(`DELETE FROM app.product_costs WHERE product_id = (SELECT id FROM app.products WHERE slug = 'mens-1')`);   // the report test enters this cost itself   // the API tests and this browser share one local gateway IP, so start with clean limiter counters
 sql(`UPDATE app.security_settings SET require_staff_mfa = true`);
 sql(`UPDATE app.ops_settings SET payhere_configured = true`);
 
@@ -141,6 +142,33 @@ const nr = await fetch(`${SB}/functions/v1/payhere-notify`, { method: 'POST', he
 check('signed notification accepted by the Edge Function', nr.status === 200);
 await sp.waitForFunction(() => /Payment received/.test(document.querySelector('#ordBox')?.textContent || ''), null, { timeout: 20000 }).catch(() => {});
 check('order page turns to paid', /Payment received/.test(await sp.textContent('#ordBox')));
+
+// 6b. sales & profit report (owner): cost price entry, numbers match the database, best/least sellers, CSV
+await ap.evaluate(() => { location.hash = 'reports/costs'; }); await ap.waitForSelector('[data-cost="mens-1"]', { timeout: 15000 });
+check('owner sees the Sales & Profit menu', await ap.isVisible('#sideNav a[data-v=reports]'));
+await ap.fill('[data-cost="mens-1"]', '800'); await ap.check('#cPast'); await ap.click('[data-save="mens-1"]');
+await ap.waitForFunction(() => /Cost saved/.test(document.getElementById('toast')?.textContent || ''), null, { timeout: 15000 }).catch(() => {});
+check('cost price saved by the owner', sql(`SELECT c.cost_cents FROM app.product_costs c JOIN app.products p ON p.id = c.product_id WHERE p.slug = 'mens-1'`) === '80000');
+check('cost used for the earlier COD sale that had none', sql(`SELECT count(*) FROM app.order_item_cost_fills f JOIN app.order_items i ON i.id = f.order_item_id JOIN app.orders o ON o.id = i.order_id WHERE o.order_number = '${codNo}'`) === '1');
+await ap.evaluate(() => { location.hash = 'reports'; }); await ap.waitForSelector('#rpPre [data-pre=today]', { timeout: 15000 });
+await ap.click('#rpPre [data-pre=today]'); await ap.waitForSelector('#rpOut .stats', { timeout: 20000 });
+// expected values straight from the order tables (independent of the report function)
+const exp = JSON.parse(sql(`SELECT json_build_object('orders', count(*), 'net', coalesce(sum(subtotal_cents - discount_cents), 0), 'received', coalesce(sum(total_cents) FILTER (WHERE payment_status IN ('paid','cod_collected')), 0)) FROM app.orders WHERE (placed_at AT TIME ZONE 'Asia/Colombo')::date = (now() AT TIME ZONE 'Asia/Colombo')::date AND status NOT IN ('pending_payment','cancelled','expired','refunded')`));
+const fmt = (cents) => { const n = cents / 100; return 'Rs. ' + n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }); };
+const statText = await ap.$$eval('#rpOut .stat', els => Object.fromEntries(els.map(e => [e.querySelector('small').textContent.replace(/ \(-?[0-9.]+%\)$/, ''), e.querySelector('b').textContent.trim()])));
+check('report: number of orders today matches the database', statText['Orders'] === String(exp.orders), `${statText['Orders']} vs ${exp.orders}`);
+check('report: sales after discounts match the database', statText['Sales (after discounts)'] === fmt(exp.net), `${statText['Sales (after discounts)']} vs ${fmt(exp.net)}`);
+check('report: money received matches the database', statText['Money received'] === fmt(exp.received), `${statText['Money received']} vs ${fmt(exp.received)}`);
+check('report: best sellers and least sold are listed', (await ap.$$('#rpTop tbody tr a')).length >= 2 && (await ap.$$('#rpLeast tbody tr')).length === 10);
+const [dl] = await Promise.all([ap.waitForEvent('download', { timeout: 15000 }), ap.click('#rpCsv')]);
+const csv = fs.readFileSync(await dl.path(), 'utf8');
+check('report downloads as a spreadsheet (CSV)', csv.includes('Sales after discounts') && csv.includes(exp.orders ? 'Best seller' : 'Orders'));
+await ap.screenshot({ path: OUT + '/sb-admin-reports.jpg', type: 'jpeg', quality: 70, fullPage: true });
+await ap.setViewportSize({ width: 390, height: 844 }); await ap.waitForTimeout(500);
+check('report page on a phone: no sideways scrolling', (await ap.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1,
+  await ap.evaluate(() => [...document.querySelectorAll('#view *')].filter(e => e.getBoundingClientRect().right > innerWidth + 1 && !e.closest('.table-wrap'))
+    .slice(0, 5).map(e => e.tagName + '.' + e.className + ' ' + Math.round(e.getBoundingClientRect().width)).join(' | ')));
+await ap.setViewportSize({ width: 1366, height: 900 });
 
 // 7. customer account (Supabase Auth)
 const acc = await ctx(); const cp = await page(acc, 'customer');

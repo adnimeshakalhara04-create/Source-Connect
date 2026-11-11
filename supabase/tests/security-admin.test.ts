@@ -90,6 +90,8 @@ describe('catalogue editing', () => {
     expect((await rpc(ed, 'admin_stock_history', { p_slug: p.id })).data[0]).toMatchObject({ reason: 'adjustment', note: 'new delivery', username: 'editor1' });
     await db().query(`UPDATE app.inventory SET reserved = 5 FROM app.product_variants v WHERE v.id = inventory.variant_id AND v.sku = $1`, [p.variants.find((v: any) => v.size === 'M').sku]);
     expect((await rpc(ed, 'admin_set_stock', { p_slug: p.id, p_stock: { M: 2 } })).code).toBe('conflict');
+    // undo the hand-made reservation (it has no matching reservation row) so the database stays consistent
+    await db().query(`UPDATE app.inventory SET reserved = 0 FROM app.product_variants v WHERE v.id = inventory.variant_id AND v.sku = $1`, [p.variants.find((v: any) => v.size === 'M').sku]);
   });
   it('delete archives (hidden from the shop, history kept)', async () => {
     const ed = await staff('editor1');

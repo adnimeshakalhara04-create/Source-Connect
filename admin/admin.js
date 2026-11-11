@@ -1360,9 +1360,13 @@
     // hide menu items this person cannot use
     var NEED = { dashboard: 'dashboard.view', orders: 'orders.read', customers: 'customers.read', products: 'catalog.read', flash: 'content.write', categories: 'catalog.write', origins: 'settings.write',
       collections: 'catalog.read', homepage: 'content.write', banners: 'content.write', header: 'content.write', pages: 'content.write', settings: 'content.write', editor: 'catalog.read',
-      staff: 'staff.manage', audit: 'audit.read', backups: 'backups.read', coupons: 'settings.write' };
+      staff: 'staff.manage', audit: 'audit.read', backups: 'backups.read', coupons: 'settings.write', reports: 'reports.view' };
     function applyPermissions() {
       var nav = $('#sideNav');
+      if (!$('#sideNav [data-v=reports]')) {
+        var dash = $('#sideNav a[data-v=dashboard]');
+        if (dash) dash.insertAdjacentHTML('afterend', '<a href="#reports" data-v="reports"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Sales &amp; Profit</a>');
+      }
       if (!$('#sideNav [data-v=staff]')) {
         nav.insertAdjacentHTML('beforeend', '<small class="side-label">Security &amp; data</small>' +
           '<a href="#coupons" data-v="coupons"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Promo Codes</a>' +
@@ -1423,7 +1427,8 @@
     VIEWS.dashboard.render = function (v) {
       setActions(can('catalog.write') ? '<a class="btn primary" href="#products/new">+ Add Product</a>' : '');
       v.innerHTML = '<p class="muted">Loading…</p>';
-      SCG.api('GET', '/admin/dashboard').then(function (d) {
+      var h0 = location.hash;   // draw only if the person is still on this page
+      SCG.api('GET', '/admin/dashboard').then(function (d) { if (location.hash !== h0) return;
         var dmax = Math.max.apply(null, d.last7days.map(function (x) { return x.total; }).concat([1]));
         var alerts = [];
         if (d.needsReview) alerts.push('<a href="#orders/review">⚠ ' + d.needsReview + ' order(s) need review (late payment, chargeback…)</a>');
@@ -1442,7 +1447,7 @@
           '<div class="panel"><h3>Orders by status</h3><div class="status-pills">' + Object.keys(ST).map(function (k) { return '<a href="#orders/' + k + '"><b>' + (d.byStatus[k] || 0) + '</b>' + esc(ST[k]) + '</a>'; }).join('') + '</div></div></div>' +
           '<div class="panel"><h3>Low stock <small>at or below the reorder level</small></h3>' + (d.lowStock.length ? '<div class="filters">' + d.lowStock.map(function (x) {
             return '<a class="tag warn" href="#products/edit:' + esc(x.slug) + '">' + esc(x.name) + (x.size ? ' · ' + esc(x.size) : '') + ' · ' + x.available + ' left</a>'; }).join('') + '</div>' : '<p class="muted">All good.</p>') + '</div>';
-      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+      }, function (err) { if (location.hash !== h0) return; v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
     };
     function launchChecklistApi(d) {
       var s = db.settings, demo = db.products.filter(SCG.isDemoProduct).length, noPhoto = db.products.filter(function (p) { return !SCG.productImages(p).length; }).length;
@@ -1588,7 +1593,8 @@
     VIEWS.staff = { title: 'Staff & Roles', sub: 'Who can sign in and what each person may do', render: function (v) {
       setActions('<button class="btn primary" id="addStaff">+ Add staff</button>');
       v.innerHTML = '<p class="muted">Loading…</p>';
-      SCG.api('GET', '/admin/staff').then(function (r) {
+      var h0 = location.hash;   // draw only if the person is still on this page
+      SCG.api('GET', '/admin/staff').then(function (r) { if (location.hash !== h0) return;
         var shops = (db.shops || []).map(function (s) { return s.id; });
         v.innerHTML = '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Roles</th><th>Departments</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>' + r.staff.map(function (u) {
           return '<tr><td><b>' + esc(u.display_name) + '</b><br><small class="muted">' + esc(u.username) + '</small></td><td>' + u.roles.map(esc).join(', ') + '</td><td>' + (u.shops.length ? u.shops.map(esc).join(', ') : 'All') + '</td><td>' + esc(u.status) + (u.locked_until && new Date(u.locked_until) > new Date() ? ' · locked' : '') + (u.must_change_password ? ' · temp password' : '') + '</td><td><small>' + when(u.last_login_at) + '</small></td>' +
@@ -1616,36 +1622,39 @@
             if (E.pw.value) body.resetPassword = E.pw.value;
             SCG.api('PUT', '/admin/staff/' + u.id, body).then(function () { toast('Saved'); closeModal(); route(); }, fail); };
         };
-      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+      }, function (err) { if (location.hash !== h0) return; v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
     } };
 
     // ---------- audit log ----------
     VIEWS.audit = { title: 'Audit Log', sub: 'Every sign-in, change and payment event, newest first', render: function (v) {
       v.innerHTML = '<p class="muted">Loading…</p>';
-      SCG.api('GET', '/admin/audit?limit=200').then(function (rows) {
+      var h0 = location.hash;   // draw only if the person is still on this page
+      SCG.api('GET', '/admin/audit?limit=200').then(function (rows) { if (location.hash !== h0) return;
         v.innerHTML = '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Item</th><th>IP</th></tr></thead><tbody>' + rows.map(function (r) {
           return '<tr><td><small>' + when(r.created_at) + '</small></td><td>' + esc(r.actor_label || r.actor_type) + '</td><td>' + esc(r.action) + '</td><td><small>' + esc(r.entity_type || '') + ' ' + esc(r.entity_id || '') + '</small></td><td><small>' + esc(r.ip || '') + '</small></td></tr>';
         }).join('') + '</tbody></table></div></div>';
-      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+      }, function (err) { if (location.hash !== h0) return; v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
     } };
 
     // ---------- backups (read-only) ----------
     VIEWS.backups = { title: 'Backups', sub: 'Automatic database backups (read-only status)', render: function (v) {
       v.innerHTML = '<p class="muted">Loading…</p>';
-      SCG.api('GET', '/admin/backups').then(function (b) {
+      var h0 = location.hash;   // draw only if the person is still on this page
+      SCG.api('GET', '/admin/backups').then(function (b) { if (location.hash !== h0) return;
         v.innerHTML = '<div class="panel checklist"><div class="ck' + (b.ok ? ' ok' : '') + '"><span class="ck-i">' + (b.ok ? '✓' : '!') + '</span><span>' + (b.ok ? 'Backups look healthy. Last successful backup: ' + when(b.lastSuccessfulBackupAt) : esc(b.problems.join(' '))) + '</span></div></div>' +
           '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>Job</th><th>Result</th><th>Started</th><th>Finished</th><th>Details</th></tr></thead><tbody>' + (b.recent.length ? b.recent.map(function (r) {
             return '<tr><td>' + esc(r.kind) + '</td><td>' + (r.status === 'ok' ? '✓ ok' : r.status === 'failed' ? '<b style="color:var(--red)">failed</b>' : esc(r.status)) + '</td><td><small>' + when(r.started_at) + '</small></td><td><small>' + when(r.finished_at) + '</small></td><td><small>' + esc(JSON.stringify(r.detail || {})).slice(0, 160) + '</small></td></tr>';
           }).join('') : '<tr><td colspan="5" class="muted">No backup has reported in yet.</td></tr>') + '</tbody></table></div></div>' +
           '<p class="muted" style="font-size:13px">Restores are done by the system administrator following the restore runbook (never from this page), so a stolen admin password cannot overwrite the shop’s data.</p>';
-      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+      }, function (err) { if (location.hash !== h0) return; v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
     } };
 
     // ---------- promo codes ----------
     VIEWS.coupons = { title: 'Promo Codes', sub: 'Discount codes customers type at checkout', render: function (v) {
       setActions('<button class="btn primary" id="addCp">+ New code</button>');
       v.innerHTML = '<p class="muted">Loading…</p>';
-      SCG.api('GET', '/admin/coupons').then(function (list) {
+      var h0 = location.hash;   // draw only if the person is still on this page
+      SCG.api('GET', '/admin/coupons').then(function (list) { if (location.hash !== h0) return;
         v.innerHTML = '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>Code</th><th>Discount</th><th>Min. order</th><th>Used</th><th>Valid</th><th>Active</th></tr></thead><tbody>' + (list.length ? list.map(function (c) {
           return '<tr><td><b>' + esc(c.code) + '</b></td><td>' + (c.kind === 'percent' ? c.value + '%' : rs(c.value)) + '</td><td>' + rs(c.min_subtotal) + '</td><td>' + c.used + (c.max_redemptions ? ' / ' + c.max_redemptions : '') + '</td><td><small>' + (c.starts_at ? when(c.starts_at) : 'now') + ' → ' + (c.ends_at ? when(c.ends_at) : 'no end') + '</small></td>' +
             '<td><label class="switch"><input type="checkbox" data-cp="' + c.id + '"' + (c.active ? ' checked' : '') + '><i></i></label></td></tr>'; }).join('') : '<tr><td colspan="6" class="muted">No promo codes yet.</td></tr>') + '</tbody></table></div></div>';
@@ -1658,8 +1667,124 @@
             if (E.max.value) body.maxRedemptions = +E.max.value; if (E.ends.value) body.endsAt = new Date(E.ends.value).toISOString();
             SCG.api('POST', '/admin/coupons', body).then(function () { toast('Promo code created'); closeModal(); route(); }, fail); };
         };
-      }, function (err) { v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+      }, function (err) { if (location.hash !== h0) return; v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
     } };
+
+    // ---------- sales & profit (owner / finance) ----------
+    // All numbers are calculated in the database (admin_sales_report); this page only shows them.
+    var LK = function (d) { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d || new Date()); };
+    var addDays = function (ymd, n) { var d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+    var rsx = function (n) {
+      if (n === null || n === undefined) return '—';
+      return esc(db.settings.currency || 'Rs.') + ' ' + Number(n).toLocaleString('en-US', { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 });
+    };
+    var profitCell = function (n) { return n === null || n === undefined ? '<span class="muted" title="Some units have no cost price">—</span>' : n < 0 ? '<b style="color:var(--red)">' + rsx(n) + '</b>' : rsx(n); };
+    var dayName = function (ymd) { return new Date(ymd + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }); };
+    var rp = { from: '', to: '', preset: '7', past: false, seq: 0 };
+    function presetRange(k) {
+      var t = LK(), m0 = t.slice(0, 8) + '01';
+      if (k === 'today') return [t, t];
+      if (k === 'yesterday') return [addDays(t, -1), addDays(t, -1)];
+      if (k === '7') return [addDays(t, -6), t];
+      if (k === '30') return [addDays(t, -29), t];
+      if (k === 'month') return [m0, t];
+      if (k === 'lastmonth') { var end = addDays(m0, -1); return [end.slice(0, 8) + '01', end]; }
+      return [rp.from, rp.to];
+    }
+    function csvCell(x) { var s = x === null || x === undefined ? '' : String(x); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+    function downloadCsv(name, rows) {
+      var blob = new Blob(['﻿' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    }
+    VIEWS.reports = { title: 'Sales & Profit', sub: 'What sold, what did not, money taken and profit (Sri Lanka time)', render: function (v, arg) {
+      var tabs = '<div class="filters" style="margin-bottom:14px"><a class="tag' + (arg !== 'costs' ? ' ok' : '') + '" href="#reports">Report</a><a class="tag' + (arg === 'costs' ? ' ok' : '') + '" href="#reports/costs">Cost prices</a></div>';
+      if (arg === 'costs') return costsView(v, tabs);
+      if (!rp.from) { var r0 = presetRange(rp.preset); rp.from = r0[0]; rp.to = r0[1]; }
+      var presets = [['today', 'Today'], ['yesterday', 'Yesterday'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['month', 'This month'], ['lastmonth', 'Last month']];
+      setActions('<button class="btn" id="rpCsv" disabled>⬇ Download (Excel / CSV)</button>');
+      v.innerHTML = tabs + '<div class="panel"><div class="filters" id="rpPre">' + presets.map(function (p) { return '<button type="button" class="tag' + (rp.preset === p[0] ? ' ok' : '') + '" data-pre="' + p[0] + '">' + p[1] + '</button>'; }).join('') + '</div>' +
+        '<form id="rpForm" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:10px"><label>From<input type="date" name="from" required value="' + rp.from + '"></label><label>To<input type="date" name="to" required value="' + rp.to + '"></label><button class="btn primary">Show</button></form></div>' +
+        '<div id="rpOut"><p class="muted">Loading…</p></div>';
+      $('#rpPre').onclick = function (e) { var b = e.target.closest('[data-pre]'); if (!b) return; rp.preset = b.dataset.pre; var r = presetRange(rp.preset); rp.from = r[0]; rp.to = r[1]; route(); };
+      $('#rpForm').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements; if (E.to.value < E.from.value) { toast('The end date is before the start date'); return; } rp.preset = ''; rp.from = E.from.value; rp.to = E.to.value; route(); };
+      var h0 = location.hash, seq = ++rp.seq;   // only the newest request may draw
+      SCG.api('GET', '/admin/reports/sales?from=' + rp.from + '&to=' + rp.to).then(function (r) { if (location.hash === h0 && seq === rp.seq) showReport(r); }, function (err) { if (location.hash === h0 && seq === rp.seq && $('#rpOut')) $('#rpOut').innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+
+      function showReport(r) {
+        var s = r.summary, out = $('#rpOut'); if (!out) return;
+        var warn = [];
+        if (s.costMissingUnits) warn.push('<b>Profit is not complete:</b> ' + s.costMissingUnits + ' unit(s) sold in this period have no cost price, so the total profit is not shown. ' +
+          'Profit on the items that do have a cost: <b>' + rsx(s.profitOnItemsWithCost) + '</b> (before promo-code discounts). ' + (can('costs.write') ? '<a href="#reports/costs">Enter cost prices →</a>' : 'Ask the owner to enter cost prices.'));
+        if (s.unpaidCardOrders) warn.push(s.unpaidCardOrders + ' card checkout(s) were started but not paid — not counted.');
+        if (s.closedOrders) warn.push(s.closedOrders + ' cancelled / refunded / expired order(s) worth ' + rsx(s.closedValue) + ' — not counted' + (s.refunds ? ' (refunds paid back: ' + rsx(s.refunds) + ')' : '') + '.');
+        var dmax = Math.max.apply(null, r.days.map(function (d) { return d.netSales; }).concat([1]));
+        var bestDay = r.days.reduce(function (b, d) { return !b || d.netSales > b.netSales ? d : b; }, null);
+        var rowsTop = function (list) { return list.length ? list.map(function (p, i) {
+          return '<tr><td>' + (i + 1) + '</td><td><a href="#products/edit:' + esc(p.slug) + '">' + esc(p.name) + '</a></td><td><b>' + p.units + '</b></td><td>' + rsx(p.sales) + '</td><td>' + profitCell(p.profit) + '</td><td>' + (p.marginPercent === null || p.marginPercent === undefined ? '—' : p.marginPercent + '%') + '</td></tr>'; }).join('')
+          : '<tr><td colspan="6" class="muted">Nothing sold in this period.</td></tr>'; };
+        out.innerHTML = (warn.length ? '<div class="panel checklist">' + warn.map(function (w) { return '<div class="ck"><span class="ck-i">!</span><span>' + w + '</span></div>'; }).join('') + '</div>' : '') +
+          '<div class="stats rp-stats">' + stat('Orders', s.orders, '#0b2a6f') + stat('Items sold', s.units, '#0b2a6f') + stat('Sales (after discounts)', rsx(s.netSales), '#f59e0b') +
+          stat('Money received', rsx(s.received), '#0f766e') + stat('Still to collect', rsx(s.toCollect), '#f59e0b') +
+          stat('Cost of goods', rsx(s.cost), '#64748b') + stat('Profit' + (s.marginPercent !== null && s.marginPercent !== undefined ? ' (' + s.marginPercent + '%)' : ''), s.profit === null || s.profit === undefined ? '—' : (s.profit < 0 ? '<span style="color:var(--red)">' + rsx(s.profit) + '</span>' : rsx(s.profit)), '#0f766e') +
+          stat('Average order', rsx(s.averageOrder), '#0b2a6f') + '</div>' +
+          '<p class="muted" style="font-size:12.5px;margin-top:-6px">Profit = sales after promo-code discounts − cost of goods. Shipping fees collected (' + rsx(s.shipping) + ') are not counted as profit; PayHere fees, courier and other costs are not included. ' +
+          'Orders count on the day they were placed (Sri Lanka time). “Still to collect” = cash on delivery and bank transfers not yet received.</p>' +
+          (r.days.length > 1 ? '<div class="panel"><h3>Sales per day' + (bestDay && bestDay.netSales ? ' <small>best day: ' + dayName(bestDay.day) + ' — ' + rsx(bestDay.netSales) + '</small>' : '') + '</h3>' +
+            '<div class="chart" style="grid-template-columns:repeat(' + r.days.length + ',minmax(0,1fr));gap:' + (r.days.length > 14 ? 2 : 10) + 'px">' + r.days.map(function (d, i) {
+              var step = Math.ceil(r.days.length / 8), label = i % step === 0 || i === r.days.length - 1;   // long ranges: label every few days
+              return '<div class="col"><div class="bar" style="height:' + Math.max(1, d.netSales / dmax * 100) + '%" title="' + esc(d.day) + ': ' + rsx(d.netSales) + '"></div>' +
+                (r.days.length <= 10 ? '<b>' + (d.netSales ? (d.netSales / 1000).toFixed(1) + 'k' : '0') + '</b>' : '<b></b>') + '<small>' + (label ? d.day.slice(5) : '&nbsp;') + '</small></div>'; }).join('') + '</div></div>' : '') +
+          '<div><div class="panel" style="padding:0" id="rpTop"><h3 style="padding:16px 16px 0">Best sellers <small>most items sold</small></h3><div class="table-wrap" style="border:0"><table class="table"><thead><tr><th>#</th><th>Product</th><th>Sold</th><th>Sales</th><th>Profit</th><th>Margin</th></tr></thead><tbody>' + rowsTop(r.topProducts) + '</tbody></table></div></div>' +
+          '<div class="panel" style="padding:0" id="rpLeast"><h3 style="padding:16px 16px 0">Sold least <small>products on sale now — the slowest sellers first</small></h3><div class="table-wrap" style="border:0"><table class="table"><thead><tr><th>Product</th><th>Sold</th><th>Sales</th></tr></thead><tbody>' + (r.leastSold.length ? r.leastSold.map(function (p) {
+            return '<tr><td><a href="#products/edit:' + esc(p.slug) + '">' + esc(p.name) + '</a></td><td>' + (p.units ? p.units : '<span class="tag warn">0</span>') + '</td><td>' + rsx(p.sales) + '</td></tr>'; }).join('') : '<tr><td colspan="3" class="muted">No products on sale.</td></tr>') + '</tbody></table></div>' +
+          '<p class="muted" style="padding:0 16px 12px;font-size:12.5px">' + r.notSoldCount + ' product(s) on sale did not sell at all in this period.</p></div></div>' +
+          '<div class="panel" style="padding:0"><h3 style="padding:16px 16px 0">Day by day</h3><div class="table-wrap" style="border:0"><table class="table"><thead><tr><th>Day</th><th>Orders</th><th>Items</th><th>Sales</th><th>Profit</th><th>Best seller that day</th></tr></thead><tbody>' + r.days.slice().reverse().map(function (d) {
+            return '<tr><td>' + dayName(d.day) + '</td><td>' + d.orders + '</td><td>' + d.units + '</td><td>' + rsx(d.netSales) + '</td><td>' + (d.orders ? profitCell(d.profit) : '—') + '</td><td>' + (d.best ? '<a href="#products/edit:' + esc(d.best.slug) + '">' + esc(d.best.name) + '</a> <small class="muted">(' + d.best.units + ' sold)</small>' : '<span class="muted">no sales</span>') + '</td></tr>'; }).join('') + '</tbody></table></div></div>' +
+          (r.allProducts.length > r.topProducts.length ? '<details class="panel"><summary><b>All ' + r.allProducts.length + ' products sold in this period</b></summary><div class="table-wrap" style="margin-top:10px"><table class="table"><thead><tr><th>#</th><th>Product</th><th>Sold</th><th>Sales</th><th>Profit</th><th>Margin</th></tr></thead><tbody>' + rowsTop(r.allProducts) + '</tbody></table></div></details>' : '');
+        var btn = $('#rpCsv'); if (btn) { btn.disabled = false; btn.onclick = function () {
+          var rows = [['Source Connect sales report', r.from + ' to ' + r.to + ' (Sri Lanka time)'], [],
+            ['Orders', s.orders], ['Items sold', s.units], ['Item sales', s.itemSales], ['Promo-code discounts', s.discounts], ['Sales after discounts', s.netSales], ['Shipping fees collected', s.shipping],
+            ['Money received', s.received], ['Still to collect', s.toCollect], ['Cost of goods', s.cost], ['Profit', s.profit], ['Margin %', s.marginPercent], ['Units without a cost price', s.costMissingUnits], [],
+            ['Day', 'Orders', 'Items', 'Sales', 'Profit', 'Best seller', 'Best seller units']].concat(r.days.map(function (d) { return [d.day, d.orders, d.units, d.netSales, d.profit, d.best ? d.best.name : '', d.best ? d.best.units : '']; }))
+            .concat([[], ['Product', 'Items sold', 'Sales', 'Cost', 'Profit', 'Margin %', 'Units without cost']]).concat(r.allProducts.map(function (p) { return [p.name, p.units, p.sales, p.cost, p.profit, p.marginPercent, p.costMissingUnits]; }));
+          downloadCsv('sales-' + r.from + '-to-' + r.to + '.csv', rows);
+        }; }
+      }
+    } };
+    function costsView(v, tabs) {
+      var edit = can('costs.write');
+      setActions('');
+      v.innerHTML = tabs + '<p class="muted">Loading…</p>';
+      var h0 = location.hash;   // draw only if the person is still on this page
+      SCG.api('GET', '/admin/product-costs').then(function (list) { if (location.hash !== h0) return;
+        var missing = list.filter(function (p) { return p.status === 'active' && (p.cost === null || p.cost === undefined); }).length;
+        v.innerHTML = tabs + '<div class="panel"><p style="margin-top:0">The <b>cost price</b> is what one item costs you (buying + import + packing). It is secret: customers and other staff never see it. ' +
+          'Each sale keeps the cost that was set <b>on the day it was sold</b>, so changing a cost later does not change past profit.</p>' +
+          (missing ? '<p><span class="tag warn">' + missing + ' product(s) on sale have no cost price yet</span></p>' : '<p><span class="tag ok">Every product on sale has a cost price</span></p>') +
+          (edit ? '<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px"><input type="checkbox" id="cPast" style="margin-top:3px"' + (rp.past ? ' checked' : '') + '> <span>When I save, also use this cost for <b>earlier sales</b> of that product that have no cost yet. ' +
+            '(Only fills in sales without a cost; it never changes a cost that was already recorded.)</span></label>' : '<p class="muted">You can see cost prices but only the owner can change them.</p>') +
+          '<input id="cQ" placeholder="Search products…" style="margin-top:10px;max-width:320px"></div>' +
+          '<div class="panel" style="padding:0"><div class="table-wrap" style="border:0"><table class="table"><thead><tr><th>Product</th><th>Selling price</th><th>Cost price (Rs.)</th><th>Profit per item</th><th></th></tr></thead><tbody id="cRows">' + list.map(function (p) {
+            var margin = p.cost === null || p.cost === undefined ? '—' : profitCell(Math.round((p.price - p.cost) * 100) / 100) + (p.price ? ' <small class="muted">(' + Math.round((p.price - p.cost) / p.price * 1000) / 10 + '%)</small>' : '');
+            return '<tr data-name="' + esc(p.name.toLowerCase()) + '"><td>' + esc(p.name) + (p.status !== 'active' ? ' <span class="tag">' + esc(p.status) + '</span>' : '') + '</td><td>' + rsx(p.price) + '</td>' +
+              '<td>' + (edit ? '<input type="number" min="0" step="0.01" max="10000000" inputmode="decimal" style="width:130px" data-cost="' + esc(p.slug) + '" value="' + (p.cost === null || p.cost === undefined ? '' : p.cost) + '" placeholder="not set">' : rsx(p.cost)) + '</td>' +
+              '<td>' + margin + '</td><td>' + (edit ? '<button class="btn sm" data-save="' + esc(p.slug) + '">Save</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+        if ($('#cPast')) $('#cPast').onchange = function (e) { rp.past = e.target.checked; };
+        $('#cQ').oninput = function (e) { var q = e.target.value.trim().toLowerCase(); $$('#cRows tr').forEach(function (tr) { tr.hidden = q && tr.dataset.name.indexOf(q) < 0; }); };
+        v.onclick = function (e) {
+          var b = e.target.closest('[data-save]'); if (!b) return;
+          var inp = $('[data-cost="' + b.dataset.save + '"]', v), raw = inp.value.trim(), past = !!($('#cPast') && $('#cPast').checked);
+          if (raw !== '' && !/^\d{1,8}(\.\d{1,2})?$/.test(raw)) { toast('Enter the cost in rupees, e.g. 1250 or 1250.50'); inp.focus(); return; }
+          if (raw === '' && past) { toast('Enter a cost before using it for earlier sales'); return; }
+          b.disabled = true;
+          SCG.api('PUT', '/admin/product-costs/' + encodeURIComponent(b.dataset.save), { cost: raw === '' ? null : raw, applyToPast: past }).then(function (r) {
+            toast(raw === '' ? 'Cost price removed' : '✓ Cost saved' + (r.appliedToEarlierSaleLines ? ' and used for ' + r.appliedToEarlierSaleLines + ' earlier sale line(s)' : ''));
+            route();
+          }, function (err) { b.disabled = false; fail(err); });
+        };
+      }, function (err) { if (location.hash !== h0) return; v.innerHTML = tabs + '<p class="muted">' + esc(err.message) + '</p>'; });
+    }
 
     // ---------- start: is there a valid server session? ----------
     $('#login').hidden = true;

@@ -78,6 +78,7 @@ input[type=checkbox], input[type=radio] { width: auto; accent-color: var(--red);
 .panel { background: var(--card); border-radius: var(--radius); border: 1px solid var(--line); padding: 20px; margin-bottom: 18px; }
 .panel h3 { margin: 0 0 14px; font-size: 15px; }
 .cols { display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; }
+.cols > * { min-width: 0; }   /* a wide table inside a column scrolls in its own box instead of widening the page */
 .bars { display: grid; gap: 10px; }
 .bar-row { display: grid; grid-template-columns: 120px 1fr 40px; gap: 10px; align-items: center; font-size: 13px; }
 .bar-track { height: 10px; background: #edf0f6; border-radius: 99px; overflow: hidden; }
@@ -387,3 +388,7 @@ body.pv-dragging { cursor: col-resize; user-select: none; }
 body.pv-dragging iframe { pointer-events: none; }
 .pv-bar #pvZoom { flex: 0 0 auto; width: auto; padding: 7px 6px; }
 @media (max-width: 1100px) { .pv-split { display: none; } }
+
+/* Sales & Profit: money figures stay on one line */
+.rp-stats { grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); }
+.rp-stats .stat b { font-size: 22px; white-space: nowrap; }

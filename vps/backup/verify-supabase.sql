@@ -10,8 +10,9 @@ BEGIN
   SELECT count(*) INTO n FROM app.orders o WHERE o.subtotal_cents <> (SELECT coalesce(sum(line_total_cents), 0) FROM app.order_items i WHERE i.order_id = o.id); IF n > 0 THEN RAISE EXCEPTION 'order lines do not add up: %', n; END IF;
   SELECT count(*) INTO n FROM app.orders o WHERE o.payment_status = 'paid' AND NOT EXISTS (SELECT 1 FROM app.payments p WHERE p.order_id = o.id AND p.status IN ('paid','verified','refunded','chargeback')); IF n > 0 THEN RAISE EXCEPTION 'paid orders without a payment: %', n; END IF;
   SELECT count(*) INTO n FROM app.orders o WHERE NOT EXISTS (SELECT 1 FROM app.order_status_history h WHERE h.order_id = o.id); IF n > 0 THEN RAISE EXCEPTION 'orders without history: %', n; END IF;
-  SELECT count(*) INTO n FROM (SELECT r.variant_id FROM app.stock_reservations r JOIN app.inventory i ON i.variant_id = r.variant_id WHERE r.state = 'active'
-                               GROUP BY r.variant_id, i.reserved HAVING sum(r.quantity) <> i.reserved) x; IF n > 0 THEN RAISE EXCEPTION 'reserved stock does not match active reservations: %', n; END IF;
+  SELECT count(*) INTO n FROM app.inventory i
+   WHERE i.reserved <> coalesce((SELECT sum(r.quantity) FROM app.stock_reservations r WHERE r.variant_id = i.variant_id AND r.state = 'active'), 0);
+  IF n > 0 THEN RAISE EXCEPTION 'reserved stock does not match active reservations: %', n; END IF;
   -- accounts: staff and customers still linked to their sign-in accounts
   SELECT count(*) INTO n FROM app.staff_users s WHERE NOT EXISTS (SELECT 1 FROM auth.users u WHERE u.id = s.id); IF n > 0 THEN RAISE EXCEPTION 'staff without sign-in account: %', n; END IF;
   SELECT count(*) INTO n FROM app.staff_users u WHERE u.status = 'active' AND EXISTS (SELECT 1 FROM app.staff_roles sr JOIN app.roles r ON r.id = sr.role_id WHERE sr.staff_id = u.id AND r.code = 'owner');

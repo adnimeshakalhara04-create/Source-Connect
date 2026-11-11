@@ -27,6 +27,7 @@ Each step needs the owner's own account or decision. Claude does not buy service
   - the restore into a new project works (§3.2 of the runbook);
   - the PayHere sandbox notification arrives and the order turns paid.
 - [ ] VPS set up as in `vps-runbook.md` §1; the restore drill prints PASSED from R2.
+- [ ] Owner enters cost prices for every product (Admin → Sales & Profit → Cost prices), so profit is complete from the first sale.
 - [ ] Run the load test on staging; record the results in `docs/evidence/`.
 
 ## B. Launch (needs separate written approval)
