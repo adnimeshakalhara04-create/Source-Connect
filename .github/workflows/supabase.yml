@@ -73,6 +73,15 @@ jobs:
         run: |
           mkdir dist && cp -r index.html admin assets css js dist/ && cp deploy/_headers dist/_headers
           ! grep -rqE 'sb_secret_|"role":"service_role"' dist
+      - name: Check the Cloudflare token (prints only whether it is valid and what it can reach, never the token)
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          echo "token length: ${#CLOUDFLARE_API_TOKEN} (a Cloudflare token is about 40 characters; spaces or quotes around it break it)"
+          for u in "user/tokens/verify" "accounts/$CLOUDFLARE_ACCOUNT_ID/tokens/verify"; do
+            echo "== $u"; curl -s "https://api.cloudflare.com/client/v4/$u" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -c '{success, status: .result.status, errors}'
+          done
+          echo "== can it read the Pages project?"
+          curl -s "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/source-connect" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq -c '{success, project: .result.name, errors}'
       - name: Deploy to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != ''
         run: npx -y wrangler@4.47.0 pages deploy dist --project-name source-connect --branch main --commit-dirty=true
