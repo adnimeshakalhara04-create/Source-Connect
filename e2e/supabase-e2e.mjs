@@ -170,6 +170,25 @@ check('report page on a phone: no sideways scrolling', (await ap.evaluate(() => 
     .slice(0, 5).map(e => e.tagName + '.' + e.className + ' ' + Math.round(e.getBoundingClientRect().width)).join(' | ')));
 await ap.setViewportSize({ width: 1366, height: 900 });
 
+// 6c. service renewal reminder (owner): warning on every admin page from the day before
+sql(`DELETE FROM app.service_renewals WHERE name = 'E2E Supabase Pro'`);
+const tomorrow = sql(`SELECT (app.colombo_today() + 1)::text`);
+await ap.goto(SITE + '/admin/#renewals'); await ap.waitForSelector('#addRn', { timeout: 15000 });
+check('owner sees the Renewals menu', await ap.isVisible('#sideNav a[data-v=renewals]'));
+await ap.click('#addRn'); await ap.fill('#rnf [name=name]', 'E2E Supabase Pro'); await ap.fill('#rnf [name=provider]', 'Supabase');
+await ap.fill('#rnf [name=due]', tomorrow); await ap.selectOption('#rnf [name=cycle]', 'monthly'); await ap.fill('#rnf [name=remind]', '1');
+await ap.click('#rnf button.primary'); await ap.waitForSelector('#rnBanner:not([hidden])', { timeout: 15000 });
+check('reminder saved in the database', sql(`SELECT first_due::text || ' ' || cycle FROM app.service_renewals WHERE name = 'E2E Supabase Pro'`) === tomorrow + ' monthly');
+check('warning banner shows the day before', /E2E Supabase Pro[\s\S]*renews[\s\S]*tomorrow/.test(await ap.textContent('#rnBanner')));
+check('Renewals menu shows the count', (await ap.textContent('#rnPill')).trim() !== '');
+await ap.click('#sideNav a[data-v=dashboard]'); await ap.waitForTimeout(800);
+check('warning stays on other admin pages', await ap.isVisible('#rnBanner'));
+await ap.setViewportSize({ width: 390, height: 844 }); await ap.goto(SITE + '/admin/#renewals'); await ap.waitForSelector('#view table', { timeout: 15000 });
+check('renewals page on a phone: no sideways scrolling', (await ap.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
+await ap.screenshot({ path: OUT + '/sb-admin-renewals.jpg', type: 'jpeg', quality: 70, fullPage: true });
+await ap.setViewportSize({ width: 1366, height: 900 });
+sql(`DELETE FROM app.service_renewals WHERE name = 'E2E Supabase Pro'`);
+
 // 7. customer account (Supabase Auth)
 const acc = await ctx(); const cp = await page(acc, 'customer');
 await cp.goto(withSb('#account')); await cp.waitForSelector('#regF', { timeout: 20000 });

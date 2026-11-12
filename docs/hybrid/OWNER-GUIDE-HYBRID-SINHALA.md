@@ -63,3 +63,11 @@
 - පස්සේ පිරිවැය වෙනස් කළත් **කලින් විකුණුම් වල ලාභය වෙනස් වෙන්නේ නෑ**. හැම විකුණුමක්ම විකුණපු දවසේ පිරිවැය මතක තියාගන්නවා.
 - පිරිවැය රහසිගතයි. Customers ට හෝ වෙනත් staff ට පෙනෙන්නේ නෑ. බලන්න පුළුවන් owner සහ finance ට විතරයි. වෙනස් කරන්න පුළුවන් owner ට විතරයි.
 - ලාභයට shipping ගාස්තු, PayHere ගාස්තු සහ courier වියදම් ඇතුළත් නෑ.
+
+## 7. Renewals (Admin → Renewals)
+- Supabase Pro, VPS, domain වගේ මුදල් ගෙවන service එකක් renew වෙන දිනයක් හෝ free trial එකක් ඉවර වෙන දිනයක් මෙතන දාන්න. **+ Add reminder** → නම, දිනය, Repeats (Every month / Every year / One time), "Warn me this many days before" (සාමාන්‍යයෙන් 1).
+- දිනයට දවස් N කට කලින් සිට ඒ දවස දක්වා **admin එකේ හැම පිටුවකම උඩින්** තැඹිලි පාට warning එකක් පෙනෙනවා. Menu එකේ "Renewals" ළඟ ගණනකුත් පෙනෙනවා.
+- Every month / Every year: දිනය පහු වුණාම ඊළඟ මාසයට / අවුරුද්දට තනියම යනවා (Supabase වගේ card එකෙන් auto ගෙවන නිසා).
+- One time: දිනය පහු වුණාම, ඔබ වෙනස් කරනකම් හෝ මකනකම් රතු පාටින් **Overdue** කියලා පෙන්වනවා.
+- දින ගණන් කරන්නේ ශ්‍රී ලංකා වේලාවෙන්. Owner ට විතරයි මේක පෙනෙන්නේ.
+- දැනට warning එක පෙන්වන්නේ admin එකේ විතරයි. Email provider එකක් සෙට් කළාට පස්සේ (go-live checklist), email එකකුත් එවන්න හදන්න පුළුවන්.

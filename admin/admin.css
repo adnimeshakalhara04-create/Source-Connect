@@ -392,3 +392,16 @@ body.pv-dragging iframe { pointer-events: none; }
 /* Sales & Profit: money figures stay on one line */
 .rp-stats { grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); }
 .rp-stats .stat b { font-size: 22px; white-space: nowrap; }
+
+/* service renewal warnings */
+.rn-banner { margin: 16px 28px 0; display: grid; gap: 8px; }
+.rn-banner a { display: block; padding: 11px 14px; border-radius: 10px; background: #fff4e5; border: 1px solid #f6c77d; color: #7a4100; font-size: 14px; text-decoration: none; line-height: 1.4; }
+.rn-banner a:hover { background: #ffecd1; }
+.rn-st { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.rn-st.soon { background: #fff4e5; color: #9a5200; }
+.rn-st.late { background: #fde8e8; color: var(--red); }
+.rn-st.ok { background: #e7f6ec; color: #17803d; }
+.rn-st.off { background: #eef0f4; color: #64748b; }
+#rnf label.chk { display: flex; align-items: center; gap: 8px; flex-direction: row; }
+#rnf label.chk input { width: 18px; height: 18px; }
+@media (max-width: 700px) { .rn-banner { margin: 12px 16px 0; } }

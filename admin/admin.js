@@ -1360,7 +1360,7 @@
     // hide menu items this person cannot use
     var NEED = { dashboard: 'dashboard.view', orders: 'orders.read', customers: 'customers.read', products: 'catalog.read', flash: 'content.write', categories: 'catalog.write', origins: 'settings.write',
       collections: 'catalog.read', homepage: 'content.write', banners: 'content.write', header: 'content.write', pages: 'content.write', settings: 'content.write', editor: 'catalog.read',
-      staff: 'staff.manage', audit: 'audit.read', backups: 'backups.read', coupons: 'settings.write', reports: 'reports.view' };
+      staff: 'staff.manage', audit: 'audit.read', backups: 'backups.read', coupons: 'settings.write', reports: 'reports.view', renewals: 'renewals.manage' };
     function applyPermissions() {
       var nav = $('#sideNav');
       if (!$('#sideNav [data-v=reports]')) {
@@ -1372,10 +1372,33 @@
           '<a href="#coupons" data-v="coupons"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>Promo Codes</a>' +
           '<a href="#staff" data-v="staff"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-4 4-6 7-6s6 2 7 6M17 11l2 2 4-4"/></svg>Staff &amp; Roles</a>' +
           '<a href="#audit" data-v="audit"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3"/></svg>Audit Log</a>' +
-          '<a href="#backups" data-v="backups"><svg viewBox="0 0 24 24"><path d="M4 7c0-2 16-2 16 0v10c0 2-16 2-16 0zM4 7c0 2 16 2 16 0M4 12c0 2 16 2 16 0"/></svg>Backups <span class="pill" id="bkPill"></span></a>');
+          '<a href="#backups" data-v="backups"><svg viewBox="0 0 24 24"><path d="M4 7c0-2 16-2 16 0v10c0 2-16 2-16 0zM4 7c0 2 16 2 16 0M4 12c0 2 16 2 16 0"/></svg>Backups <span class="pill" id="bkPill"></span></a>' +
+          '<a href="#renewals" data-v="renewals"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 14v3l2 1"/></svg>Renewals <span class="pill" id="rnPill"></span></a>');
       }
       $$('#sideNav a[data-v]').forEach(function (a) { var p = NEED[a.dataset.v]; a.hidden = !!(p && !can(p)); });
       var who = $('.side-brand small'); if (who && me) who.textContent = (me.displayName || me.username).toUpperCase();
+      checkRenewals();
+    }
+
+    // ---------- service renewals (owner): warning banner on every page from N days before the date ----------
+    var rnTimer = null;
+    function rnWhen(n) { return n === 0 ? 'today' : n === 1 ? 'tomorrow' : n > 1 ? 'in ' + n + ' days' : (-n) + ' day' + (n === -1 ? '' : 's') + ' ago'; }
+    function rnDate(ymd) { return new Date(ymd + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+    function checkRenewals() {
+      if (!me || !can('renewals.manage')) return;
+      clearTimeout(rnTimer); rnTimer = setTimeout(checkRenewals, 30 * 60 * 1000);   // check again every 30 minutes while the admin is open
+      SCG.api('GET', '/admin/renewals').then(function (d) {
+        var due = d.items.filter(function (r) { return r.status === 'due_soon' || r.status === 'overdue'; });
+        var pill = $('#rnPill'); if (pill) { pill.textContent = due.length ? String(due.length) : ''; }
+        var b = $('#rnBanner');
+        if (!b) { var view = $('#view'); if (!view) return; view.insertAdjacentHTML('beforebegin', '<div id="rnBanner" class="rn-banner" role="alert" hidden></div>'); b = $('#rnBanner'); }
+        b.hidden = !due.length;
+        b.innerHTML = due.map(function (r) {
+          var what = r.cycle === 'once' ? (r.status === 'overdue' ? 'ended' : 'ends') : 'renews';
+          return '<a href="#renewals"><b>' + (r.status === 'overdue' ? '⚠ ' : '⏰ ') + esc(r.name) + '</b> ' + what + ' <b>' + rnWhen(r.daysLeft) + '</b> (' + rnDate(r.dueOn) + ')' +
+            (r.provider ? ' · ' + esc(r.provider) : '') + (r.note ? ' — ' + esc(r.note) : '') + '</a>';
+        }).join('');
+      }, function () {});
     }
     var _route = route;
     route = function () {
@@ -1667,6 +1690,45 @@
             if (E.max.value) body.maxRedemptions = +E.max.value; if (E.ends.value) body.endsAt = new Date(E.ends.value).toISOString();
             SCG.api('POST', '/admin/coupons', body).then(function () { toast('Promo code created'); closeModal(); route(); }, fail); };
         };
+      }, function (err) { if (location.hash !== h0) return; v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
+    } };
+
+    VIEWS.renewals = { title: 'Renewals', sub: 'Get a warning before a paid service renews or a free trial ends (Sri Lanka dates)', render: function (v) {
+      setActions('<button class="btn primary" id="addRn">+ Add reminder</button>');
+      v.innerHTML = '<p class="muted">Loading…</p>';
+      var h0 = location.hash, items = [];
+      var CYC = { monthly: 'Every month', yearly: 'Every year', once: 'One time (trial end)' };
+      var ST = { due_soon: '<span class="rn-st soon">Due soon</span>', overdue: '<span class="rn-st late">Overdue</span>', ok: '<span class="rn-st ok">OK</span>', off: '<span class="rn-st off">Off</span>' };
+      function form(r) {
+        r = r || { name: '', provider: '', dueOn: '', cycle: 'monthly', remindDays: 1, note: '', active: true };
+        openModal(r.id ? 'Edit reminder' : 'New reminder', '<form class="form" id="rnf">' +
+          '<label>Name<input name="name" required maxlength="60" list="rnNames" value="' + esc(r.name) + '" placeholder="e.g. Supabase Pro"></label>' +
+          '<datalist id="rnNames"><option value="Supabase Pro"><option value="Cloudflare"><option value="VPS server"><option value="Domain name"><option value="Email service"></datalist>' +
+          '<label>Company / provider (optional)<input name="provider" maxlength="60" value="' + esc(r.provider) + '" placeholder="e.g. Supabase"></label>' +
+          '<label>' + (r.id && r.cycle !== 'once' ? 'First renewal date (later dates follow from it)' : 'Renewal / end date') + '<input name="due" type="date" required value="' + esc(r.id ? r.firstDue : r.dueOn) + '"></label>' +
+          '<label>Repeats<select name="cycle">' + Object.keys(CYC).map(function (k) { return '<option value="' + k + '"' + (r.cycle === k ? ' selected' : '') + '>' + CYC[k] + '</option>'; }).join('') + '</select></label>' +
+          '<label>Warn me this many days before<input name="remind" type="number" min="0" max="30" required value="' + r.remindDays + '"></label>' +
+          '<label>Note (optional)<input name="note" maxlength="200" value="' + esc(r.note) + '" placeholder="e.g. paid with the business card"></label>' +
+          '<label class="chk"><input type="checkbox" name="active"' + (r.active ? ' checked' : '') + '> Warnings on</label>' +
+          '<div class="form-foot">' + (r.id ? '<button type="button" class="btn danger" id="rnDel">Delete</button>' : '') + '<button class="btn primary">Save</button></div></form>');
+        $('#rnf').onsubmit = function (e) { e.preventDefault(); var E = e.target.elements;
+          var body = { name: E.name.value.trim(), provider: E.provider.value.trim(), dueOn: E.due.value, cycle: E.cycle.value, remindDays: +E.remind.value, note: E.note.value.trim(), active: E.active.checked };
+          SCG.api(r.id ? 'PUT' : 'POST', '/admin/renewals' + (r.id ? '/' + r.id : ''), body).then(function () { toast('Saved'); closeModal(); route(); checkRenewals(); }, fail); };
+        if (r.id) $('#rnDel').onclick = function () { if (!confirm('Delete the reminder "' + r.name + '"?')) return;
+          SCG.api('DELETE', '/admin/renewals/' + r.id).then(function () { toast('Deleted'); closeModal(); route(); checkRenewals(); }, fail); };
+      }
+      $('#addRn').onclick = function () { form(); };
+      SCG.api('GET', '/admin/renewals').then(function (d) { if (location.hash !== h0) return;
+        items = d.items;
+        v.innerHTML = '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>Service</th><th>Next date</th><th>When</th><th>Repeats</th><th>Warn</th><th>Status</th><th></th></tr></thead><tbody>' +
+          (items.length ? items.map(function (r, i) {
+            return '<tr><td><b>' + esc(r.name) + '</b>' + (r.provider ? '<br><small class="muted">' + esc(r.provider) + '</small>' : '') + (r.note ? '<br><small class="muted">' + esc(r.note) + '</small>' : '') + '</td>' +
+              '<td>' + rnDate(r.dueOn) + '</td><td>' + rnWhen(r.daysLeft) + '</td><td>' + CYC[r.cycle] + '</td><td>' + (r.remindDays ? r.remindDays + ' day' + (r.remindDays > 1 ? 's' : '') + ' before' : 'on the day') + '</td>' +
+              '<td>' + ST[r.status] + '</td><td><button class="btn sm" data-rn="' + i + '">Edit</button></td></tr>';
+          }).join('') : '<tr><td colspan="7" class="muted">No reminders yet. Add one for each paid service: Supabase Pro, VPS, domain, …</td></tr>') + '</tbody></table></div></div>' +
+          '<p class="muted" style="font-size:13px">Today in Sri Lanka: ' + rnDate(d.today) + '. Monthly and yearly dates move on by themselves after they pass. A one-time date (for example a free trial) stays “Overdue” until you change or delete it. ' +
+          'The warning shows at the top of every admin page and on this menu item.</p>';
+        v.onclick = function (e) { var b = e.target.closest('[data-rn]'); if (b) form(items[+b.dataset.rn]); };
       }, function (err) { if (location.hash !== h0) return; v.innerHTML = '<p class="muted">' + esc(err.message) + '</p>'; });
     } };
 

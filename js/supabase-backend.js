@@ -106,6 +106,11 @@
   }
 
   // ---------- staff sign-in with MFA (two-step verification) ----------
+  function renewalArgs(id, b) {
+    b = b || {};
+    return { p_id: id, p_name: b.name, p_provider: b.provider || '', p_due: b.dueOn || null, p_cycle: b.cycle,
+             p_remind_days: b.remindDays === undefined || b.remindDays === '' ? 1 : Number(b.remindDays), p_note: b.note || '', p_active: b.active !== false };
+  }
   function staffEmail(u) { u = String(u || '').trim(); return u.indexOf('@') > -1 ? u : u + '@staff.invalid'; }
   function me(kind) { return token(kind).then(function (t) { return t ? authFetch('/user', undefined, t) : null; }); }
   var mfa = {
@@ -196,6 +201,10 @@
     if (m(/^\/admin\/reports\/sales$/, path)) return rpc('admin_sales_report', { p_from: qs.from, p_to: qs.to }, 'staff');
     if (path === '/admin/product-costs') return rpc('admin_product_costs', {}, 'staff');
     if ((x = m(/^\/admin\/product-costs\/([^/]+)$/, path))) return rpc('admin_set_product_cost', { p_slug: decodeURIComponent(x[1]), p_cost: body.cost == null || body.cost === '' ? null : Number(body.cost), p_apply_to_past: body.applyToPast === true }, 'staff');
+    if (path === '/admin/renewals' && method === 'GET') return rpc('admin_renewals', {}, 'staff');
+    if (path === '/admin/renewals' && method === 'POST') return rpc('admin_save_renewal', renewalArgs(null, body), 'staff');
+    if ((x = m(/^\/admin\/renewals\/([0-9a-f-]{36})$/, path))) return method === 'DELETE' ? rpc('admin_delete_renewal', { p_id: x[1] }, 'staff')
+      : rpc('admin_save_renewal', renewalArgs(x[1], body), 'staff');
     if (path === '/admin/coupons' && method === 'GET') return rpc('admin_coupons', {}, 'staff');
     if (path === '/admin/coupons' && method === 'POST') return rpc('admin_create_coupon', { p_data: body }, 'staff');
     if ((x = m(/^\/admin\/coupons\/([^/]+)$/, path))) return rpc('admin_set_coupon_active', { p_id: x[1], p_active: !!body.active }, 'staff');
