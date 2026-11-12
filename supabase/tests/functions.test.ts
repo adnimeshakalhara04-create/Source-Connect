@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import crypto from 'node:crypto';
 import { md5Hex } from '../functions/_shared/md5.ts';
-import { cfg, anon, staff, rpc, q1, db, setStock, stock, order, guest } from './helpers.js';
+import { cfg, anon, staff, rpc, q1, db, setStock, stock, order, guest, customer } from './helpers.js';
 
 const SECRET = 'local-test-secret-not-real', MID = '1211149';   // from supabase/functions/.env (test values only)
 const md5U = (s: string) => crypto.createHash('md5').update(s).digest('hex').toUpperCase();
@@ -55,7 +55,18 @@ describe('checkout Edge Function', () => {
     // The LOCAL gateway (Kong) adds "Access-Control-Allow-Origin: *" itself, so this checks the function code directly.
     // Sign-in uses bearer tokens (no cookies), so CORS is not the security boundary; hosted gateway behaviour is verified on staging.
     (globalThis as any).Deno = { env: { get: (k: string) => ({ SITE_ORIGINS: 'http://127.0.0.1:8000' } as any)[k] } };
-    const { cors, clientIp } = await import('../functions/_shared/common.ts');
+    const { cors, clientIp, isGuestKey } = await import('../functions/_shared/common.ts');
+    // guest keys: recognised by role (hosted projects hand functions a different form of the anon key)
+    const jwt = (p: object) => 'x.' + Buffer.from(JSON.stringify(p)).toString('base64url') + '.y';
+    expect(isGuestKey(cfg().anon)).toBe(true);
+    expect(isGuestKey('sb_publishable_abc123')).toBe(true);
+    expect(isGuestKey(jwt({ role: 'anon' }))).toBe(true);
+    expect(isGuestKey(jwt({ role: 'authenticated', sub: 'u1' }))).toBe(false);
+    expect(isGuestKey(jwt({ role: 'anon', sub: 'u1' }))).toBe(false);
+    expect(isGuestKey(jwt({ role: 'service_role' }))).toBe(false);
+    expect(isGuestKey('not-a-token')).toBe(false);
+    const cust = await customer();
+    expect(isGuestKey((await cust.c.auth.getSession()).data.session!.access_token)).toBe(false);
     expect(cors(new Request('http://x', { headers: { origin: 'http://127.0.0.1:8000' } }))['access-control-allow-origin']).toBe('http://127.0.0.1:8000');
     expect(cors(new Request('http://x', { headers: { origin: 'https://evil.example' } }))['access-control-allow-origin']).toBeUndefined();
     // rate limits use the gateway-added (last) X-Forwarded-For entry, not the caller-controlled first one

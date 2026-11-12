@@ -53,3 +53,37 @@ jobs:
       - name: Edge Function log on failure
         if: failure()
         run: tail -100 /tmp/functions.log
+
+  # Staging website on Cloudflare Pages (https://source-connect-915.pages.dev), only after every test above passed.
+  # Needs the repository secret CLOUDFLARE_API_TOKEN (Cloudflare token with "Cloudflare Pages: Edit"); without it the job is skipped.
+  deploy-staging:
+    needs: supabase
+    if: github.event_name == 'push' && github.ref == 'refs/heads/claude/supabase-vps7-hybrid'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 59e6bd84070d105f6e61daa8ed73af6a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Website files only (no server code, database files or docs)
+        run: |
+          mkdir dist && cp -r index.html admin assets css js dist/ && cp deploy/_headers dist/_headers
+          ! grep -rqE 'sb_secret_|"role":"service_role"' dist
+      - name: Deploy to Cloudflare Pages
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npx -y wrangler@4.48.0 pages deploy dist --project-name source-connect --branch main --commit-dirty=true
+      - name: Check the live staging site
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          sleep 15
+          for p in / /admin/ /js/config.js /js/supabase-backend.js; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://source-connect-915.pages.dev$p"); echo "$code $p"; [ "$code" = 200 ]
+          done
+          curl -s https://source-connect-915.pages.dev/js/config.js | grep -q nuqmaiybqmuvtfnjdzvn.supabase.co
+      - name: No Cloudflare token yet
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::notice::Add the repository secret CLOUDFLARE_API_TOKEN to deploy the staging site."

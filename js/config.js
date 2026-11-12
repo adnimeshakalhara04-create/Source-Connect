@@ -7,10 +7,11 @@
    On a developer machine (localhost only) a page can be pointed at a local stack with
      ?supabase=http://127.0.0.1:54321&anon=<local anon key>   or   ?api=http://127.0.0.1:8080 */
 (function () {
-  var PRODUCTION_SUPABASE = { url: '', anonKey: '' };
+  var PRODUCTION_SUPABASE = { url: 'https://nuqmaiybqmuvtfnjdzvn.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51cW1haXlicW11dnRmbmpkenZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0Njg2MjcsImV4cCI6MjExMDA0NDYyN30.dDmFoURtnXAUSAJCVQ2W3ZsMHNgp-wdjYdHX_4-MwX8' };   // public anon key (safe in the browser)
   var PRODUCTION_API = '';
-  var sb = PRODUCTION_SUPABASE.url ? PRODUCTION_SUPABASE : null, api = PRODUCTION_API;
   var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  // a developer machine or a test run never talks to the real shop database (tests must not create real orders)
+  var sb = PRODUCTION_SUPABASE.url && !local ? PRODUCTION_SUPABASE : null, api = local ? '' : PRODUCTION_API;
   if (local) {   // never on the real website: a link must not be able to point customers at another server
     var get = function (k) { var m = new RegExp('[?&]' + k + '=([^&#]+)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; };
     var store = function (k, v) { try { if (v === null) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); return v; } catch (e) { return v; } };

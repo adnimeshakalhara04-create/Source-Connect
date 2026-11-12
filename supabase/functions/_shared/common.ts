@@ -41,11 +41,24 @@ export async function rpc(fn: string, args: unknown, userToken?: string): Promis
   return res.ok ? { ok: true, status: res.status, data: body } : { ok: false, status: res.status, data: null, error: body ?? undefined };
 }
 
+/** A visitor key (not a person): a publishable key, or a JWT whose role is "anon".
+ *  Hosted projects give functions SUPABASE_ANON_KEY in a different form than the website's key, so an exact
+ *  comparison is not enough. Treating such a token as a guest is safe: a guest has no privileges. */
+export function isGuestKey(token: string): boolean {
+  if (token.startsWith('sb_publishable_')) return true;
+  const part = token.split('.')[1];
+  if (!part) return false;
+  try {
+    const p = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '=')));
+    return p?.role === 'anon' && !p?.sub;
+  } catch { return false; }
+}
+
 /** The signed-in user behind a request (validated by Supabase Auth), or null for guests. */
 export async function userFrom(req: Request): Promise<{ id: string; token: string } | null | 'invalid'> {
   const h = req.headers.get('authorization') ?? '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : '';
-  if (!token || token === ANON_KEY) return null;
+  if (!token || token === ANON_KEY || isGuestKey(token)) return null;
   const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: ANON_KEY, authorization: `Bearer ${token}` } });
   if (!res.ok) return 'invalid';
   const u = await res.json();
