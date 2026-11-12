@@ -1306,6 +1306,7 @@
       me = staff; me.permissions = (SCG.load().me && SCG.load().me.permissions) || staff.permissions || [];
       if (staff.mustChangePassword) { forcePasswordChange(); return true; }
       if (staff.needsMfa) { showMfa(); return true; }
+      if (staff.needsPin) { showPin(); return true; }
       try { localStorage.setItem('scg_admin_on', String(Date.now())); } catch (e) {}   // only shows the ADMIN bar on the website; not a login
       showApp(); return true;
     }
@@ -1355,6 +1356,25 @@
         e.preventDefault();
         if (!factorId) return;
         M.verify(factorId, e.target.elements.code.value).then(function () { location.reload(); }, function () { $('#loginErr').textContent = 'That code did not work. Check the time on your phone and try again.'; });
+      };
+    }
+    // Second step with the admin PIN the owner set (when the owner chose PIN instead of the authenticator app).
+    // The database checks the PIN, counts wrong tries and locks after 5; this form only sends it.
+    function showPin() {
+      $('#login').hidden = false;
+      var form = $('#loginForm');
+      form.innerHTML = '<h1>Admin PIN</h1><p class="muted">Enter the PIN the owner gave you.</p>' +
+        '<label>PIN<input name="pin" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{4,8}" maxlength="8" required></label>' +
+        '<div class="login-err" id="loginErr"></div><button class="btn primary full" id="pinGo">Continue</button><button type="button" class="btn link full" id="mfaOut">Use another account</button>';
+      $('#mfaOut').onclick = function () { SCG.adminLogout().then(function () { location.reload(); }); };
+      form.elements.pin.focus();
+      form.onsubmit = function (e) {
+        e.preventDefault();
+        var go = $('#pinGo'); go.disabled = true; $('#loginErr').textContent = '';
+        SCG.api('POST', '/admin/auth/pin', { pin: e.target.elements.pin.value.trim() }).then(function (r) {
+          if (r && r.ok) { location.reload(); return; }
+          go.disabled = false; e.target.elements.pin.value = ''; $('#loginErr').textContent = (r && r.message) || 'That PIN did not work.';
+        }, function (err) { go.disabled = false; $('#loginErr').textContent = err.message; });
       };
     }
     // hide menu items this person cannot use
@@ -1617,12 +1637,19 @@
       setActions('<button class="btn primary" id="addStaff">+ Add staff</button>');
       v.innerHTML = '<p class="muted">Loading…</p>';
       var h0 = location.hash;   // draw only if the person is still on this page
-      SCG.api('GET', '/admin/staff').then(function (r) { if (location.hash !== h0) return;
+      Promise.all([SCG.api('GET', '/admin/staff'), SCG.api('GET', '/admin/sign-in')]).then(function (both) { if (location.hash !== h0) return;
+        var r = both[0], si = both[1], withPin = si.withPin || [];
         var shops = (db.shops || []).map(function (s) { return s.id; });
         v.innerHTML = '<div class="panel" style="padding:0"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Roles</th><th>Departments</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody>' + r.staff.map(function (u) {
           return '<tr><td><b>' + esc(u.display_name) + '</b><br><small class="muted">' + esc(u.username) + '</small></td><td>' + u.roles.map(esc).join(', ') + '</td><td>' + (u.shops.length ? u.shops.map(esc).join(', ') : 'All') + '</td><td>' + esc(u.status) + (u.locked_until && new Date(u.locked_until) > new Date() ? ' · locked' : '') + (u.must_change_password ? ' · temp password' : '') + '</td><td><small>' + when(u.last_login_at) + '</small></td>' +
-            '<td><button class="btn sm" data-edit="' + u.id + '">Edit</button></td></tr>';
-        }).join('') + '</tbody></table></div></div><div class="panel"><h3>Roles</h3>' + r.roles.map(function (ro) { return '<p><b>' + esc(ro.name) + '</b> <small class="muted">(' + esc(ro.code) + ')</small> — ' + esc(ro.description) + '<br><small class="muted">' + ro.permissions.map(esc).join(', ') + '</small></p>'; }).join('') + '</div>';
+            '<td style="white-space:nowrap"><button class="btn sm" data-edit="' + u.id + '">Edit</button> <button class="btn sm" data-pin="' + u.id + '">' + (withPin.indexOf(u.id) > -1 ? 'Change PIN' : 'Set PIN') + '</button></td></tr>';
+        }).join('') + '</tbody></table></div></div>' +
+        '<div class="panel"><h3>Second sign-in step <small>asked after the password</small></h3><form class="form" id="siF">' +
+          '<label class="full"><input type="radio" name="mode" value="totp"' + (si.secondStep === 'totp' ? ' checked' : '') + '> <b>Authenticator app</b> (6-digit code on the phone) — the safest</label>' +
+          '<label class="full"><input type="radio" name="mode" value="pin"' + (si.secondStep === 'pin' ? ' checked' : '') + '> <b>Admin PIN</b> (4–8 digits you set for each person with “Set PIN”). 5 wrong tries lock it for 15 minutes.</label>' +
+          '<p class="full muted" style="margin:0;font-size:13px">Set your own PIN before choosing “Admin PIN”. Staff without a PIN cannot sign in while PIN is chosen. Switch back to the authenticator app before going live.</p>' +
+          '<div class="form-foot"><button class="btn primary">Save</button></div></form></div>' +
+        '<div class="panel"><h3>Roles</h3>' + r.roles.map(function (ro) { return '<p><b>' + esc(ro.name) + '</b> <small class="muted">(' + esc(ro.code) + ')</small> — ' + esc(ro.description) + '<br><small class="muted">' + ro.permissions.map(esc).join(', ') + '</small></p>'; }).join('') + '</div>';
         var roleBoxes = function (sel) { return r.roles.map(function (ro) { return '<label class="chk"><input type="checkbox" name="role" value="' + esc(ro.code) + '"' + (sel.indexOf(ro.code) > -1 ? ' checked' : '') + '> ' + esc(ro.name) + '</label>'; }).join(''); };
         var shopBoxes = function (sel) { return shops.map(function (s) { return '<label class="chk"><input type="checkbox" name="shop" value="' + esc(s) + '"' + (sel.indexOf(s) > -1 ? ' checked' : '') + '> ' + esc(s) + '</label>'; }).join(''); };
         var vals = function (f, n) { return $$('input[name=' + n + ']:checked', f).map(function (x) { return x.value; }); };
@@ -1634,7 +1661,23 @@
             SCG.api('POST', '/admin/staff', { username: E.username.value.trim(), displayName: E.displayName.value.trim(), email: E.email.value.trim(), roles: vals(e.target, 'role'), shops: vals(e.target, 'shop'), temporaryPassword: E.pw.value })
               .then(function () { toast('Staff account created'); closeModal(); route(); }, fail); };
         };
+        $('#siF').onsubmit = function (e) { e.preventDefault(); var mode = (e.target.querySelector('input[name=mode]:checked') || {}).value;
+          SCG.api('PUT', '/admin/sign-in', { secondStep: mode }).then(function () { toast(mode === 'pin' ? 'Staff now sign in with password + PIN' : 'Staff now sign in with password + authenticator app'); route(); }, fail); };
         v.onclick = function (e) {
+          var pb = e.target.closest('[data-pin]');
+          if (pb) {
+            var pu = r.staff.filter(function (x) { return x.id === pb.dataset.pin; })[0], has = withPin.indexOf(pu.id) > -1;
+            openModal((has ? 'Change PIN — ' : 'Set PIN — ') + pu.username, '<form class="form" id="pinF"><label class="full">New PIN (4–8 digits)<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required autocomplete="new-password"></label>' +
+              '<label class="full">Type it again<input name="pin2" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required autocomplete="new-password"></label>' +
+              '<p class="full muted" style="margin:0;font-size:13px">Give the PIN to the person yourself. It is stored only in scrambled (hashed) form, so nobody can read it back.</p>' +
+              '<div class="form-foot">' + (has ? '<button type="button" class="btn danger" id="pinDel">Remove PIN</button>' : '') + '<button class="btn primary">Save PIN</button></div></form>');
+            $('#pinF').onsubmit = function (ev) { ev.preventDefault(); var E = ev.target.elements;
+              if (E.pin.value !== E.pin2.value) { toast('The two PINs are not the same'); return; }
+              SCG.api('PUT', '/admin/staff/' + pu.id + '/pin', { pin: E.pin.value }).then(function () { toast('PIN saved'); closeModal(); route(); }, fail); };
+            if (has) $('#pinDel').onclick = function () { if (!confirm('Remove the PIN of ' + pu.username + '?')) return;
+              SCG.api('PUT', '/admin/staff/' + pu.id + '/pin', { pin: null }).then(function () { toast('PIN removed'); closeModal(); route(); }, fail); };
+            return;
+          }
           var b = e.target.closest('[data-edit]'); if (!b) return;
           var u = r.staff.filter(function (x) { return x.id === b.dataset.edit; })[0];
           openModal('Edit ' + u.username, '<form class="form" id="stf"><label class="full">Full name<input name="displayName" required value="' + esc(u.display_name) + '"></label><div class="full"><b>Roles</b><br>' + roleBoxes(u.roles) + '</div><div class="full"><b>Departments</b><br>' + shopBoxes(u.shops) + '</div>' +

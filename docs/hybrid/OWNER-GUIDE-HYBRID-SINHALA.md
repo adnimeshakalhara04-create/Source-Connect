@@ -71,3 +71,11 @@
 - One time: දිනය පහු වුණාම, ඔබ වෙනස් කරනකම් හෝ මකනකම් රතු පාටින් **Overdue** කියලා පෙන්වනවා.
 - දින ගණන් කරන්නේ ශ්‍රී ලංකා වේලාවෙන්. Owner ට විතරයි මේක පෙනෙන්නේ.
 - දැනට warning එක පෙන්වන්නේ admin එකේ විතරයි. Email provider එකක් සෙට් කළාට පස්සේ (go-live checklist), email එකකුත් එවන්න හදන්න පුළුවන්.
+
+## 8. Admin PIN (phone app code එක වෙනුවට)
+- Admin → **Staff & Roles** → ඔබේ නම ළඟ **Set PIN** → අංක 4–8ක PIN එකක් දෙපාරක් ගහලා **Save PIN**. ඊට පස්සේ **Second sign-in step** එකේ **Admin PIN** තෝරලා **Save**.
+- දැන් login වෙද්දී password එකට පස්සේ PIN එක අහනවා (QR / app එක ඕනේ නෑ). PIN එක check කරන්නේ database එකේ.
+- වෙන කෙනෙක්ට admin එක පෙන්නන්න ඕනේ නම්: **+ Add staff** (සුදුසු role එක, උදා: Catalog Editor) → ඒ කෙනාට **Set PIN**. Owner ගේ password/PIN දෙන්න එපා.
+- වැරදි PIN 5ක් ගැහුවොත් විනාඩි 15ක් lock වෙනවා. `1234`, `0000` වගේ ලේසි PIN බාර ගන්නේ නෑ. PIN එක hash කරලා විතරයි save කරන්නේ, කාටවත් ආපහු කියවන්න බෑ. Audit Log එකේ හැම PIN වෙනසක්ම, හරි/වැරදි උත්සාහයක්ම තියෙනවා.
+- PIN එක එක login එකකට පැය 12ක් වලංගුයි. Logout කළොත් හෝ වෙන browser එකකින් ආවොත් ආයෙත් අහනවා.
+- **Live යන්න කලින්** (card ගෙවීම් on කරන්න කලින්) **Authenticator app** එකට ආපහු මාරු කරන්න. ඒක තමයි වඩාම ආරක්ෂිත.

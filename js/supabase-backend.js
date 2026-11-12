@@ -70,7 +70,7 @@
       return readJson(res).then(function (d) {
         if (!res.ok) {
           var code = (d && d.hint) || (d && d.code === '42501' ? 'forbidden' : 'error');
-          var st = { bad_request: 400, unauthorized: 401, forbidden: 403, mfa_required: 403, password_change_required: 403, not_found: 404, conflict: 409, stock_changed: 409, price_changed: 409, duplicate_order: 409 }[code] || res.status;
+          var st = { bad_request: 400, unauthorized: 401, forbidden: 403, mfa_required: 403, pin_required: 403, password_change_required: 403, not_found: 404, conflict: 409, stock_changed: 409, price_changed: 409, duplicate_order: 409 }[code] || res.status;
           var details; try { details = d && d.details ? JSON.parse(d.details) : undefined; } catch (e) { details = undefined; }
           throw err(st, code, (d && d.message) || 'Request failed', { error: code, message: d && d.message, details: details });
         }
@@ -159,9 +159,12 @@
       if (!t) throw err(401, 'unauthorized', 'Please sign in.');
       return rpc('admin_me', {}, 'staff').then(function (s) {
         return { staff: { username: s.username, displayName: s.displayName, roles: s.roles, permissions: s.permissions, mustChangePassword: !!s.mustChangePassword,
-          needsMfa: !!(s.mfaRequired && s.aal !== 'aal2'), allShops: s.shops === null } };
+          // second sign-in step: authenticator app (default) or the owner-set admin PIN; the database decides (secondStepOk)
+          needsMfa: !!(s.mfaRequired && (s.secondStepOk === undefined ? s.aal !== 'aal2' : !s.secondStepOk) && s.secondStep !== 'pin'),
+          needsPin: !!(s.mfaRequired && s.secondStepOk === false && s.secondStep === 'pin'), hasPin: !!s.hasPin, allShops: s.shops === null } };
       });
     });
+    if (path === '/admin/auth/pin') return rpc('staff_verify_pin', { p_pin: String(body.pin || '') }, 'staff');
     if (path === '/admin/auth/logout') return signOut('staff').then(function () { return { ok: true }; });
     if (path === '/admin/auth/password') return edge('admin-staff', { action: 'change-own-password', currentPassword: body.currentPassword, newPassword: body.newPassword }, 'staff');
     // ---- admin catalogue ----
@@ -210,6 +213,9 @@
     if ((x = m(/^\/admin\/coupons\/([^/]+)$/, path))) return rpc('admin_set_coupon_active', { p_id: x[1], p_active: !!body.active }, 'staff');
     if (path === '/admin/staff' && method === 'GET') return rpc('admin_staff_list', {}, 'staff');
     if (path === '/admin/staff' && method === 'POST') return edge('admin-staff', Object.assign({ action: 'create' }, body), 'staff');
+    if (path === '/admin/sign-in' && method === 'GET') return rpc('admin_sign_in_settings', {}, 'staff');
+    if (path === '/admin/sign-in' && method === 'PUT') return rpc('admin_set_second_step', { p_mode: body.secondStep }, 'staff');
+    if ((x = m(/^\/admin\/staff\/([0-9a-f-]{36})\/pin$/, path))) return rpc('admin_set_staff_pin', { p_staff_id: x[1], p_pin: body.pin ? String(body.pin) : null }, 'staff');
     if ((x = m(/^\/admin\/staff\/([^/]+)$/, path))) return edge('admin-staff', Object.assign({ action: 'update', id: x[1] }, body), 'staff');
     return Promise.reject(err(404, 'not_found', 'Unknown request: ' + method + ' ' + path));
   }

@@ -29,6 +29,7 @@ Each step needs the owner's own account or decision. Claude does not buy service
 - [ ] VPS set up as in `vps-runbook.md` §1; the restore drill prints PASSED from R2.
 - [ ] Owner enters cost prices for every product (Admin → Sales & Profit → Cost prices), so profit is complete from the first sale.
 - [ ] Owner adds a reminder for every paid service and trial (Admin → Renewals): Supabase Pro renewal date, VPS, domain, and any trial end date.
+- [ ] Before live payments: Staff & Roles → Second sign-in step → back to **Authenticator app** (the admin PIN is meant for the preview period).
 - [ ] Run the load test on staging; record the results in `docs/evidence/`.
 
 ## B. Launch (needs separate written approval)

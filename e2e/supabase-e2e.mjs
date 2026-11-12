@@ -190,6 +190,27 @@ await ap.screenshot({ path: OUT + '/sb-admin-renewals.jpg', type: 'jpeg', qualit
 await ap.setViewportSize({ width: 1366, height: 900 });
 sql(`DELETE FROM app.service_renewals WHERE name = 'E2E Supabase Pro'`);
 
+// 6d. admin PIN instead of the authenticator app (owner's choice): set own PIN, switch, sign in elsewhere with password + PIN
+await ap.goto(SITE + '/admin/#staff'); await ap.waitForSelector('#siF', { timeout: 15000 });
+const ownerRow = await ap.$(`tr:has-text("ownere2e") [data-pin]`);
+await ownerRow.click(); await ap.fill('#pinF [name=pin]', '0722'); await ap.fill('#pinF [name=pin2]', '0722'); await ap.click('#pinF button.primary');
+await ap.waitForTimeout(1200);
+check('owner sets an admin PIN (stored only as a hash)', sql(`SELECT left(p.pin_hash, 2) FROM app.staff_pins p JOIN app.staff_users u ON u.id = p.staff_id WHERE u.username = 'ownere2e'`) === '$2');
+await ap.waitForSelector('#siF', { timeout: 15000 }); await ap.check('#siF input[value=pin]'); await ap.click('#siF button.primary'); await ap.waitForTimeout(1200);
+check('owner switches the second step to PIN', sql(`SELECT staff_second_step FROM app.security_settings`) === 'pin');
+const pinC = await ctx(); const pp = await page(pinC, 'admin-pin');
+await pp.goto(withSb('admin/'));
+await pp.fill('input[name=user]', OWNER.email); await pp.fill('input[name=pass]', OWNER.password); await pp.click('#loginForm button:not(.pw-eye)');
+await pp.waitForSelector('#loginForm input[name=pin]', { timeout: 15000 });
+check('after the password, the PIN is asked (no QR code / app)', !(await pp.$('#mfaQr')));
+await pp.fill('#loginForm input[name=pin]', '1111'); await pp.click('#pinGo'); await pp.waitForTimeout(1200);
+check('a wrong PIN is refused with tries left', /Wrong PIN\. 4 tries left/.test(await pp.textContent('#loginErr')));
+await pp.fill('#loginForm input[name=pin]', '0722'); await pp.click('#pinGo');
+await pp.waitForSelector('#shell:not([hidden])', { timeout: 20000 }); await pp.waitForTimeout(1200);
+check('the right PIN opens the admin', await pp.isVisible('#sideNav a[data-v=orders]'));
+await pinC.close();
+sql(`UPDATE app.security_settings SET staff_second_step = 'totp'`); sql(`DELETE FROM app.staff_pins`); sql(`DELETE FROM app.staff_pin_sessions`);
+
 // 7. customer account (Supabase Auth)
 const acc = await ctx(); const cp = await page(acc, 'customer');
 await cp.goto(withSb('#account')); await cp.waitForSelector('#regF', { timeout: 20000 });
