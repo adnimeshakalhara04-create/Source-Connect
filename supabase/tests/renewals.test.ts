@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { anon, staff, rpc, q1 } from './helpers.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -10,6 +10,7 @@ const plus = (ymd: string, n: number) => { const d = new Date(ymd + 'T00:00:00Z'
 let owner: SupabaseClient;
 
 beforeAll(async () => { owner = await staff('owner1'); });
+afterAll(async () => { await q1(`DELETE FROM app.service_renewals WHERE name LIKE 'T %'`); });   // leave no reminders for the browser test
 
 describe('service renewal reminders', () => {
   it('next date: monthly and yearly move on from the first date without drifting; one-time stays', async () => {

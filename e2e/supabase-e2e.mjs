@@ -171,13 +171,14 @@ check('report page on a phone: no sideways scrolling', (await ap.evaluate(() => 
 await ap.setViewportSize({ width: 1366, height: 900 });
 
 // 6c. service renewal reminder (owner): warning on every admin page from the day before
-sql(`DELETE FROM app.service_renewals WHERE name = 'E2E Supabase Pro'`);
+sql(`DELETE FROM app.service_renewals`);   // local test database: start with no reminders, so the banner can only come from this step
 const tomorrow = sql(`SELECT (app.colombo_today() + 1)::text`);
 await ap.goto(SITE + '/admin/#renewals'); await ap.waitForSelector('#addRn', { timeout: 15000 });
 check('owner sees the Renewals menu', await ap.isVisible('#sideNav a[data-v=renewals]'));
 await ap.click('#addRn'); await ap.fill('#rnf [name=name]', 'E2E Supabase Pro'); await ap.fill('#rnf [name=provider]', 'Supabase');
 await ap.fill('#rnf [name=due]', tomorrow); await ap.selectOption('#rnf [name=cycle]', 'monthly'); await ap.fill('#rnf [name=remind]', '1');
-await ap.click('#rnf button.primary'); await ap.waitForSelector('#rnBanner:not([hidden])', { timeout: 15000 });
+check('no warning while there are no reminders', await ap.isHidden('#rnBanner'));
+await ap.click('#rnf button.primary'); await ap.waitForFunction(() => /E2E Supabase Pro/.test(document.querySelector('#rnBanner:not([hidden])')?.textContent || ''), null, { timeout: 15000 });
 check('reminder saved in the database', sql(`SELECT first_due::text || ' ' || cycle FROM app.service_renewals WHERE name = 'E2E Supabase Pro'`) === tomorrow + ' monthly');
 check('warning banner shows the day before', /E2E Supabase Pro[\s\S]*renews[\s\S]*tomorrow/.test(await ap.textContent('#rnBanner')));
 check('Renewals menu shows the count', (await ap.textContent('#rnPill')).trim() !== '');
