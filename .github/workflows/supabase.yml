@@ -75,7 +75,7 @@ jobs:
           ! grep -rqE 'sb_secret_|"role":"service_role"' dist
       - name: Deploy to Cloudflare Pages
         if: env.CLOUDFLARE_API_TOKEN != ''
-        run: npx -y wrangler@4.48.0 pages deploy dist --project-name source-connect --branch main --commit-dirty=true
+        run: npx -y wrangler@4.47.0 pages deploy dist --project-name source-connect --branch main --commit-dirty=true
       - name: Check the live staging site
         if: env.CLOUDFLARE_API_TOKEN != ''
         run: |
