@@ -744,7 +744,7 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
         '<form class="panel form" id="loginF"><h3>Sign in</h3><label class="full">Email<input name="email" type="email" required autocomplete="email"></label>' +
           '<label class="full">Password<input name="password" type="password" required autocomplete="current-password"></label>' +
           '<button class="btn navy full" style="grid-column:1/-1">Sign in</button><p class="full" style="margin:0"><button type="button" class="link-sm" id="forgot">Forgot password?</button></p><p class="full co-msg" id="loginMsg" style="margin:0;color:var(--red)"></p>' +
-          '<button class="btn google full" type="button" disabled title="Coming soon" style="grid-column:1/-1">' + googleG() + 'Sign in with Google <small>coming soon</small></button></form>' +
+          '</form>' +
         '<form class="panel form" id="regF"><h3>Create an account</h3><p class="full" style="margin:0;color:var(--muted);font-size:13px">Optional: you can always check out as a guest. An account keeps all your orders together.</p>' +
           '<label class="full">Full name<input name="name" required maxlength="80" autocomplete="name"></label><label>Email<input name="email" type="email" required autocomplete="email"></label>' +
           '<label>Phone (optional)<input name="phone" maxlength="20" autocomplete="tel"></label><label class="full">Password (12+ characters)<input name="password" type="password" required minlength="12" autocomplete="new-password"></label>' +
@@ -877,8 +877,7 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
     var p = SCG.getProfile();
     if (!p) {
       app.innerHTML = '<div class="wrap"><div class="crumbs"><a href="#">Home</a>›<span>My account</span></div><div class="acct-grid">' +
-        '<div class="panel acct-empty">' + I.user + '<h2>Your account is created with your first order</h2><p>No sign-up form. When you check out, we save your name, phone and address as your Source Connect profile on this device.</p><a class="btn" href="#">Start shopping</a>' +
-          '<button class="btn google" disabled title="Coming soon">' + googleG() + 'Sign in with Google <small>coming soon</small></button></div>' +
+        '<div class="panel acct-empty">' + I.user + '<h2>Your account is created with your first order</h2><p>No sign-up form. When you check out, we save your name, phone and address as your Source Connect profile on this device.</p><a class="btn" href="#">Start shopping</a></div>' +
         '<form class="panel form" id="findAcc"><h3>Already ordered on this device?</h3><p class="full" style="margin:0;color:var(--muted);font-size:13px">Enter the phone number you used and one of your order numbers.</p>' +
           '<label>Phone number<input name="phone" required placeholder="07X XXX XXXX"></label><label>Order number<input name="order" required placeholder="SCG1234567"></label>' +
           '<button class="btn navy full" style="grid-column:1/-1">Find my account</button><p class="full" id="findMsg" style="margin:0;color:var(--red)"></p></form></div></div>';
@@ -915,7 +914,7 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
         '<label>City<input name="city" value="' + esc(p.city || '') + '"></label>' +
         '<label>District<select name="district">' + districts.map(function (d) { return '<option' + (d === p.district ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></label>' +
         '<button class="btn navy full" style="grid-column:1/-1">Save details</button></form>' +
-      '<div class="panel acct-side"><button class="btn google" disabled title="Coming soon">' + googleG() + 'Link Google account <small>coming soon</small></button>' +
+      '<div class="panel acct-side">' +
         '<a class="btn line full" href="#wishlist">My wishlist</a><button class="btn line full" id="signOut">Sign out on this device</button>' +
         '<p class="muted" style="font-size:12px;margin:0">Your profile is saved on this device only. Signing out removes it from this device; your orders stay with us.</p></div></div></div></div>';
     $('#profForm').onsubmit = function (e) {
@@ -931,7 +930,6 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
       if (added) location.hash = 'cart'; else toast('These products are no longer available');
     };
   }
-  function googleG() { return '<svg viewBox="0 0 48 48" style="width:18px;height:18px;stroke:none"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 38.9 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>'; }
 
   /* ---------------- admin visual editor (only inside the admin preview) ---------------- */
   var PREVIEW = /[?&]preview=1/.test(location.search) && window.parent !== window;

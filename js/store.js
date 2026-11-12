@@ -487,7 +487,7 @@
   function getWish() { return getJSON(WISH_KEY, '[]'); }
   function saveWish(w) { safeSet(WISH_KEY, JSON.stringify(w)); }
   /* Customer profile, saved on this device. Created automatically from the first order's
-     checkout details. (Sign in with Google can be connected later through a backend.) */
+     checkout details. */
   /* Admin password hashing (salted SHA-256). This only hides the password in saved data;
      real protection needs a server login (planned with the backend). */
   function hashPassword(pw, salt) {
