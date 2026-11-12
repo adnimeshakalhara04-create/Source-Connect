@@ -10,7 +10,7 @@ const { chromium } = require('playwright');
     await s.goto('http://localhost:8765/'); await s.evaluate(() => { localStorage.clear(); localStorage.setItem('scg_intro_seen', '1'); const d = SCG.reload(); d.products = []; d.collections.forEach(c => { c.productIds = []; c.order = []; }); SCG.save(); SCG.saveCart([{ id: 'mens-1', size: 'M', qty: 2 }]); localStorage.setItem('scg_wish_v1', JSON.stringify(['mens-1'])); });
     for (const r of siteRoutes) { await s.evaluate(h => location.hash = h, r); await s.waitForTimeout(400); await s.mouse.wheel(0, 3000); await s.waitForTimeout(150); await badText(s, 'empty site #' + r); }
     const a = await ctx.newPage(); a.on('pageerror', e => add('empty admin: JS error', e.message)); a.on('dialog', d => d.accept());
-    await a.goto('http://localhost:8765/admin/'); await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button'); await a.waitForTimeout(300);
+    await a.goto('http://localhost:8765/admin/'); await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button:not(.pw-eye)'); await a.waitForTimeout(300);
     for (const v of ['dashboard', 'orders', 'customers', 'products', 'flash', 'categories', 'origins', 'collections', 'collections/electronics', 'homepage', 'banners', 'header', 'pages', 'settings', 'editor']) { await a.evaluate(h => location.hash = h, v); await a.waitForTimeout(400); await badText(a, 'empty admin ' + v); }
     await ctx.close();
   }
@@ -26,7 +26,7 @@ const { chromium } = require('playwright');
     await s.evaluate(() => location.hash = 'p/mens-1'); await s.waitForTimeout(400);
     const a = await ctx.newPage(); a.on('pageerror', e => add('no-storage admin: JS error', e.message)); a.on('dialog', d => d.dismiss());
     await a.goto('http://localhost:8765/admin/'); await a.waitForTimeout(400);
-    await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button'); await a.waitForTimeout(400);
+    await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button:not(.pw-eye)'); await a.waitForTimeout(400);
     add('info', 'no-storage admin logged in: ' + await a.evaluate(() => !document.getElementById('shell').hidden));
     await ctx.close();
   }

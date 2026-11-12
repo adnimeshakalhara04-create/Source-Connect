@@ -1311,7 +1311,7 @@
     }
     $('#loginForm').onsubmit = function (e) {
       e.preventDefault();
-      var f = e.target, btn = f.querySelector('button'); btn.disabled = true; $('#loginErr').textContent = '';
+      var f = e.target, btn = f.querySelector('button:not(.pw-eye)'); btn.disabled = true; $('#loginErr').textContent = '';
       SCG.adminLogin(f.elements.user.value.trim(), f.elements.pass.value).then(function (staff) { btn.disabled = false; f.elements.pass.value = ''; afterAuth(staff); },
         function (err) { btn.disabled = false; $('#loginErr').textContent = err.message; });
     };

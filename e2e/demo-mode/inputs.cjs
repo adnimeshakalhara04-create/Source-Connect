@@ -3,7 +3,7 @@ const { chromium } = require('playwright');
   const b = await chromium.launch(); const out = []; const ctx = await b.newContext({ viewport: { width: 1280, height: 850 } });
   const a = await ctx.newPage(); a.on('pageerror', e => out.push('admin JS error ' + e.message)); a.on('dialog', d => d.accept());
   await a.goto('http://localhost:8765/admin/'); await a.evaluate(() => { localStorage.clear(); }); await a.reload();
-  await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button'); await a.waitForTimeout(300);
+  await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button:not(.pw-eye)'); await a.waitForTimeout(300);
   await a.evaluate(() => location.hash = 'products'); await a.waitForTimeout(400);
   const id = await a.$eval('#ptb tr', tr => tr.dataset.id);
   const before = await a.evaluate(id => SCG.productById(id).price, id);

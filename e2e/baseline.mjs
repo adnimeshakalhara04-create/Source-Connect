@@ -29,7 +29,7 @@ for (const [dev, vp] of [['desktop', { width: 1440, height: 900 }], ['mobile', {
     await p.goto(url + '/' + hash); await p.waitForTimeout(1200);
     await p.screenshot({ path: path.join(out, `site-${name}-${dev}.jpg`), type: 'jpeg', quality: 72 });
   }
-  await p.goto(url + '/admin/'); await p.fill('input[name=user]', 'admin'); await p.fill('input[name=pass]', 'admin123'); await p.click('#loginForm button'); await p.waitForTimeout(500);
+  await p.goto(url + '/admin/'); await p.fill('input[name=user]', 'admin'); await p.fill('input[name=pass]', 'admin123'); await p.click('#loginForm button:not(.pw-eye)'); await p.waitForTimeout(500);
   for (const v of admin) { await p.evaluate(h => location.hash = h, v); await p.waitForTimeout(v === 'editor' ? 1800 : 600); await p.screenshot({ path: path.join(out, `admin-${v}-${dev}.jpg`), type: 'jpeg', quality: 72 }); }
   await ctx.close();
 }

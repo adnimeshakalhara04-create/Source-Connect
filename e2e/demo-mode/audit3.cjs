@@ -10,7 +10,7 @@ const { chromium } = require('playwright');
     await a.goto('http://localhost:8765/admin/'); await a.evaluate(() => { localStorage.clear(); sessionStorage.clear(); }); await a.reload();
     // an order so orders/customers have content
     await a.evaluate(() => { const o = SCG.getOrders(); o.unshift({ id: 'SCG0000001', date: new Date().toISOString(), status: 'Pending', payment: 'Cash on Delivery', customer: { name: 'Test User', phone: '0771234567', address: '1 Rd, Kandy, Kandy', profileId: 'cust-1' }, items: [{ id: 'mens-1', name: 'Classic Cotton Crew Neck Tee', size: 'M', qty: 1, price: 1880, origin: 'china' }], subtotal: 1880, shipping: 350, total: 2230 }); SCG.saveOrders(o); });
-    await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button'); await a.waitForTimeout(300);
+    await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button:not(.pw-eye)'); await a.waitForTimeout(300);
     const check = async (label) => {
       const r = await a.evaluate(() => {
         const out = [], vis = el => el.offsetParent || getComputedStyle(el).position === 'fixed';

@@ -41,7 +41,7 @@ const PF = k => `'"><img src=x onerror=__h('${k}')>`; const P = PF('cust');
   // admin
   const a = await ctx.newPage(); a.on('dialog', d => d.dismiss()); a.on('pageerror', e => add('admin JS error', e.message));
   await a.goto('http://localhost:8765/admin/');
-  await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button'); await a.waitForTimeout(400);
+  await a.fill('input[name=user]', 'admin'); await a.fill('input[name=pass]', 'admin123'); await a.click('#loginForm button:not(.pw-eye)'); await a.waitForTimeout(400);
   const views = ['dashboard', 'orders', 'orders/SCG0000009', 'customers', 'products', 'flash', 'categories', 'origins', 'collections', 'collections/electronics', 'homepage', 'banners', 'header', 'pages', 'settings', 'editor'];
   for (const v of views) {
     await a.evaluate(h => location.hash = h, v); await a.waitForTimeout(600);
