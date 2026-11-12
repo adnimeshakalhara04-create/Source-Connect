@@ -100,7 +100,7 @@
   SCG.adminBoot = function () {
     return api('GET', '/admin/auth/session').then(function (s) {
       SCG.staff = s.staff;
-      if (s.staff.mustChangePassword || s.staff.needsMfa) return s.staff;
+      if (s.staff.mustChangePassword || s.staff.needsMfa || s.staff.needsPin) return s.staff;   // second step not done yet: the database refuses admin data until it is
       return SCG.adminState().then(function () { return s.staff; });
     }, function () { return null; });
   };
