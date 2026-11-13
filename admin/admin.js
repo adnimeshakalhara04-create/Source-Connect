@@ -92,11 +92,11 @@
       (pct > 80 ? '<small style="color:var(--red)">Storage is nearly full. Use image links instead of uploads, or remove unused photos.</small>' : '<small class="muted">Uploaded photos are compressed. Image links (URLs) use almost no space.</small>') + '</div>';
   }
   function waNumber(phone) { var d = String(phone || '').replace(/\D/g, ''); if (d.indexOf('0') === 0) d = '94' + d.slice(1); return d; }
-  function bindUploader(root, current, onChange) {
+  function bindUploader(root, current, onChange, max, quality) {
     var file = $('input[type=file]', root), prev = $('.preview', root);
     file.onchange = function () {
       if (!file.files[0]) return;
-      SCG.imageToDataURL(file.files[0], 900).then(function (url) { prev.innerHTML = '<img src="' + SCG.imgSrc(url) + '" alt="">'; onChange(url); })
+      SCG.imageToDataURL(file.files[0], max || 900, quality).then(function (url) { prev.innerHTML = '<img src="' + SCG.imgSrc(url) + '" alt="">'; onChange(url); })
         .catch(function () { toast('Could not read that image'); });
     };
     var rm = $('[data-rm-img]', root);
@@ -1022,9 +1022,12 @@
      ========================================================= */
   function banners(v) {
     setActions('<button class="btn primary" id="addHero">+ Add Banner</button>' + preview('', 'Preview homepage'));
-    v.innerHTML = '<p class="muted" style="margin-top:0">Banners 1–2 sit beside the globe. Banners 3 and up show as wide banners below the categories (that section can be switched on or off in Homepage &amp; Globe). Use ↑ to reorder.</p><div class="cards">' + db.hero.map(function (h, i) {
-      return '<div class="item-card"><div class="cover" style="background:linear-gradient(120deg,' + h.color + ',' + SCG.shade(h.color, -70) + ')">' + (h.image ? '<img src="' + SCG.imgSrc(h.image) + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div>' +
-        '<div class="body"><small class="muted">' + (i < 2 ? 'BESIDE GLOBE' : 'WIDE BANNER') + ' · ' + esc(h.eyebrow) + '</small><h4>' + esc(h.title) + '</h4><p>' + esc(h.subtitle) + '</p><p><code class="muted">' + esc(h.link) + '</code></p></div>' +
+    var nCard = 0;
+    v.innerHTML = '<p class="muted" style="margin-top:0"><b>Poster</b> banners (a finished picture with its own words, like an 11:11 sale design) show whole, at their own shape, in a full-width slider under the globe. ' +
+      'Other banners: the first 2 sit beside the globe; the rest show as wide banners below the categories (that section can be switched on or off in Homepage &amp; Globe). Use ↑ to reorder.</p><div class="cards">' + db.hero.map(function (h, i) {
+      var poster = h.style === 'poster' && h.image, place = poster ? 'POSTER · FULL-WIDTH SLIDER' : (nCard++ < 2 ? 'BESIDE GLOBE' : 'WIDE BANNER');
+      return '<div class="item-card"><div class="cover" style="' + (poster ? 'background:#eef1f6' : 'background:linear-gradient(120deg,' + h.color + ',' + SCG.shade(h.color, -70) + ')') + '">' + (h.image ? '<img src="' + SCG.imgSrc(h.image) + '" alt=""' + (poster ? ' style="object-fit:contain"' : '') + '>' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div>' +
+        '<div class="body"><small class="muted">' + place + (poster ? '' : ' · ' + esc(h.eyebrow)) + '</small><h4>' + esc(h.title) + '</h4><p>' + esc(h.subtitle) + '</p><p><code class="muted">' + esc(h.link) + '</code></p></div>' +
         '<div class="foot"><button class="btn sm" data-up="' + i + '"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="btn sm" data-edit="' + i + '">Edit</button><button class="btn sm danger" data-del="' + i + '">Delete</button></div></div>';
     }).join('') + '</div>';
     $('#addHero').onclick = function () { bannerForm(-1); };
@@ -1039,24 +1042,46 @@
     return ['#shop', '#flash', '#china-direct', '#track', '#help', '#categories'].concat(db.categories.map(function (c) { return '#c/' + c.id; }), db.collections.map(function (c) { return '#col/' + c.id; }), SCG.origins().map(function (o) { return '#from/' + o.id; }));
   }
   function bannerForm(i) {
-    var h = i > -1 ? JSON.parse(JSON.stringify(db.hero[i])) : { id: SCG.uid('h'), eyebrow: 'New Season', title: 'Your headline', subtitle: '', cta: 'Shop Now', link: '#shop', color: '#0b2a6f', shape: 'tshirt', image: '' };
+    var h = i > -1 ? JSON.parse(JSON.stringify(db.hero[i])) : { id: SCG.uid('h'), eyebrow: 'New Season', title: 'Your headline', subtitle: '', cta: 'Shop Now', link: '#shop', color: '#0b2a6f', shape: 'tshirt', image: '', style: 'card' };
+    if (h.style !== 'poster') h.style = 'card';
+    var posterImg = h.style === 'poster' ? h.image : '', cardImg = h.style === 'poster' ? '' : h.image;
     function prev() { return h.image ? '<img src="' + SCG.imgSrc(h.image) + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color); }
+    function posterPrev() { return posterImg ? '<img src="' + SCG.imgSrc(posterImg) + '" alt="" style="display:block;width:100%;height:auto">' : '<p class="muted" style="margin:0;padding:28px 12px;text-align:center">No picture yet</p>'; }
     openModal(i > -1 ? 'Edit Banner' : 'Add Banner',
-      '<form class="form" id="hform"><label>Small label<input name="eyebrow" value="' + esc(h.eyebrow) + '"></label>' +
-      '<label>Button text<input name="cta" value="' + esc(h.cta) + '"></label>' +
-      '<label class="full">Title<input name="title" required value="' + esc(h.title) + '"></label>' +
-      '<label class="full">Subtitle<input name="subtitle" value="' + esc(h.subtitle) + '"></label>' +
+      '<form class="form" id="hform">' +
+      '<label class="full">Banner type<select name="style"><option value="card"' + (h.style === 'card' ? ' selected' : '') + '>Text banner (the website writes the words over a colour or photo)</option>' +
+        '<option value="poster"' + (h.style === 'poster' ? ' selected' : '') + '>Poster (a finished picture that already has its words, e.g. an 11:11 sale design)</option></select></label>' +
+      '<div class="full" data-for="poster"><label style="margin-bottom:6px">Poster picture <small class="muted">— shown whole at its own shape, never cut. Best: 1920 × 1080 (16:9) or 1920 × 600 for a thin strip; JPG, PNG or WebP. Keep important words away from the very edges.</small></label>' +
+        '<div class="uploader" id="pup" style="display:block"><div class="preview" style="display:block;width:100%;height:auto;min-height:80px;background:#eef1f6;border-radius:10px;overflow:hidden">' + posterPrev() + '</div>' +
+        '<div class="btns" style="margin-top:8px"><input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload the poster picture"><span class="muted" id="pupInfo" style="font-size:12px"></span></div></div></div>' +
+      '<label data-for="card">Small label<input name="eyebrow" value="' + esc(h.eyebrow) + '"></label>' +
+      '<label data-for="card">Button text<input name="cta" value="' + esc(h.cta) + '"></label>' +
+      '<label class="full"><span id="titleLbl">Title</span><input name="title" required maxlength="60" value="' + esc(h.title) + '"></label>' +
+      '<label class="full" data-for="card">Subtitle<input name="subtitle" value="' + esc(h.subtitle) + '"></label>' +
       '<label>Opens<input name="link" list="hlinks" value="' + esc(h.link) + '"><datalist id="hlinks">' + linkOptions().map(function (l) { return '<option value="' + l + '">'; }).join('') + '</datalist></label>' +
-      '<label>Background colour<input type="color" name="color" value="' + esc(h.color) + '"></label>' +
-      '<label>Picture (if no image)<select name="shape">' + Object.keys(SCG.SHAPES).map(function (s) { return '<option' + (s === h.shape ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
-      '<div class="full"><label style="margin-bottom:8px">Image (optional; a product photo on a plain background works best)</label><div class="uploader" id="hup"><div class="preview" style="background:' + esc(h.color) + '">' + prev() + '</div><div class="btns"><input type="file" accept="image/*" aria-label="Upload a picture"><button type="button" class="btn sm danger" data-rm-img>Remove</button></div></div></div>' +
+      '<label data-for="card">Background colour<input type="color" name="color" value="' + esc(h.color) + '"></label>' +
+      '<label data-for="card">Picture (if no image)<select name="shape">' + Object.keys(SCG.SHAPES).map(function (s) { return '<option' + (s === h.shape ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></label>' +
+      '<div class="full" data-for="card"><label style="margin-bottom:8px">Image (optional; a product photo on a plain background works best)</label><div class="uploader" id="hup"><div class="preview" style="background:' + esc(h.color) + '">' + prev() + '</div><div class="btns"><input type="file" accept="image/*" aria-label="Upload a picture"><button type="button" class="btn sm danger" data-rm-img>Remove</button></div></div></div>' +
       '<div class="form-foot"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Save</button></div></form>');
     var f = $('#hform'), E = f.elements;
-    bindUploader($('#hup'), prev, function (u) { h.image = u; });
+    h.image = cardImg;
+    bindUploader($('#hup'), prev, function (u) { cardImg = u; h.image = u; });
+    bindUploader($('#pup'), posterPrev, function (u) {   // up to 1920 px wide, high quality, so the words stay sharp
+      posterImg = u; $('#pup .preview').innerHTML = posterPrev();
+      var im = $('#pup .preview img'); if (im) im.onload = function () { $('#pupInfo').textContent = im.naturalWidth + ' × ' + im.naturalHeight + ' — shown whole on the website'; };
+    }, 1920, 0.9);
+    function showType() {
+      var poster = E.style.value === 'poster';
+      $$('[data-for]', f).forEach(function (el) { el.hidden = el.getAttribute('data-for') !== (poster ? 'poster' : 'card'); });
+      $('#titleLbl').textContent = poster ? 'Short description (read aloud to blind visitors; not shown on the picture)' : 'Title';
+    }
+    E.style.onchange = showType; showType();
     E.shape.onchange = E.color.oninput = function () { h.shape = E.shape.value; h.color = E.color.value; $('#hup .preview').style.background = h.color; if (!h.image) $('#hup .preview').innerHTML = prev(); };
     f.onsubmit = function (e) {
       e.preventDefault();
-      ['eyebrow', 'cta', 'title', 'subtitle', 'link', 'color', 'shape'].forEach(function (k) { h[k] = E[k].value; });
+      ['eyebrow', 'cta', 'title', 'subtitle', 'link', 'color', 'shape', 'style'].forEach(function (k) { h[k] = E[k].value; });
+      if (h.style === 'poster') { if (!posterImg) { toast('Choose the poster picture first'); return; } h.image = posterImg; }
+      else h.image = cardImg;
       if (i > -1) db.hero[i] = h; else db.hero.push(h);
       commit('Banner saved'); closeModal(); route();
     };

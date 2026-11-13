@@ -515,8 +515,8 @@
   }
 
   /** Resize an uploaded image File to a compact JPEG data URL. */
-  function imageToDataURL(file, max) {
-    max = max || 800;
+  function imageToDataURL(file, max, quality) {
+    max = max || 800; quality = quality || 0.8;
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
       reader.onerror = reject;
@@ -530,8 +530,8 @@
           var ctx = c.getContext('2d');
           ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
           ctx.drawImage(img, 0, 0, c.width, c.height);
-          var webp = c.toDataURL('image/webp', 0.8);
-          resolve(webp.indexOf('data:image/webp') === 0 ? webp : c.toDataURL('image/jpeg', 0.8));
+          var webp = c.toDataURL('image/webp', quality);
+          resolve(webp.indexOf('data:image/webp') === 0 ? webp : c.toDataURL('image/jpeg', quality));
         };
         img.src = reader.result;
       };

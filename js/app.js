@@ -213,8 +213,14 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
     setTitle('');
     var s = db.settings;
     var flash = flashOn() ? db.products.filter(function (p) { return p.flash; }) : [];
-    var promos = db.hero.slice(0, 2), banners = db.hero.slice(2);
-    var promoHTML = function (h, i) {
+    // poster banners (a finished picture with its own words) go to the full-width slider; the rest keep their places.
+    // Each keeps its index in db.hero for the visual editor.
+    var heroIx = db.hero.map(function (h, i) { return { h: h, i: i }; });
+    var posters = heroIx.filter(function (x) { return x.h.style === 'poster' && x.h.image; });
+    var cards = heroIx.filter(function (x) { return !(x.h.style === 'poster' && x.h.image); });
+    var promos = cards.slice(0, 2), banners = cards.slice(2);
+    var promoHTML = function (x) {
+      var h = x.h, i = x.i;
       return '<a class="promo" data-ed="banner" data-i="' + i + '" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><small>' + esc(h.eyebrow) + '</small><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle) + '</span><em>' + esc(h.cta || 'Shop now') + ' →</em>' +
         '<div class="art">' + (h.image ? '<img src="' + SCG.imgSrc(h.image) + '" alt="">' : SCG.productSVG(h.shape, '#ffffff', 'solid', h.color)) + '</div></a>';
     };
@@ -235,11 +241,12 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
       },
       banners: function () {
         if (!banners.length) return '';
-        return '<section class="sec banners" style="--n:' + Math.min(3, banners.length) + '">' + banners.slice(0, 6).map(function (h, j) {
+        return '<section class="sec banners" style="--n:' + Math.min(3, banners.length) + '">' + banners.slice(0, 6).map(function (x) {
+          var h = x.h;
           var key = String(h.link || '').split('/')[1] || '';
           var items = db.products.filter(function (p) { return p.category === key || (p.collections || []).indexOf(key) > -1; }).slice(0, 2);
           if (!items.length) items = db.products.filter(function (p) { return p.shape === h.shape; }).slice(0, 2);
-          return '<a class="banner" data-ed="banner" data-i="' + (j + 2) + '" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle || '') + '</span>' +
+          return '<a class="banner" data-ed="banner" data-i="' + x.i + '" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle || '') + '</span>' +
             '<div class="stack">' + (h.image ? '<div><img src="' + SCG.imgSrc(h.image) + '" alt="" style="border-radius:8px;height:100%;object-fit:cover"></div>' : items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
         }).join('') + '</section>';
       },
@@ -273,13 +280,69 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
         '<aside class="panel hero-cats"><h3>Categories</h3>' + catListHTML() + '</aside>' +
         stageHTML('stage') +
         (promos.length ? '<div class="promos">' + promos.map(promoHTML).join('') + '</div>' : '') +
-      '</section>' + body + '</div>';
+      '</section>' + posterHTML(posters) + body + '</div>';
     mountGlobe('stage');
+    startPosters();
     tickCountdowns();
     if ($('#jfyTabs')) {
       $('#jfyTabs').onclick = function (e) { var b = e.target.closest('button'); if (!b) return; $$('#jfyTabs button').forEach(function (x) { x.classList.toggle('on', x === b); }); startJFY(b.dataset.t); };
       startJFY('all');
     }
+  }
+  /* Poster slider: each picture is shown WHOLE at its own shape (object-fit: contain, never cropped or stretched).
+     The slider takes the shape of the current picture, so a 16:9 design and a long thin strip both fit exactly.
+     Swipe, arrows, dots and keyboard; changes every 6 s, pauses on hover/focus, off when the visitor prefers less motion. */
+  function posterHTML(list) {
+    if (!list.length) return '';
+    return '<section class="sec posters" id="posters" tabindex="-1" aria-roledescription="carousel" aria-label="Offers">' +
+      '<div class="pst-track" id="pstTrack">' + list.map(function (x, k) {
+        var h = x.h, alt = h.title || h.subtitle || 'Offer';
+        return '<a class="pst" data-ed="banner" data-i="' + x.i + '" href="' + esc(h.link || '#shop') + '" role="group" aria-roledescription="slide" aria-label="' + (k + 1) + ' of ' + list.length + '">' +
+          '<img src="' + SCG.imgSrc(h.image) + '" alt="' + esc(alt) + '"' + (k ? ' loading="lazy"' : ' fetchpriority="high"') + ' decoding="async"></a>';
+      }).join('') + '</div>' +
+      (list.length > 1 ? '<button class="pst-nav prev" type="button" aria-label="Previous offer">‹</button><button class="pst-nav next" type="button" aria-label="Next offer">›</button>' +
+        '<div class="pst-dots">' + list.map(function (x, k) { return '<button type="button" aria-label="Show offer ' + (k + 1) + '"' + (k ? '' : ' aria-current="true"') + '></button>'; }).join('') + '</div>' : '') +
+      '</section>';
+  }
+  var pst = { timer: null };
+  function startPosters() {
+    clearInterval(pst.timer);
+    var box = $('#posters'); if (!box) return;
+    var track = $('#pstTrack'), slides = $$('.pst', track), dots = $$('.pst-dots button', box), cur = 0, paused = false;
+    function ratio(img) { return img && img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : 16 / 9; }
+    function fit() { box.style.setProperty('--ar', String(ratio($('img', slides[cur])))); }
+    function mark() { dots.forEach(function (d, k) { if (k === cur) d.setAttribute('aria-current', 'true'); else d.removeAttribute('aria-current'); }); }
+    function go(n, smooth) {
+      cur = (n + slides.length) % slides.length;
+      fit();
+      track.scrollTo({ left: cur * track.clientWidth, behavior: smooth === false ? 'auto' : 'smooth' });
+      mark();
+    }
+    slides.forEach(function (s) { var img = $('img', s); if (!img.complete) img.addEventListener('load', function () { if (s === slides[cur]) fit(); }); });
+    fit();
+    if (slides.length < 2) return;
+    $('.pst-nav.prev', box).onclick = function () { go(cur - 1); };
+    $('.pst-nav.next', box).onclick = function () { go(cur + 1); };
+    dots.forEach(function (d, k) { d.onclick = function () { go(k); }; });
+    var st;
+    track.addEventListener('scroll', function () {   // swipe on phones: follow the slide the visitor stopped on
+      clearTimeout(st); st = setTimeout(function () {
+        var k = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+        if (k !== cur && slides[k]) { cur = k; mark(); fit(); }
+      }, 120);
+    }, { passive: true });
+    box.addEventListener('mouseenter', function () { paused = true; });
+    box.addEventListener('mouseleave', function () { paused = false; });
+    box.addEventListener('focusin', function () { paused = true; });
+    box.addEventListener('focusout', function () { paused = false; });
+    box.addEventListener('keydown', function (e) { if (e.key === 'ArrowLeft') go(cur - 1); if (e.key === 'ArrowRight') go(cur + 1); });
+    var onResize = function () { if (!document.body.contains(box)) { window.removeEventListener('resize', onResize); return; } go(cur, false); };
+    window.addEventListener('resize', onResize);
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    pst.timer = setInterval(function () {
+      if (!document.body.contains(box)) { clearInterval(pst.timer); return; }
+      if (!paused && !document.hidden) go(cur + 1);
+    }, 6000);
   }
   function rail(title, link, list, ed) {
     return '<section class="sec"' + (ed ? ' ' + ed : '') + '><div class="sec-head"><h2>' + esc(title) + '</h2><a class="more" href="' + link + '">Shop more</a></div><div class="panel"><div class="rail">' + list.map(function (p) { return card(p); }).join('') + '</div></div></section>';

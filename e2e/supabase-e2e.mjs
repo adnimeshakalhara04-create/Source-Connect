@@ -211,6 +211,38 @@ check('the right PIN opens the admin', await pp.isVisible('#sideNav a[data-v=ord
 await pinC.close();
 sql(`UPDATE app.security_settings SET staff_second_step = 'totp'`); sql(`DELETE FROM app.staff_pins`); sql(`DELETE FROM app.staff_pin_sessions`);
 
+// 6e. poster banner (a finished picture with its own words): uploaded in the admin, shown WHOLE on the website at its own shape
+await ap.goto(SITE + '/admin/#banners'); await ap.waitForSelector('#addHero', { timeout: 15000 });
+const posterPng = Buffer.from(await ap.evaluate(() => {
+  const c = document.createElement('canvas'); c.width = 1600; c.height = 900; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, 1600, 900); x.fillStyle = '#d7141a'; x.font = 'bold 220px sans-serif'; x.fillText('11:11', 120, 520);
+  x.fillStyle = '#0b2a6f'; x.fillRect(0, 0, 1600, 24); x.fillRect(0, 876, 1600, 24);   // edge bars: visible only if nothing is cut off
+  return c.toDataURL('image/png').split(',')[1];
+}), 'base64');
+await ap.click('#addHero'); await ap.selectOption('#hform [name=style]', 'poster');
+check('poster form hides the text-banner fields', await ap.isHidden('#hform [name=eyebrow]'));
+await ap.setInputFiles('#pup input[type=file]', { name: 'offer.png', mimeType: 'image/png', buffer: posterPng });
+await ap.waitForFunction(() => /1600 × 900/.test(document.querySelector('#pupInfo')?.textContent || ''), null, { timeout: 15000 });
+await ap.fill('#hform [name=title]', 'E2E 11:11 Offer'); await ap.fill('#hform [name=link]', '#flash');
+await ap.click('#hform button.primary');
+await ap.waitForFunction(() => /POSTER · FULL-WIDTH SLIDER/.test(document.querySelector('#view')?.textContent || ''), null, { timeout: 20000 });
+await ap.waitForTimeout(2500);
+const posterRow = JSON.parse(sql(`SELECT json_build_object('style', style, 'img', image_url, 'link', link)::text FROM app.banners WHERE title = 'E2E 11:11 Offer'`) || '{}');
+check('poster saved with its picture in Supabase Storage', posterRow.style === 'poster' && /\/storage\/v1\/object\/public\/product-images\//.test(posterRow.img || ''), posterRow.img);
+for (const [vw, vh] of [[1366, 860], [390, 844]]) {
+  const pc = await ctx({ viewport: { width: vw, height: vh } }); const pg = await page(pc, 'shop-poster');
+  await pg.goto(withSb('')); await pg.waitForSelector('#posters img', { timeout: 20000 });
+  await pg.waitForFunction(() => { const i = document.querySelector('#posters img'); return i && i.complete && i.naturalWidth > 0; }, null, { timeout: 20000 }); await pg.waitForTimeout(400);
+  const fit = await pg.evaluate(() => { const box = document.querySelector('#posters'), img = box.querySelector('img'), r = box.getBoundingClientRect();
+    return { box: r.width / r.height, img: img.naturalWidth / img.naturalHeight, w: img.naturalWidth, fit: getComputedStyle(img).objectFit, alt: img.alt, href: box.querySelector('a').getAttribute('href') }; });
+  check(`poster shown whole at its own shape (${vw}px wide)`, Math.abs(fit.box - fit.img) < 0.01 && fit.fit === 'contain' && fit.w === 1600, JSON.stringify(fit));
+  check(`poster has its description and link (${vw}px wide)`, fit.alt === 'E2E 11:11 Offer' && fit.href === '#flash');
+  check(`poster page: no sideways scrolling (${vw}px wide)`, (await pg.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1);
+  if (vw < 500) { await pg.$eval('#posters', e => e.scrollIntoView({ block: 'center' })); await pg.screenshot({ path: OUT + '/sb-poster-phone.jpg', type: 'jpeg', quality: 70 }); }
+  await pc.close();
+}
+sql(`DELETE FROM app.banners WHERE title = 'E2E 11:11 Offer'`);
+
 // 7. customer account (Supabase Auth)
 const acc = await ctx(); const cp = await page(acc, 'customer');
 await cp.goto(withSb('#account')); await cp.waitForSelector('#regF', { timeout: 20000 });

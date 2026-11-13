@@ -145,7 +145,7 @@
   }
   var catBody = function (c) { return { name: c.name, tagline: c.tagline || '', shape: c.shape || 'tshirt', icon: c.icon || '#0b2a6f', image: /^(https?:\/\/|\/)/.test(c.image || '') ? c.image : '', hidden: !!c.hidden }; };
   var colBody = function (c) { var b = { name: c.name, description: c.description || '', accent: c.accent || '#0b2a6f', image: /^(https?:\/\/|\/)/.test(c.image || '') ? c.image : '', homeRow: !!c.homeRow }; if (c.order) b.order = c.order; return b; };
-  var bannerBody = function (h) { return { id: h.id, eyebrow: h.eyebrow || '', title: h.title || '', subtitle: h.subtitle || '', cta: h.cta || '', link: h.link || '#', color: h.color || '#0b2a6f', shape: h.shape || 'tshirt', image: /^(https?:\/\/|\/)/.test(h.image || '') ? h.image : '' }; };
+  var bannerBody = function (h) { return { id: h.id, eyebrow: h.eyebrow || '', title: h.title || '', subtitle: h.subtitle || '', cta: h.cta || '', link: h.link || '#', color: h.color || '#0b2a6f', shape: h.shape || 'tshirt', image: /^(https?:\/\/|\/)/.test(h.image || '') ? h.image : '', style: h.style === 'poster' ? 'poster' : 'card' }; };
   var same = function (a, b) { return JSON.stringify(a) === JSON.stringify(b); };
   var byId = function (list) { var m = {}; (list || []).forEach(function (x) { m[x.id] = x; }); return m; };
 

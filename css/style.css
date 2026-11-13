@@ -691,3 +691,19 @@ html.is-preview .admin-bar { display: none; }
   .hbtn { padding: 6px 7px; }
   .hbtn em { display: none; }
 }
+
+/* Poster banners: a finished picture shown whole at its own shape (set from the picture as --ar), never cropped */
+.posters { position: relative; aspect-ratio: var(--ar, 16 / 9); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.pst-track { display: flex; height: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.pst-track::-webkit-scrollbar { display: none; }
+.pst { flex: 0 0 100%; height: 100%; scroll-snap-align: start; display: block; }
+.pst img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.pst:focus-visible { outline: 3px solid var(--red); outline-offset: -3px; }
+.pst-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,.85); color: #0b2a6f; font-size: 26px; line-height: 1; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.18); opacity: 0; transition: opacity .2s; }
+.pst-nav.prev { left: 12px; } .pst-nav.next { right: 12px; }
+.posters:hover .pst-nav, .pst-nav:focus-visible { opacity: 1; }
+.pst-dots { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 6px; pointer-events: none; }
+.pst-dots button { pointer-events: auto; width: 8px; height: 8px; padding: 0; border: 0; border-radius: 99px; background: rgba(255,255,255,.65); box-shadow: 0 0 0 1px rgba(0,0,0,.15); cursor: pointer; transition: width .25s; }
+.pst-dots button[aria-current] { width: 22px; background: var(--red); }
+@media (hover: none) { .pst-nav { display: none; } }
+@media (max-width: 700px) { .posters { border-radius: 8px; } .pst-dots { bottom: 6px; } }
