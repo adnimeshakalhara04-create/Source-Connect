@@ -46,7 +46,7 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
   function activeOrigins() { return SCG.origins().filter(function (o) { return o.on; }); }
   function visual(p, color) { return SCG.productVisual(p, color); }
   function catIcon(c) {
-    if (c.image) return '<img src="' + SCG.imgSrc(c.image) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
+    if (c.image) return '<img class="ci-img" src="' + SCG.imgSrc(c.image) + '" alt="">';
     var sample = db.products.filter(function (p) { return p.category === c.id; })[0];
     return SCG.productSVG(c.shape, c.icon || (sample && sample.color) || '#0b2a6f', 'solid', '#f3f4f6');
   }
@@ -246,8 +246,9 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
           var key = String(h.link || '').split('/')[1] || '';
           var items = db.products.filter(function (p) { return p.category === key || (p.collections || []).indexOf(key) > -1; }).slice(0, 2);
           if (!items.length) items = db.products.filter(function (p) { return p.shape === h.shape; }).slice(0, 2);
+          var drawn = !h.image && !items.length ? '<div>' + SCG.productSVG(h.shape || 'tshirt', '#ffffff', 'solid', h.color) + '</div>' : '';
           return '<a class="banner" data-ed="banner" data-i="' + x.i + '" href="' + esc(h.link || '#shop') + '" style="--c:' + esc(h.color) + '"><b>' + esc(h.title) + '</b><span>' + esc(h.subtitle || '') + '</span>' +
-            '<div class="stack">' + (h.image ? '<div><img src="' + SCG.imgSrc(h.image) + '" alt="" style="border-radius:8px;width:100%;height:100%;object-fit:contain"></div>' : items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
+            '<div class="stack">' + (h.image ? '<div><img src="' + SCG.imgSrc(h.image) + '" alt="" style="border-radius:8px;width:100%;height:100%;object-fit:contain"></div>' : drawn || items.map(function (p) { return '<div>' + visual(p) + '</div>'; }).join('')) + '</div></a>';
         }).join('') + '</section>';
       },
       countries: function (sec) {
@@ -345,6 +346,7 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
     }, 6000);
   }
   function rail(title, link, list, ed) {
+    if (!list.length) return '';
     return '<section class="sec"' + (ed ? ' ' + ed : '') + '><div class="sec-head"><h2>' + esc(title) + '</h2><a class="more" href="' + link + '">Shop more</a></div><div class="panel"><div class="rail">' + list.map(function (p) { return card(p); }).join('') + '</div></div></section>';
   }
   function startJFY(tab) {
@@ -368,7 +370,7 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
     var grid = $('#jfy'); if (!grid) return;
     var next = jfy.list.slice(jfy.shown, jfy.shown + 24); jfy.shown += next.length;
     grid.insertAdjacentHTML('beforeend', next.map(function (p) { return card(p, { add: true }); }).join(''));
-    if (jfy.shown >= jfy.list.length) { $('#jfyMore').innerHTML = 'You’ve seen all ' + jfy.list.length + ' products. <a href="#shop" style="color:var(--red);margin-left:6px;font-weight:700">Browse with filters →</a>'; if (jfy.io) jfy.io.disconnect(); }
+    if (jfy.shown >= jfy.list.length) { $('#jfyMore').innerHTML = 'You’ve seen all ' + jfy.list.length + (jfy.list.length === 1 ? ' product. ' : ' products. ') + '<a href="#shop" style="color:var(--red);margin-left:6px;font-weight:700">Browse with filters →</a>'; if (jfy.io) jfy.io.disconnect(); }
   }
 
   /* ---------------- LISTING ---------------- */
@@ -377,7 +379,7 @@ SCG.whenReady(function () {   // waits for the server's catalogue in API mode (i
     var st = { cats: [], min: '', max: '', rating: 0, origins: [], sale: false, sort: 'pop', q: '', coll: '', limit: 30 };
     if (kind === 'c') { var c = SCG.categoryById(val); if (c) { title = c.name; sub = c.tagline; color = c.icon || color; art = c.shape; artImg = c.image || ''; st.cats = [c.id]; } }
     if (kind === 'col') { var co = SCG.collectionById(val); if (co) { title = co.name; sub = co.description; color = co.accent; art = 'bag'; cover = co.image || ''; st.coll = co.id; st.sort = 'rec'; } }
-    if (kind === 'flash') { title = db.settings.flashTitle || 'Flash Sale'; sub = flashOn() ? 'Huge discounts for a limited time.' : 'This flash sale has ended. Check back soon for new deals.'; color = '#d7141a'; art = 'sneaker'; st.sale = true; st.flashOnly = true; st.sort = 'off'; }
+    if (kind === 'flash') { title = db.settings.flashTitle || 'Flash Sale'; sub = flashOn() ? 'Huge discounts for a limited time.' : 'This flash sale has ended. Check back soon for new deals.'; color = '#d7141a'; art = 'sneaker'; st.flashOnly = true; st.sort = 'off'; }   // same products as the homepage Flash Sale row (a flash item needs no old price)
     if (kind === 'from') { var oi = val === 'local' ? { name: 'Colombo stock', days: db.settings.localDays, local: true } : SCG.originById(val); if (oi) { title = oi.local ? 'Ships from Colombo' : 'Imported from ' + oi.name; sub = 'Delivered to your door in ' + oi.days + ' days.'; color = '#0f766e'; art = 'bag'; st.origins = [val]; } }
     if (kind === 'search') { st.q = val; title = 'Results for “' + val + '”'; sub = ''; if (extra) st.cats = [extra]; }
     setTitle(kind === 'search' ? 'Search' : title);
