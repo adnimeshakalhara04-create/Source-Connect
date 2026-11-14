@@ -237,7 +237,7 @@ for (const [vw, vh] of [[1366, 860], [390, 844]]) {
     return { box: r.width / r.height, img: img.naturalWidth / img.naturalHeight, w: img.naturalWidth, fit: getComputedStyle(img).objectFit, alt: img.alt, href: box.querySelector('a').getAttribute('href') }; });
   check(`poster shown whole at its own shape (${vw}px wide)`, Math.abs(fit.box - fit.img) < 0.01 && fit.fit === 'contain' && fit.w === 1600, JSON.stringify(fit));
   check(`poster has its description and link (${vw}px wide)`, fit.alt === 'E2E 11:11 Offer' && fit.href === '#flash');
-  await pg.waitForTimeout(1200);
+  await pg.$eval('#posters', e => e.scrollIntoView({ block: 'center' })); await pg.waitForTimeout(1500);   // on a phone the poster is below the globe
   const anim = await pg.evaluate(() => { const vis = [...document.querySelectorAll('#app img:not(.alt)')].filter(i => { const r = i.getBoundingClientRect(); return r.width > 0 && r.bottom > 0 && r.top < innerHeight; });
     return { n: vis.length, done: vis.filter(i => i.classList.contains('ia-in') && getComputedStyle(i).opacity === '1').length }; });
   check(`every picture on screen has played its entrance animation and is fully shown (${vw}px wide)`, anim.n > 0 && anim.done === anim.n, JSON.stringify(anim));
