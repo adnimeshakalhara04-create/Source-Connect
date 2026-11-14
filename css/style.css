@@ -680,8 +680,23 @@ html.is-preview .admin-bar { display: none; }
 /* collection cover photo and category photo in page headers */
 .cat-hero[data-cover] { min-height: 200px; }
 .cat-hero[data-cover]::before { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 85%, #050b1c) 0%, color-mix(in srgb, var(--c) 40%, transparent) 55%, transparent 100%), var(--cover) center / cover no-repeat; }
-.cat-hero .art.photo { width: 120px; height: 120px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 4px rgba(255,255,255,.25); opacity: 1; }
-.cat-hero .art.photo img { width: 100%; height: 100%; object-fit: cover; }
+/* Uploaded category / collection picture: shown WHOLE (never cut) at its own shape, as tall as the header allows,
+   in a soft frame that floats gently. Width is capped so it never covers the title. */
+.cat-hero:has(.art.photo) { min-height: 150px; }
+.cat-hero .art.photo { top: 50%; right: 20px; width: auto; height: auto; transform: translateY(-50%) rotate(-3deg); border-radius: 14px; overflow: hidden; line-height: 0;
+  background: rgba(255,255,255,.1); box-shadow: 0 0 0 3px rgba(255,255,255,.28), 0 14px 30px -10px rgba(0,0,0,.55); opacity: 1; animation: floatyPhoto 5s ease-in-out infinite; }
+/* the frame hugs the picture: its own width/height ratio, at most 126 px tall and 40% of the header wide */
+.cat-hero .art.photo img { display: block; width: auto; height: auto; max-height: 126px; max-width: min(40vw, 480px); object-fit: contain; }
+@keyframes floatyPhoto { 50% { transform: translateY(calc(-50% - 5px)) rotate(-1deg); } }
+/* keep the title and text clear of the picture: they wrap instead of running under it */
+.cat-hero:has(.art.photo) h1, .cat-hero:has(.art.photo) > p { max-width: calc(100% - min(40vw, 480px) - 24px); }
+@media (max-width: 700px) { .cat-hero:has(.art.photo) { min-height: 140px; } .cat-hero .art.photo { right: 12px; } .cat-hero .art.photo img { max-height: 116px; max-width: 36vw; } .cat-hero:has(.art.photo) h1, .cat-hero:has(.art.photo) > p { max-width: calc(100% - 36vw - 12px); } .cat-hero:has(.art.photo) h1 { font-size: 24px; overflow-wrap: anywhere; } }
+
+/* Every picture fades and rises in the first time it comes into view (js/img-anim.js). Entrance only, so hover effects still work. */
+.ia-on img.ia:not(.ia-in) { opacity: 0; }
+img.ia.ia-in { animation: iaIn .75s cubic-bezier(.22, 1, .36, 1) backwards; }
+@keyframes iaIn { from { opacity: 0; transform: translateY(14px) scale(.96); filter: blur(6px); } }
+@media (prefers-reduced-motion: reduce) { img.ia.ia-in { animation: none; } .cat-hero .art.photo { animation: none; } }
 
 /* tablet header: keep Account, Wishlist and Cart on screen */
 .search { min-width: 0; }
