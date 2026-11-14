@@ -4,7 +4,7 @@ name: Supabase hybrid
 on:
   push:
     branches: ['**']
-    paths: ['supabase/**', 'vps/**', 'js/**', 'admin/**', 'index.html', 'e2e/supabase-e2e.mjs', '.github/workflows/supabase.yml']
+    paths: ['supabase/**', 'vps/**', 'js/**', 'css/**', 'assets/**', 'admin/**', 'index.html', 'deploy/**', 'e2e/supabase-e2e.mjs', '.github/workflows/supabase.yml']
   pull_request:
 permissions:
   contents: read
